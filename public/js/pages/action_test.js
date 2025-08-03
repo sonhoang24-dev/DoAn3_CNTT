@@ -33,7 +33,8 @@ function updateQuestionCounts() {
   let m = $("#nhom-hp").val() ? groups[$("#nhom-hp").val()].mamonhoc : 0;
   let isAuto = $("#tudongsoande").prop("checked");
 
-  if (!isAuto || chapters.length === 0 || !m) {
+  // Kiểm tra cho cả đề thủ công và tự động
+  if (chapters.length === 0 || !m) {
     $("#coban").val(0);
     $("#trungbinh").val(0);
     $("#kho").val(0);
@@ -67,11 +68,7 @@ $.validator.addMethod(
       return false;
     }
 
-    if (!chapters.length || !m || !$("#tudongsoande").prop("checked")) {
-      console.warn("Chưa chọn chương, môn học hoặc không chọn tạo đề tự động");
-      return value === "0" || value === "";
-    }
-
+    // Kiểm tra số lượng câu hỏi cho cả đề thủ công và tự động
     let result = getToTalQuestionOfChapter(chapters, m, param);
     console.log(`Validating: Value=${value}, Result=${result}, Dokho=${param}`);
     return result >= parseInt(value);
@@ -92,7 +89,6 @@ $.validator.addMethod(
     }, bạn yêu cầu ${$(element).val()} câu`;
   }
 );
-
 function getMinutesBetweenDates(start, end) {
   const startDate = new Date(start);
   const endDate = new Date(end);
@@ -386,7 +382,6 @@ $(document).ready(function () {
   // Xử lý nút tạo đề
   $("#btn-add-test").click(function (e) {
     e.preventDefault();
-    console.log("Form valid:", $(".form-taodethi").valid());
     if ($(".form-taodethi").valid()) {
       let chapters = getSelectedChapters();
       let m = $("#nhom-hp").val() ? groups[$("#nhom-hp").val()].mamonhoc : 0;
@@ -404,35 +399,34 @@ $(document).ready(function () {
       }
 
       let valid = true;
-      if ($("#tudongsoande").prop("checked")) {
-        let availableEasy = getToTalQuestionOfChapter(chapters, m, 1);
-        let availableMedium = getToTalQuestionOfChapter(chapters, m, 2);
-        let availableHard = getToTalQuestionOfChapter(chapters, m, 3);
+      // Kiểm tra số lượng câu hỏi cho cả đề thủ công và tự động
+      let availableEasy = getToTalQuestionOfChapter(chapters, m, 1);
+      let availableMedium = getToTalQuestionOfChapter(chapters, m, 2);
+      let availableHard = getToTalQuestionOfChapter(chapters, m, 3);
 
-        if (availableEasy < socaude) {
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            icon: "fa fa-times me-1",
-            message: `Chỉ có ${availableEasy} câu dễ, bạn yêu cầu ${socaude}!`,
-          });
-          valid = false;
-        }
-        if (availableMedium < socautb) {
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            icon: "fa fa-times me-1",
-            message: `Chỉ có ${availableMedium} câu trung bình, bạn yêu cầu ${socautb}!`,
-          });
-          valid = false;
-        }
-        if (availableHard < socaukho) {
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            icon: "fa fa-times me-1",
-            message: `Chỉ có ${availableHard} câu khó, bạn yêu cầu ${socaukho}!`,
-          });
-          valid = false;
-        }
+      if (availableEasy < socaude) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: `Chỉ có ${availableEasy} câu dễ, bạn yêu cầu ${socaude}!`,
+        });
+        valid = false;
+      }
+      if (availableMedium < socautb) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: `Chỉ có ${availableMedium} câu trung bình, bạn yêu cầu ${socautb}!`,
+        });
+        valid = false;
+      }
+      if (availableHard < socaukho) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: `Chỉ có ${availableHard} câu khó, bạn yêu cầu ${socaukho}!`,
+        });
+        valid = false;
       }
 
       if (valid && getGroupSelected().length > 0) {
