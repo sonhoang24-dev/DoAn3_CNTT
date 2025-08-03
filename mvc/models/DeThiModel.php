@@ -196,18 +196,84 @@ class DeThiModel extends DB
         }
         return $valid;
     }
-
-    public function delete($madethi)
-    {
-        $valid = true;
-        $sql = "UPDATE `dethi` SET `trangthai`= 0 WHERE `made` = $madethi";
-        $result = mysqli_query($this->con, $sql);
-        if (!$result) {
-            $valid = false;
+public function delete($made)
+{
+    mysqli_begin_transaction($this->con);
+    try { 
+        // Kiểm tra bảng ketqua trước
+        $sql_check_ketqua = "SELECT COUNT(*) as count FROM `ketqua` WHERE `made` = ?";
+        $stmt_check_ketqua = mysqli_prepare($this->con, $sql_check_ketqua);
+        if (!$stmt_check_ketqua) {
+            throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra kết quả thi: " . mysqli_error($this->con));
         }
-        return $valid;
-    }
+        mysqli_stmt_bind_param($stmt_check_ketqua, "s", $made);
+        mysqli_stmt_execute($stmt_check_ketqua);
+        $result_check_ketqua = mysqli_stmt_get_result($stmt_check_ketqua);
+        $row_ketqua = mysqli_fetch_assoc($result_check_ketqua);
+        mysqli_stmt_close($stmt_check_ketqua);
+        if ($row_ketqua['count'] > 0) {
+            throw new Exception("Không thể xóa đề thi vì đã có {$row_ketqua['count']} thí sinh hoàn thành bài thi.");
+        }
 
+        // Xóa bản ghi trong chitietdethi
+        $sql_delete_chitietdethi = "DELETE FROM `chitietdethi` WHERE `made` = ?";
+        $stmt_delete_chitietdethi = mysqli_prepare($this->con, $sql_delete_chitietdethi);
+        if (!$stmt_delete_chitietdethi) {
+            throw new Exception("Lỗi chuẩn bị truy vấn xóa chi tiết đề thi: " . mysqli_error($this->con));
+        }
+        mysqli_stmt_bind_param($stmt_delete_chitietdethi, "s", $made);
+        mysqli_stmt_execute($stmt_delete_chitietdethi);
+        mysqli_stmt_close($stmt_delete_chitietdethi);
+
+        // Xóa bản ghi trong dethitudong
+        $sql_delete_dethitudong = "DELETE FROM `dethitudong` WHERE `made` = ?";
+        $stmt_delete_dethitudong = mysqli_prepare($this->con, $sql_delete_dethitudong);
+        if (!$stmt_delete_dethitudong) {
+            throw new Exception("Lỗi chuẩn bị truy vấn xóa đề thi tự động: " . mysqli_error($this->con));
+        }
+        mysqli_stmt_bind_param($stmt_delete_dethitudong, "s", $made);
+        mysqli_stmt_execute($stmt_delete_dethitudong);
+        mysqli_stmt_close($stmt_delete_dethitudong);
+
+        // Xóa bản ghi trong giaodethi
+        $sql_delete_giaodethi = "DELETE FROM `giaodethi` WHERE `made` = ?";
+        $stmt_delete_giaodethi = mysqli_prepare($this->con, $sql_delete_giaodethi);
+        if (!$stmt_delete_giaodethi) {
+            throw new Exception("Lỗi chuẩn bị truy vấn xóa giao đề thi: " . mysqli_error($this->con));
+        }
+        mysqli_stmt_bind_param($stmt_delete_giaodethi, "s", $made);
+        mysqli_stmt_execute($stmt_delete_giaodethi);
+        mysqli_stmt_close($stmt_delete_giaodethi);
+
+        // Xóa đề thi
+        $sql = "DELETE FROM `dethi` WHERE `made` = ?";
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            throw new Exception("Lỗi chuẩn bị truy vấn xóa đề thi: " . mysqli_error($this->con));
+        }
+        mysqli_stmt_bind_param($stmt, "s", $made);
+        $success = mysqli_stmt_execute($stmt);
+        $affected_rows = mysqli_stmt_affected_rows($stmt);
+        mysqli_stmt_close($stmt);
+
+        if ($success && $affected_rows > 0) {
+            mysqli_commit($this->con);
+            return [
+                'success' => true,
+                'message' => 'Xóa đề thi thành công!'
+            ];
+        } else {
+            throw new Exception("Không tìm thấy đề thi hoặc không thể xóa.");
+        }
+    } catch (Exception $e) {
+        mysqli_rollback($this->con);
+        error_log("Lỗi xóa đề thi: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
+}
     public function getAll($nguoitao)
     {
         $sql = "SELECT dethi.made, tende, monhoc.tenmonhoc, thoigianbatdau, thoigianketthuc, nhom.tennhom, namhoc, hocky

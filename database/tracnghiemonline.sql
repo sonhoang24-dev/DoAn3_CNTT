@@ -26,7 +26,8 @@ SET time_zone = "+00:00";
 --
 -- Cấu trúc bảng cho bảng `cauhoi`
 --
-
+CREATE DATABASE tracnghiemonline;
+USE tracnghiemonline;
 CREATE TABLE `cauhoi` (
   `macauhoi` int(11) NOT NULL,
   `noidung` varchar(500) NOT NULL,

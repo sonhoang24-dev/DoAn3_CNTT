@@ -353,7 +353,6 @@ $(document).ready(function () {
     updateQuestionCounts();
   });
 
-  // Sự kiện thay đổi chế độ tạo đề
   $("#tudongsoande").on("change", function () {
     $(".show-chap").toggle();
     if (!$(this).prop("checked")) {

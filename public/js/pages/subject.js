@@ -343,7 +343,7 @@ $(document).ready(function () {
   $(document).on("click", ".btn-delete-subject", function () {
     let trid = $(this).data("id");
     let e = Swal.mixin({
-      buttonsStyling: !1,
+      buttonsStyling: false,
       target: "#page-container",
       customClass: {
         confirmButton: "btn btn-success m-1",
@@ -353,24 +353,25 @@ $(document).ready(function () {
     });
 
     e.fire({
-      title: "Are you sure?",
-      text: "Bạn có chắc chắn muốn xoá nhóm môn học?",
+      title: "Bạn có chắc chắn?",
+      text: "Bạn có chắc chắn muốn xóa môn học này?",
       icon: "warning",
-      showCancelButton: !0,
+      showCancelButton: true,
       customClass: {
         confirmButton: "btn btn-danger m-1",
         cancelButton: "btn btn-secondary m-1",
       },
       confirmButtonText: "Vâng, tôi chắc chắn!",
-      html: !1,
+      cancelButtonText: "Hủy",
+      html: false,
       preConfirm: (e) =>
-        new Promise((e) => {
+        new Promise((resolve) => {
           setTimeout(() => {
-            e();
+            resolve();
           }, 50);
         }),
-    }).then((t) => {
-      if (t.value == true) {
+    }).then((result) => {
+      if (result.isConfirmed) {
         $.ajax({
           type: "post",
           url: "./subject/delete",
@@ -378,15 +379,18 @@ $(document).ready(function () {
             mamon: trid,
           },
           success: function (response) {
-            if (response) {
-              e.fire("Deleted!", "Xóa môn học thành công!", "success");
+            if (response === true || response === "1") {
+              e.fire("Thành công!", "Xóa môn học thành công!", "success");
               mainPagePagination.getPagination(
                 mainPagePagination.option,
                 mainPagePagination.valuePage.curPage
               );
             } else {
-              e.fire("Lỗi !", "Xoá môn học không thành công !)", "error");
+              e.fire("Lỗi!", response, "error");
             }
+          },
+          error: function () {
+            e.fire("Lỗi!", "Đã có lỗi xảy ra khi xóa môn học.", "error");
           },
         });
       }

@@ -9,7 +9,6 @@ class MonHocModel extends DB
         }
         $manguoidung = $_SESSION['user_id'];
 
-        // ✅ Kiểm tra trùng mã môn học trước
         $check_sql = "SELECT * FROM monhoc WHERE mamonhoc = ?";
         $stmt_check = mysqli_prepare($this->con, $check_sql);
         mysqli_stmt_bind_param($stmt_check, "s", $mamon);
@@ -73,46 +72,89 @@ class MonHocModel extends DB
         return $valid;
     }
 
-    public function delete($mamon)
-    {
-        mysqli_begin_transaction($this->con);
-        try {
-            $sql_monhoc = "UPDATE `monhoc` SET `trangthai`= 0 WHERE `mamonhoc`=?";
-            $stmt_monhoc = mysqli_prepare($this->con, $sql_monhoc);
-            mysqli_stmt_bind_param($stmt_monhoc, "s", $mamon);
-            $result_monhoc = mysqli_stmt_execute($stmt_monhoc);
-            mysqli_stmt_close($stmt_monhoc);
-            if (!$result_monhoc) {
-                throw new Exception("Lỗi cập nhật trạng thái môn học: " . mysqli_error($this->con));
-            }
-
-            // Xóa phân công liên quan
-            $sql_phancong = "DELETE FROM `phancong` WHERE `mamonhoc`=?";
-            $stmt_phancong = mysqli_prepare($this->con, $sql_phancong);
-            mysqli_stmt_bind_param($stmt_phancong, "s", $mamon);
-            $result_phancong = mysqli_stmt_execute($stmt_phancong);
-            mysqli_stmt_close($stmt_phancong);
-            if (!$result_phancong) {
-                throw new Exception("Lỗi xóa phân công: " . mysqli_error($this->con));
-            }
-
-            $sql_dethi = "UPDATE `dethi` SET `trangthai`= 0 WHERE `monthi`=?";
-            $stmt_dethi = mysqli_prepare($this->con, $sql_dethi);
-            mysqli_stmt_bind_param($stmt_dethi, "s", $mamon);
-            $result_dethi = mysqli_stmt_execute($stmt_dethi);
-            mysqli_stmt_close($stmt_dethi);
-            if (!$result_dethi) {
-                throw new Exception("Lỗi cập nhật trạng thái đề thi: " . mysqli_error($this->con));
-            }
-
-            mysqli_commit($this->con);
-            return true;
-        } catch (Exception $e) {
-            mysqli_rollback($this->con);
-            error_log("Lỗi xóa môn học: " . $e->getMessage());
-            return false;
+public function delete($mamon)
+{
+    mysqli_begin_transaction($this->con);
+    try {
+        // Kiểm tra các bảng liên quan trước khi xóa
+        // 1. Kiểm tra bảng cauhoi
+        $sql_check_cauhoi = "SELECT COUNT(*) as count FROM `cauhoi` WHERE `mamonhoc` = ?";
+        $stmt_check_cauhoi = mysqli_prepare($this->con, $sql_check_cauhoi);
+        mysqli_stmt_bind_param($stmt_check_cauhoi, "s", $mamon);
+        mysqli_stmt_execute($stmt_check_cauhoi);
+        $result_check_cauhoi = mysqli_stmt_get_result($stmt_check_cauhoi);
+        $row_cauhoi = mysqli_fetch_assoc($result_check_cauhoi);
+        mysqli_stmt_close($stmt_check_cauhoi);
+        if ($row_cauhoi['count'] > 0) {
+            throw new Exception("Không thể xóa môn học vì vẫn còn câu hỏi liên quan.");
         }
+
+        // 2. Kiểm tra bảng chuong
+        $sql_check_chuong = "SELECT COUNT(*) as count FROM `chuong` WHERE `mamonhoc` = ?";
+        $stmt_check_chuong = mysqli_prepare($this->con, $sql_check_chuong);
+        mysqli_stmt_bind_param($stmt_check_chuong, "s", $mamon);
+        mysqli_stmt_execute($stmt_check_chuong);
+        $result_check_chuong = mysqli_stmt_get_result($stmt_check_chuong);
+        $row_chuong = mysqli_fetch_assoc($result_check_chuong);
+        mysqli_stmt_close($stmt_check_chuong);
+        if ($row_chuong['count'] > 0) {
+            throw new Exception("Không thể xóa môn học vì vẫn còn chương liên quan.");
+        }
+
+        // 3. Kiểm tra bảng dethi
+        $sql_check_dethi = "SELECT COUNT(*) as count FROM `dethi` WHERE `monthi` = ? AND `trangthai` = 1";
+        $stmt_check_dethi = mysqli_prepare($this->con, $sql_check_dethi);
+        mysqli_stmt_bind_param($stmt_check_dethi, "s", $mamon);
+        mysqli_stmt_execute($stmt_check_dethi);
+        $result_check_dethi = mysqli_stmt_get_result($stmt_check_dethi);
+        $row_dethi = mysqli_fetch_assoc($result_check_dethi);
+        mysqli_stmt_close($stmt_check_dethi);
+        if ($row_dethi['count'] > 0) {
+            throw new Exception("Không thể xóa môn học vì vẫn còn đề thi đang hoạt động liên quan.");
+        }
+
+        $sql_check_nhom = "SELECT COUNT(*) as count FROM `nhom` WHERE `mamonhoc` = ? AND `trangthai` = 1";
+        $stmt_check_nhom = mysqli_prepare($this->con, $sql_check_nhom);
+        mysqli_stmt_bind_param($stmt_check_nhom, "s", $mamon);
+        mysqli_stmt_execute($stmt_check_nhom);
+        $result_check_nhom = mysqli_stmt_get_result($stmt_check_nhom);
+        $row_nhom = mysqli_fetch_assoc($result_check_nhom);
+        mysqli_stmt_close($stmt_check_nhom);
+        if ($row_nhom['count'] > 0) {
+            throw new Exception("Không thể xóa môn học vì vẫn còn nhóm học phần đang hoạt động liên quan.");
+        }
+
+        $sql_check_phancong = "SELECT COUNT(*) as count FROM `phancong` WHERE `mamonhoc` = ?";
+        $stmt_check_phancong = mysqli_prepare($this->con, $sql_check_phancong);
+        mysqli_stmt_bind_param($stmt_check_phancong, "s", $mamon);
+        mysqli_stmt_execute($stmt_check_phancong);
+        $result_check_phancong = mysqli_stmt_get_result($stmt_check_phancong);
+        $row_phancong = mysqli_fetch_assoc($result_check_phancong);
+        mysqli_stmt_close($stmt_check_phancong);
+        if ($row_phancong['count'] > 0) {
+            throw new Exception("Không thể xóa môn học vì vẫn còn phân công giảng dạy liên quan.");
+        }
+
+        $sql_monhoc = "DELETE FROM `monhoc` WHERE `mamonhoc` = ?";
+        $stmt_monhoc = mysqli_prepare($this->con, $sql_monhoc);
+        if (!$stmt_monhoc) {
+            throw new Exception("Lỗi chuẩn bị truy vấn cập nhật trạng thái môn học: " . mysqli_error($this->con));
+        }
+        mysqli_stmt_bind_param($stmt_monhoc, "s", $mamon);
+        $result_monhoc = mysqli_stmt_execute($stmt_monhoc);
+        mysqli_stmt_close($stmt_monhoc);
+        if (!$result_monhoc) {
+            throw new Exception("Lỗi cập nhật trạng thái môn học: " . mysqli_error($this->con));
+        }
+
+        mysqli_commit($this->con);
+        return true;
+    } catch (Exception $e) {
+        mysqli_rollback($this->con);
+        error_log("Lỗi xóa môn học: " . $e->getMessage());
+        return $e->getMessage(); // Trả về thông báo lỗi cụ thể
     }
+}
 
     public function getAll()
     {

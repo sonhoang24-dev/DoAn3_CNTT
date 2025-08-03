@@ -407,49 +407,55 @@ $(document).ready(function () {
   });
 
   $(document).on("click", ".btn-delete-group", function () {
+    const manhom = $(this).data("id");
     swalWithBootstrapButtons
       .fire({
         title: "Bạn muốn xóa nhóm?",
+        text: "Hành động này không thể hoàn tác. Bạn có chắc chắn muốn tiếp tục?",
         icon: "warning",
         showCancelButton: true,
         confirmButtonText: "Vâng, Tôi muốn xóa",
         cancelButtonText: "Không",
+        customClass: {
+          confirmButton: "btn btn-danger m-1",
+          cancelButton: "btn btn-secondary m-1",
+        },
       })
       .then((result) => {
         if (result.isConfirmed) {
           $.ajax({
             type: "post",
-            url: "./module/delete",
-            data: { manhom: $(this).data("id") },
+            url: "./module/delete", 
+            data: { manhom: manhom },
             dataType: "json",
             success: function (response) {
-              const ok = handleResponse(
-                response,
-                "Xoá nhóm thành công!",
-                "Xoá nhóm không thành công!"
-              );
-              if (ok) {
+              if (response.success) {
                 swalWithBootstrapButtons.fire(
                   "Xoá thành công!",
-                  "Nhóm đã được xoá thành công",
+                  response.message || "Nhóm đã được xoá thành công",
                   "success"
                 );
-                loadDataGroup(mode);
+                loadDataGroup(mode); 
+              } else {
+                swalWithBootstrapButtons.fire(
+                  "Lỗi!",
+                  response.message || "Xoá nhóm không thành công!",
+                  "error"
+                );
               }
             },
             error: function (xhr, status, error) {
               console.error("Lỗi xóa nhóm:", status, error, xhr.responseText);
-              Dashmix.helpers("jq-notify", {
-                type: "danger",
-                icon: "fa fa-times me-1",
-                message: `Lỗi khi xóa nhóm: ${xhr.responseText || error}`,
-              });
+              swalWithBootstrapButtons.fire(
+                "Lỗi!",
+                `Đã có lỗi xảy ra khi xóa nhóm: ${xhr.responseText || error}`,
+                "error"
+              );
             },
           });
         }
       });
   });
-
   $(document).on("click", ".btn-hide-group", function () {
     let manhom = $(this).data("id");
     updateHide(manhom, 0)

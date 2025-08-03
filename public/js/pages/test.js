@@ -236,49 +236,71 @@ $(document).ready(function () {
     );
   });
 
-  // Handle delete button
   $(document).on("click", ".btn-delete", function () {
-    let index = $(this).data("index");
-    e.fire({
-      title: "Are you sure?",
-      text: "Bạn có chắc chắn muốn xoá đề thi?",
-      icon: "warning",
-      showCancelButton: !0,
+    const made = $(this).data("id");
+    const index = $(this).data("index"); // Giữ lại nếu cần
+    const swalWithBootstrapButtons = Swal.mixin({
+      buttonsStyling: false,
+      target: "#page-container",
       customClass: {
         confirmButton: "btn btn-danger m-1",
         cancelButton: "btn btn-secondary m-1",
       },
-      confirmButtonText: "Vâng, tôi chắc chắn!",
-      html: !1,
-      preConfirm: (e) =>
-        new Promise((e) => {
-          setTimeout(() => {
-            e();
-          }, 50);
-        }),
-    }).then((t) => {
-      if (t.value == true) {
-        $.ajax({
-          type: "post",
-          url: "./test/delete",
-          data: {
-            made: $(this).data("id"),
-          },
-          dataType: "json",
-          success: function (response) {
-            if (response) {
-              e.fire("Deleted!", "Xóa đề thi thành công!", "success");
-              mainPagePagination.getPagination(
-                mainPagePagination.option,
-                mainPagePagination.valuePage.curPage
-              );
-            } else {
-              e.fire("Lỗi!", "Xoá đề thi không thành công!", "error");
-            }
-          },
-        });
-      }
     });
+
+    swalWithBootstrapButtons
+      .fire({
+        title: "Bạn muốn xóa đề thi?",
+        text: "Hành động này sẽ xóa đề thi và tất cả dữ liệu liên quan. Bạn có chắc chắn muốn tiếp tục?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Vâng, Tôi muốn xóa",
+        cancelButtonText: "Không",
+        html: false,
+        preConfirm: () =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve();
+            }, 50);
+          }),
+      })
+      .then((result) => {
+        if (result.isConfirmed) {
+          $.ajax({
+            type: "post",
+            url: "./test/delete",
+            data: { made: made },
+            dataType: "json",
+            success: function (response) {
+              if (response.success) {
+                swalWithBootstrapButtons.fire(
+                  "Xoá thành công!",
+                  response.message || "Đề thi đã được xoá thành công",
+                  "success"
+                );
+                mainPagePagination.getPagination(
+                  mainPagePagination.option,
+                  mainPagePagination.valuePage.curPage
+                );
+              } else {
+                swalWithBootstrapButtons.fire(
+                  "Lỗi!",
+                  response.message || "Xoá đề thi không thành công!",
+                  "error"
+                );
+              }
+            },
+            error: function (xhr, status, error) {
+              console.error("Lỗi xóa đề thi:", status, error, xhr.responseText);
+              swalWithBootstrapButtons.fire(
+                "Lỗi!",
+                `Đã có lỗi xảy ra khi xóa đề thi: ${xhr.responseText || error}`,
+                "error"
+              );
+            },
+          });
+        }
+      });
   });
 
   $(".filtered-by-state").click(function (e) {
