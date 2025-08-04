@@ -12,7 +12,7 @@ class KetQuaModel extends DB
         }
         return $valid;
     }
-
+    // update số lần chuyển tab lên server với thông tin tài khoảng và đề thi
     public function updateChangeTab($made, $manguoidung)
     {
         $solanchuyentab = $this->getChangeTab($made, $manguoidung)['solanchuyentab'];

@@ -283,10 +283,11 @@ $(document).ready(function () {
   }
 
   // Logic xử lý chuyển tab
-  $(window).on("blur", function () {
+  //nộp bài ngay khi chuyển tab nếu bài thi đó có rán giá trị nộp bài chuyển tab(nopbaichuyentab) là 1
+  $(window).on("blur", function () { //lắng nghe sự kiện khi người dùng chuyển tab
     $.ajax({
       type: "post",
-      url: "./test/chuyentab",
+      url: "./test/chuyentab", //gọi đến hàm này trong controller test .← Gửi yêu cầu đến server kiểm tra số lần chuyển tab
       data: {
         made: $("#dethicontent").data("id"),
       },
@@ -302,9 +303,9 @@ $(document).ready(function () {
       },
     });
   });
-
+// hàm phát hiện chuyển tab trong khi thi 
   $(window).on("focus", function () {
-    if (localStorage.getItem("isTabSwitched_" + made) === "1") {
+    if (localStorage.getItem("isTabSwitched_" + made) === "1") {// lắng nghe sự kiện khi người dùng chuyển tab quay lại trang
       let curTime = new Date().getTime();
       if (curTime < endTime) {
         Swal.fire({

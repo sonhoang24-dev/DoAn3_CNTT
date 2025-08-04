@@ -693,7 +693,7 @@ class Test extends Controller
         $result = $this->ketquamodel->getStatictical($made, $manhom);
         echo json_encode($result);
     }
-
+//hàm chuyển tab
     public function chuyentab()
     {
         $made = $_POST['made'];
