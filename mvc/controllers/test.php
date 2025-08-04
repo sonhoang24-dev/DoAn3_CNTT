@@ -693,12 +693,12 @@ class Test extends Controller
         $result = $this->ketquamodel->getStatictical($made, $manhom);
         echo json_encode($result);
     }
-//hàm chuyển tab
+//hàm chuyển tab trả về true nếu bảng dethi.solanchuyentab = 1 ngược lại thì false
     public function chuyentab()
     {
         $made = $_POST['made'];
         $id = $_SESSION['user_id'];
-        $result = $this->ketquamodel->chuyentab($made, $id);
+        $result = $this->ketquamodel->chuyentab($made, $id); // gọi hàm chuyentab ở dòng 380 của file KetquaModel.php
         echo $result;
     }
 

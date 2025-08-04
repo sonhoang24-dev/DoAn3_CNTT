@@ -377,18 +377,26 @@ class KetQuaModel extends DB
         return $rows;
     }
 
-    public function chuyentab($made, $id)
+    public function chuyentab($made, $id) //hàm check xem đề thi đó có quy định rằng nếu có chuyển tab thì nộp bài ngay lập tức
     {
+        // 1. Lấy kết quả làm bài của người dùng với mã đề tương ứng
         $sql_dethi = "SELECT * FROM ketqua WHERE made='$made' AND manguoidung='$id'";
         $result = mysqli_query($this->con, $sql_dethi);
         $data_dethi = mysqli_fetch_assoc($result);
+
+        // 2. Tăng số lần chuyển tab lên 1
         $solan = $data_dethi['solanchuyentab'];
         $solan++;
+
+        // 3. Cập nhật lại số lần chuyển tab vào CSDL
         $sql_update = "UPDATE ketqua SET solanchuyentab = '$solan' WHERE made='$made' AND manguoidung='$id'";
         $result_update = mysqli_query($this->con, $sql_update);
+
+        // 4. Lấy quy định của đề thi về việc có cho nộp bài khi chuyển tab hay không
         $sql_check = "SELECT * FROM dethi where made = '$made'";
         $result_check = mysqli_query($this->con, $sql_check);
         $data_check = mysqli_fetch_assoc($result_check);
+        // 5. Trả về cờ "nopbaichuyentab" (1: nộp bài khi chuyển tab, 0: không) rồi chuyền ngược về hàm gọi ở đây là test.php trong controller
         return $data_check['nopbaichuyentab'];
     }
 }

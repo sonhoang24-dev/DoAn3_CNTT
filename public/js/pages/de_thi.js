@@ -287,7 +287,7 @@ $(document).ready(function () {
   $(window).on("blur", function () { //lắng nghe sự kiện khi người dùng chuyển tab
     $.ajax({
       type: "post",
-      url: "./test/chuyentab", //gọi đến hàm này trong controller test .← Gửi yêu cầu đến server kiểm tra số lần chuyển tab
+      url: "./test/chuyentab", //gọi đến hàm này trong controller test.php .← Gửi yêu cầu đến server kiểm tra số lần chuyển tab
       data: {
         made: $("#dethicontent").data("id"),
       },
