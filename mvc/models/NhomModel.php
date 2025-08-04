@@ -116,83 +116,83 @@ class NhomModel extends DB
 
 
 
-public function delete($manhom)
-{
-    mysqli_begin_transaction($this->con);
-    try {
-        // Kiểm tra bảng chitietnhom
-        $sql_check_chitietnhom = "SELECT COUNT(*) as count FROM `chitietnhom` WHERE `manhom` = ?";
-        $stmt_check_chitietnhom = mysqli_prepare($this->con, $sql_check_chitietnhom);
-        if (!$stmt_check_chitietnhom) {
-            throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra chi tiết nhóm: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt_check_chitietnhom, "s", $manhom);
-        mysqli_stmt_execute($stmt_check_chitietnhom);
-        $result_check_chitietnhom = mysqli_stmt_get_result($stmt_check_chitietnhom);
-        $row_chitietnhom = mysqli_fetch_assoc($result_check_chitietnhom);
-        mysqli_stmt_close($stmt_check_chitietnhom);
-        if ($row_chitietnhom['count'] > 0) {
-            throw new Exception("Không thể xóa nhóm vì vẫn còn {$row_chitietnhom['count']} thành viên trong nhóm.");
-        }
+    public function delete($manhom)
+    {
+        mysqli_begin_transaction($this->con);
+        try {
+            // Kiểm tra bảng chitietnhom
+            $sql_check_chitietnhom = "SELECT COUNT(*) as count FROM `chitietnhom` WHERE `manhom` = ?";
+            $stmt_check_chitietnhom = mysqli_prepare($this->con, $sql_check_chitietnhom);
+            if (!$stmt_check_chitietnhom) {
+                throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra chi tiết nhóm: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_check_chitietnhom, "s", $manhom);
+            mysqli_stmt_execute($stmt_check_chitietnhom);
+            $result_check_chitietnhom = mysqli_stmt_get_result($stmt_check_chitietnhom);
+            $row_chitietnhom = mysqli_fetch_assoc($result_check_chitietnhom);
+            mysqli_stmt_close($stmt_check_chitietnhom);
+            if ($row_chitietnhom['count'] > 0) {
+                throw new Exception("Không thể xóa nhóm vì vẫn còn {$row_chitietnhom['count']} thành viên trong nhóm.");
+            }
 
-        // Kiểm tra bảng chitietthongbao
-        $sql_check_thongbao = "SELECT COUNT(*) as count FROM `chitietthongbao` WHERE `manhom` = ?";
-        $stmt_check_thongbao = mysqli_prepare($this->con, $sql_check_thongbao);
-        if (!$stmt_check_thongbao) {
-            throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra thông báo: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt_check_thongbao, "s", $manhom);
-        mysqli_stmt_execute($stmt_check_thongbao);
-        $result_check_thongbao = mysqli_stmt_get_result($stmt_check_thongbao);
-        $row_thongbao = mysqli_fetch_assoc($result_check_thongbao);
-        mysqli_stmt_close($stmt_check_thongbao);
-        if ($row_thongbao['count'] > 0) {
-            throw new Exception("Không thể xóa nhóm vì vẫn còn {$row_thongbao['count']} thông báo liên quan.");
-        }
+            // Kiểm tra bảng chitietthongbao
+            $sql_check_thongbao = "SELECT COUNT(*) as count FROM `chitietthongbao` WHERE `manhom` = ?";
+            $stmt_check_thongbao = mysqli_prepare($this->con, $sql_check_thongbao);
+            if (!$stmt_check_thongbao) {
+                throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra thông báo: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_check_thongbao, "s", $manhom);
+            mysqli_stmt_execute($stmt_check_thongbao);
+            $result_check_thongbao = mysqli_stmt_get_result($stmt_check_thongbao);
+            $row_thongbao = mysqli_fetch_assoc($result_check_thongbao);
+            mysqli_stmt_close($stmt_check_thongbao);
+            if ($row_thongbao['count'] > 0) {
+                throw new Exception("Không thể xóa nhóm vì vẫn còn {$row_thongbao['count']} thông báo liên quan.");
+            }
 
-        // Kiểm tra bảng giaodethi
-        $sql_check_giaodethi = "SELECT COUNT(*) as count FROM `giaodethi` WHERE `manhom` = ?";
-        $stmt_check_giaodethi = mysqli_prepare($this->con, $sql_check_giaodethi);
-        if (!$stmt_check_giaodethi) {
-            throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra giao đề thi: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt_check_giaodethi, "s", $manhom);
-        mysqli_stmt_execute($stmt_check_giaodethi);
-        $result_check_giaodethi = mysqli_stmt_get_result($stmt_check_giaodethi);
-        $row_giaodethi = mysqli_fetch_assoc($result_check_giaodethi);
-        mysqli_stmt_close($stmt_check_giaodethi);
-        if ($row_giaodethi['count'] > 0) {
-            throw new Exception("Không thể xóa nhóm vì vẫn còn {$row_giaodethi['count']} đề thi được giao.");
-        }
+            // Kiểm tra bảng giaodethi
+            $sql_check_giaodethi = "SELECT COUNT(*) as count FROM `giaodethi` WHERE `manhom` = ?";
+            $stmt_check_giaodethi = mysqli_prepare($this->con, $sql_check_giaodethi);
+            if (!$stmt_check_giaodethi) {
+                throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra giao đề thi: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_check_giaodethi, "s", $manhom);
+            mysqli_stmt_execute($stmt_check_giaodethi);
+            $result_check_giaodethi = mysqli_stmt_get_result($stmt_check_giaodethi);
+            $row_giaodethi = mysqli_fetch_assoc($result_check_giaodethi);
+            mysqli_stmt_close($stmt_check_giaodethi);
+            if ($row_giaodethi['count'] > 0) {
+                throw new Exception("Không thể xóa nhóm vì vẫn còn {$row_giaodethi['count']} đề thi được giao.");
+            }
 
-        $sql = "DELETE FROM `nhom` WHERE `manhom` = ?";
-        $stmt = mysqli_prepare($this->con, $sql);
-        if (!$stmt) {
-            throw new Exception("Lỗi chuẩn bị truy vấn cập nhật trạng thái nhóm: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt, "s", $manhom);
-        $success = mysqli_stmt_execute($stmt);
-        $affected_rows = mysqli_stmt_affected_rows($stmt);
-        mysqli_stmt_close($stmt);
+            $sql = "DELETE FROM `nhom` WHERE `manhom` = ?";
+            $stmt = mysqli_prepare($this->con, $sql);
+            if (!$stmt) {
+                throw new Exception("Lỗi chuẩn bị truy vấn cập nhật trạng thái nhóm: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt, "s", $manhom);
+            $success = mysqli_stmt_execute($stmt);
+            $affected_rows = mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
 
-        if ($success && $affected_rows > 0) {
-            mysqli_commit($this->con);
+            if ($success && $affected_rows > 0) {
+                mysqli_commit($this->con);
+                return [
+                    'success' => true,
+                    'message' => 'Xóa nhóm thành công!'
+                ];
+            } else {
+                throw new Exception("Không tìm thấy nhóm hoặc không thể xóa.");
+            }
+        } catch (Exception $e) {
+            mysqli_rollback($this->con);
+            error_log("Lỗi xóa nhóm: " . $e->getMessage());
             return [
-                'success' => true,
-                'message' => 'Xóa nhóm thành công!'
+                'success' => false,
+                'message' => $e->getMessage()
             ];
-        } else {
-            throw new Exception("Không tìm thấy nhóm hoặc không thể xóa.");
         }
-    } catch (Exception $e) {
-        mysqli_rollback($this->con);
-        error_log("Lỗi xóa nhóm: " . $e->getMessage());
-        return [
-            'success' => false,
-            'message' => $e->getMessage()
-        ];
     }
-}
     // Ẩn || Hiện nhóm
     public function hide($manhom, $giatri)
     {

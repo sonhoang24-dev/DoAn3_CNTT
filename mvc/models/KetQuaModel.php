@@ -236,61 +236,61 @@ class KetQuaModel extends DB
         return $query;
     }
 
-public function getQueryAll($filter, $input, $args)
-{
-    $count_only = $args['count_only'] ?? false;
+    public function getQueryAll($filter, $input, $args)
+    {
+        $count_only = $args['count_only'] ?? false;
 
-    $absent_query = $this->getListAbsentFromTest($filter, $input, $args);
-    $query = "SELECT DISTINCT KQ.*, email, hoten, avatar FROM ketqua KQ, nguoidung ND, chitietnhom CTN WHERE KQ.manguoidung = ND.id AND CTN.manguoidung = ND.id AND KQ.made = ".$args['made'];
-    if (is_array($args['manhom'])) {
-        $list = implode(", ", $args['manhom']);
-        $query .= " AND CTN.manhom IN ($list)";
-    } else {
-        $query .= " AND CTN.manhom = ".$args['manhom'];
-    }
-    $present_query = $query;
-    $query = "($present_query) UNION ($absent_query)";
+        $absent_query = $this->getListAbsentFromTest($filter, $input, $args);
+        $query = "SELECT DISTINCT KQ.*, email, hoten, avatar FROM ketqua KQ, nguoidung ND, chitietnhom CTN WHERE KQ.manguoidung = ND.id AND CTN.manguoidung = ND.id AND KQ.made = ".$args['made'];
+        if (is_array($args['manhom'])) {
+            $list = implode(", ", $args['manhom']);
+            $query .= " AND CTN.manhom IN ($list)";
+        } else {
+            $query .= " AND CTN.manhom = ".$args['manhom'];
+        }
+        $present_query = $query;
+        $query = "($present_query) UNION ($absent_query)";
 
-    // Bỏ ORDER nếu đang đếm
-    $order_by = "";
-    if (!$count_only) {
-        $order_by = "ORDER BY manguoidung ASC";
-        if (isset($args["custom"]["function"])) {
-            $function = $args["custom"]["function"];
-            switch ($function) {
-                case "sort":
-                    $column = $args["custom"]["column"];
-                    $order = $args["custom"]["order"];
-                    switch ($column) {
-                        case "manguoidung":
-                        case "diemthi":
-                        case "thoigianvaothi":
-                        case "thoigianlambai":
-                        case "solanchuyentab":
-                            $order_by = "ORDER BY $column $order";
-                            break;
-                        case "hoten":
-                            $present_query = $this->getQueryAddColumnFirstname($present_query, $filter, $input, $args, $order);
-                            $absent_query = $this->getQueryAddColumnFirstname($absent_query, $filter, $input, $args, $order);
-                            $query = "($present_query) UNION ($absent_query)";
-                            $order_by = "ORDER BY firstname $order";
-                            break;
-                        default:
-                    }
-                    break;
-                default:
+        // Bỏ ORDER nếu đang đếm
+        $order_by = "";
+        if (!$count_only) {
+            $order_by = "ORDER BY manguoidung ASC";
+            if (isset($args["custom"]["function"])) {
+                $function = $args["custom"]["function"];
+                switch ($function) {
+                    case "sort":
+                        $column = $args["custom"]["column"];
+                        $order = $args["custom"]["order"];
+                        switch ($column) {
+                            case "manguoidung":
+                            case "diemthi":
+                            case "thoigianvaothi":
+                            case "thoigianlambai":
+                            case "solanchuyentab":
+                                $order_by = "ORDER BY $column $order";
+                                break;
+                            case "hoten":
+                                $present_query = $this->getQueryAddColumnFirstname($present_query, $filter, $input, $args, $order);
+                                $absent_query = $this->getQueryAddColumnFirstname($absent_query, $filter, $input, $args, $order);
+                                $query = "($present_query) UNION ($absent_query)";
+                                $order_by = "ORDER BY firstname $order";
+                                break;
+                            default:
+                        }
+                        break;
+                    default:
+                }
             }
         }
+
+        if ($input) {
+            $query = "SELECT * FROM ($query) AS combined_results WHERE (hoten LIKE N'%${input}%' OR manguoidung LIKE '%${input}%')";
+        }
+
+        $query .= " $order_by";
+
+        return $query;
     }
-
-    if ($input) {
-        $query = "SELECT * FROM ($query) AS combined_results WHERE (hoten LIKE N'%${input}%' OR manguoidung LIKE '%${input}%')";
-    }
-
-    $query .= " $order_by";
-
-    return $query;
-}
 
     // Tìm kiếm & phân trang & sắp xếp
     public function getQuery($filter, $input, $args)

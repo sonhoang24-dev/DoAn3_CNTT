@@ -1,4 +1,5 @@
 <?php
+
 include "./mvc/models/CauTraLoiModel.php";
 
 class DeThiModel extends DB
@@ -17,24 +18,42 @@ class DeThiModel extends DB
     // Hàm kiểm tra số lượng câu hỏi đủ điều kiện
     private function checkQuestionAvailability($monhoc, $chuong, $socaude, $socautb, $socaukho)
     {
-        $sql_caude = "SELECT COUNT(*) as count FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = $monhoc AND ch.dokho = 1 AND ch.trangthai != 0 AND ";
-        $sql_cautb = "SELECT COUNT(*) as count FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = $monhoc AND ch.dokho = 2 AND ch.trangthai != 0 AND ";
-        $sql_caukho = "SELECT COUNT(*) as count FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = $monhoc AND ch.dokho = 3 AND ch.trangthai != 0 AND ";
+        // Bọc $monhoc trong dấu nháy nếu nó là chuỗi
+        $monhoc = mysqli_real_escape_string($this->con, $monhoc); // chống SQL injection
 
+        $sql_caude = "SELECT COUNT(*) as count FROM cauhoi ch 
+                  JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc 
+                  WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 1 AND ch.trangthai != 0 AND ";
+        $sql_cautb = "SELECT COUNT(*) as count FROM cauhoi ch 
+                  JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc 
+                  WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 2 AND ch.trangthai != 0 AND ";
+        $sql_caukho = "SELECT COUNT(*) as count FROM cauhoi ch 
+                   JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc 
+                   WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 3 AND ch.trangthai != 0 AND ";
+
+        // Ghép điều kiện chương
         $countChuong = count($chuong) - 1;
         $detailChuong = "(";
         for ($i = 0; $i < $countChuong; $i++) {
-            $detailChuong .= "ch.machuong='$chuong[$i]' OR ";
+            $chuong_id = mysqli_real_escape_string($this->con, $chuong[$i]);
+            $detailChuong .= "ch.machuong='$chuong_id' OR ";
         }
-        $detailChuong .= "ch.machuong='$chuong[$countChuong]')";
+        $chuong_id = mysqli_real_escape_string($this->con, $chuong[$countChuong]);
+        $detailChuong .= "ch.machuong='$chuong_id')";
 
+        // Hoàn tất câu truy vấn
         $sql_caude .= $detailChuong;
         $sql_cautb .= $detailChuong;
         $sql_caukho .= $detailChuong;
 
+        // Thực thi và kiểm tra lỗi
         $result_cd = mysqli_query($this->con, $sql_caude);
         $result_tb = mysqli_query($this->con, $sql_cautb);
         $result_ck = mysqli_query($this->con, $sql_caukho);
+
+        if (!$result_cd || !$result_tb || !$result_ck) {
+            die("Lỗi truy vấn SQL: " . mysqli_error($this->con));
+        }
 
         $count_de = mysqli_fetch_assoc($result_cd)['count'];
         $count_tb = mysqli_fetch_assoc($result_tb)['count'];
@@ -49,6 +68,7 @@ class DeThiModel extends DB
 
         return ['valid' => true];
     }
+
 
     public function create($monthi, $nguoitao, $tende, $thoigianthi, $thoigianbatdau, $thoigianketthuc, $hienthibailam, $xemdiemthi, $xemdapan, $troncauhoi, $trondapan, $nopbaichuyentab, $loaide, $socaude, $socautb, $socaukho, $chuong, $nhom)
     {
@@ -196,84 +216,129 @@ class DeThiModel extends DB
         }
         return $valid;
     }
-public function delete($made)
-{
-    mysqli_begin_transaction($this->con);
-    try { 
-        // Kiểm tra bảng ketqua trước
-        $sql_check_ketqua = "SELECT COUNT(*) as count FROM `ketqua` WHERE `made` = ?";
-        $stmt_check_ketqua = mysqli_prepare($this->con, $sql_check_ketqua);
-        if (!$stmt_check_ketqua) {
-            throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra kết quả thi: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt_check_ketqua, "s", $made);
-        mysqli_stmt_execute($stmt_check_ketqua);
-        $result_check_ketqua = mysqli_stmt_get_result($stmt_check_ketqua);
-        $row_ketqua = mysqli_fetch_assoc($result_check_ketqua);
-        mysqli_stmt_close($stmt_check_ketqua);
-        if ($row_ketqua['count'] > 0) {
-            throw new Exception("Không thể xóa đề thi vì đã có {$row_ketqua['count']} thí sinh hoàn thành bài thi.");
-        }
+    public function delete($made)
+    {
+        mysqli_begin_transaction($this->con);
+        try {
+            // Kiểm tra bảng ketqua trước
+            $sql_check_ketqua = "SELECT COUNT(*) as count FROM `ketqua` WHERE `made` = ?";
+            $stmt_check_ketqua = mysqli_prepare($this->con, $sql_check_ketqua);
+            if (!$stmt_check_ketqua) {
+                throw new Exception("Lỗi chuẩn bị truy vấn kiểm tra kết quả thi: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_check_ketqua, "s", $made);
+            mysqli_stmt_execute($stmt_check_ketqua);
+            $result_check_ketqua = mysqli_stmt_get_result($stmt_check_ketqua);
+            $row_ketqua = mysqli_fetch_assoc($result_check_ketqua);
+            mysqli_stmt_close($stmt_check_ketqua);
+            if ($row_ketqua['count'] > 0) {
+                throw new Exception("Không thể xóa đề thi vì đã có {$row_ketqua['count']} thí sinh hoàn thành bài thi.");
+            }
 
-        // Xóa bản ghi trong chitietdethi
-        $sql_delete_chitietdethi = "DELETE FROM `chitietdethi` WHERE `made` = ?";
-        $stmt_delete_chitietdethi = mysqli_prepare($this->con, $sql_delete_chitietdethi);
-        if (!$stmt_delete_chitietdethi) {
-            throw new Exception("Lỗi chuẩn bị truy vấn xóa chi tiết đề thi: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt_delete_chitietdethi, "s", $made);
-        mysqli_stmt_execute($stmt_delete_chitietdethi);
-        mysqli_stmt_close($stmt_delete_chitietdethi);
+            // Lấy danh sách manhom từ giaodethi
+            $sql_get_manhom = "SELECT DISTINCT manhom FROM `giaodethi` WHERE `made` = ?";
+            $stmt_get_manhom = mysqli_prepare($this->con, $sql_get_manhom);
+            if (!$stmt_get_manhom) {
+                throw new Exception("Lỗi chuẩn bị truy vấn lấy mã nhóm: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_get_manhom, "s", $made);
+            mysqli_stmt_execute($stmt_get_manhom);
+            $result_manhom = mysqli_stmt_get_result($stmt_get_manhom);
+            $manhom_list = [];
+            while ($row = mysqli_fetch_assoc($result_manhom)) {
+                $manhom_list[] = $row['manhom'];
+            }
+            mysqli_stmt_close($stmt_get_manhom);
 
-        // Xóa bản ghi trong dethitudong
-        $sql_delete_dethitudong = "DELETE FROM `dethitudong` WHERE `made` = ?";
-        $stmt_delete_dethitudong = mysqli_prepare($this->con, $sql_delete_dethitudong);
-        if (!$stmt_delete_dethitudong) {
-            throw new Exception("Lỗi chuẩn bị truy vấn xóa đề thi tự động: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt_delete_dethitudong, "s", $made);
-        mysqli_stmt_execute($stmt_delete_dethitudong);
-        mysqli_stmt_close($stmt_delete_dethitudong);
+            // Xóa bản ghi trong trangthaithongbao dựa trên matb từ chitietthongbao
+            if (!empty($manhom_list)) {
+                $placeholders = implode(',', array_fill(0, count($manhom_list), '?'));
+                $sql_delete_trangthaithongbao = "DELETE FROM `trangthaithongbao` WHERE `matb` IN (SELECT `matb` FROM `chitietthongbao` WHERE `manhom` IN ($placeholders))";
+                $stmt_delete_trangthaithongbao = mysqli_prepare($this->con, $sql_delete_trangthaithongbao);
+                if (!$stmt_delete_trangthaithongbao) {
+                    throw new Exception("Lỗi chuẩn bị truy vấn xóa trạng thái thông báo: " . mysqli_error($this->con));
+                }
+                mysqli_stmt_bind_param($stmt_delete_trangthaithongbao, str_repeat('s', count($manhom_list)), ...$manhom_list);
+                mysqli_stmt_execute($stmt_delete_trangthaithongbao);
+                mysqli_stmt_close($stmt_delete_trangthaithongbao);
 
-        // Xóa bản ghi trong giaodethi
-        $sql_delete_giaodethi = "DELETE FROM `giaodethi` WHERE `made` = ?";
-        $stmt_delete_giaodethi = mysqli_prepare($this->con, $sql_delete_giaodethi);
-        if (!$stmt_delete_giaodethi) {
-            throw new Exception("Lỗi chuẩn bị truy vấn xóa giao đề thi: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt_delete_giaodethi, "s", $made);
-        mysqli_stmt_execute($stmt_delete_giaodethi);
-        mysqli_stmt_close($stmt_delete_giaodethi);
+                // Xóa bản ghi trong chitietthongbao
+                $sql_delete_chitietthongbao = "DELETE FROM `chitietthongbao` WHERE `manhom` IN ($placeholders)";
+                $stmt_delete_chitietthongbao = mysqli_prepare($this->con, $sql_delete_chitietthongbao);
+                if (!$stmt_delete_chitietthongbao) {
+                    throw new Exception("Lỗi chuẩn bị truy vấn xóa chi tiết thông báo: " . mysqli_error($this->con));
+                }
+                mysqli_stmt_bind_param($stmt_delete_chitietthongbao, str_repeat('s', count($manhom_list)), ...$manhom_list);
+                mysqli_stmt_execute($stmt_delete_chitietthongbao);
+                mysqli_stmt_close($stmt_delete_chitietthongbao);
 
-        // Xóa đề thi
-        $sql = "DELETE FROM `dethi` WHERE `made` = ?";
-        $stmt = mysqli_prepare($this->con, $sql);
-        if (!$stmt) {
-            throw new Exception("Lỗi chuẩn bị truy vấn xóa đề thi: " . mysqli_error($this->con));
-        }
-        mysqli_stmt_bind_param($stmt, "s", $made);
-        $success = mysqli_stmt_execute($stmt);
-        $affected_rows = mysqli_stmt_affected_rows($stmt);
-        mysqli_stmt_close($stmt);
+                // Xóa bản ghi trong thongbao (chỉ xóa những thông báo không còn liên kết với nhóm nào)
+                $sql_delete_thongbao = "DELETE FROM `thongbao` WHERE `matb` NOT IN (SELECT `matb` FROM `chitietthongbao`)";
+                $stmt_delete_thongbao = mysqli_query($this->con, $sql_delete_thongbao);
+                if (!$stmt_delete_thongbao) {
+                    throw new Exception("Lỗi xóa thông báo: " . mysqli_error($this->con));
+                }
+            }
 
-        if ($success && $affected_rows > 0) {
-            mysqli_commit($this->con);
+            // Xóa bản ghi trong chitietdethi
+            $sql_delete_chitietdethi = "DELETE FROM `chitietdethi` WHERE `made` = ?";
+            $stmt_delete_chitietdethi = mysqli_prepare($this->con, $sql_delete_chitietdethi);
+            if (!$stmt_delete_chitietdethi) {
+                throw new Exception("Lỗi chuẩn bị truy vấn xóa chi tiết đề thi: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_delete_chitietdethi, "s", $made);
+            mysqli_stmt_execute($stmt_delete_chitietdethi);
+            mysqli_stmt_close($stmt_delete_chitietdethi);
+
+            // Xóa bản ghi trong dethitudong
+            $sql_delete_dethitudong = "DELETE FROM `dethitudong` WHERE `made` = ?";
+            $stmt_delete_dethitudong = mysqli_prepare($this->con, $sql_delete_dethitudong);
+            if (!$stmt_delete_dethitudong) {
+                throw new Exception("Lỗi chuẩn bị truy vấn xóa đề thi tự động: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_delete_dethitudong, "s", $made);
+            mysqli_stmt_execute($stmt_delete_dethitudong);
+            mysqli_stmt_close($stmt_delete_dethitudong);
+
+            // Xóa bản ghi trong giaodethi
+            $sql_delete_giaodethi = "DELETE FROM `giaodethi` WHERE `made` = ?";
+            $stmt_delete_giaodethi = mysqli_prepare($this->con, $sql_delete_giaodethi);
+            if (!$stmt_delete_giaodethi) {
+                throw new Exception("Lỗi chuẩn bị truy vấn xóa giao đề thi: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt_delete_giaodethi, "s", $made);
+            mysqli_stmt_execute($stmt_delete_giaodethi);
+            mysqli_stmt_close($stmt_delete_giaodethi);
+
+            // Xóa đề thi
+            $sql = "DELETE FROM `dethi` WHERE `made` = ?";
+            $stmt = mysqli_prepare($this->con, $sql);
+            if (!$stmt) {
+                throw new Exception("Lỗi chuẩn bị truy vấn xóa đề thi: " . mysqli_error($this->con));
+            }
+            mysqli_stmt_bind_param($stmt, "s", $made);
+            $success = mysqli_stmt_execute($stmt);
+            $affected_rows = mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+
+            if ($success && $affected_rows > 0) {
+                mysqli_commit($this->con);
+                return [
+                    'success' => true,
+                    'message' => 'Xóa đề thi thành công!'
+                ];
+            } else {
+                throw new Exception("Không tìm thấy đề thi hoặc không thể xóa.");
+            }
+        } catch (Exception $e) {
+            mysqli_rollback($this->con);
+            error_log("Lỗi xóa đề thi: " . $e->getMessage());
             return [
-                'success' => true,
-                'message' => 'Xóa đề thi thành công!'
+                'success' => false,
+                'message' => $e->getMessage()
             ];
-        } else {
-            throw new Exception("Không tìm thấy đề thi hoặc không thể xóa.");
         }
-    } catch (Exception $e) {
-        mysqli_rollback($this->con);
-        error_log("Lỗi xóa đề thi: " . $e->getMessage());
-        return [
-            'success' => false,
-            'message' => $e->getMessage()
-        ];
     }
-}
     public function getAll($nguoitao)
     {
         $sql = "SELECT dethi.made, tende, monhoc.tenmonhoc, thoigianbatdau, thoigianketthuc, nhom.tennhom, namhoc, hocky
@@ -692,4 +757,3 @@ public function delete($made)
         return $rows;
     }
 }
-?>

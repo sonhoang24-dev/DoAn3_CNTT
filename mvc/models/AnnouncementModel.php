@@ -139,8 +139,12 @@ class AnnouncementModel extends DB
     }
     public function autoAnnounceNewExam($made, $tende, $monthi, $thoigiantao, $nguoitao)
     {
-        $content = "Đề thi mới: <strong>$tende</strong> – Môn <em>$monthi</em>";
+        // Chèn link vào nội dung thông báo
+        $link = "./test/start/$made";
+        $content = "<a href='$link' target='_blank'>Đề thi mới: <strong>$tende</strong> – Môn <em>$monthi</em></a>";
 
+
+        // Lấy danh sách nhóm có đề thi này
         $sql = "SELECT DISTINCT manhom FROM giaodethi WHERE made = '$made'";
         $result = mysqli_query($this->con, $sql);
         $nhom = [];
@@ -153,6 +157,7 @@ class AnnouncementModel extends DB
             return false;
         }
 
+        // Thêm thông báo mới
         $sql = "INSERT INTO thongbao(noidung, thoigiantao, nguoitao) 
             VALUES ('$content', '$thoigiantao', '$nguoitao')";
         $res = mysqli_query($this->con, $sql);
@@ -162,6 +167,7 @@ class AnnouncementModel extends DB
 
         $matb = mysqli_insert_id($this->con);
 
+        // Gửi thông báo tới các nhóm liên quan
         $this->sendAnnouncement($matb, $nhom);
 
         return true;

@@ -24,50 +24,50 @@ class Pagination extends Controller
         echo json_encode($result);
     }
 
-public function getTotal($args)
-{
-    $limit = 10;
-    $input = $args['input'] ?? null;
-    $filter = $args['filter'] ?? null;
-    $func = $args['custom']['function'] ?? null;
+    public function getTotal($args)
+    {
+        $limit = 10;
+        $input = $args['input'] ?? null;
+        $filter = $args['filter'] ?? null;
+        $func = $args['custom']['function'] ?? null;
 
-    // Bắt buộc thêm cờ đếm để getQueryAll bỏ ORDER BY
-    $args['count_only'] = true;
-    $queryResult = $this->queryModel->getQuery($filter, $input, $args);
+        // Bắt buộc thêm cờ đếm để getQueryAll bỏ ORDER BY
+        $args['count_only'] = true;
+        $queryResult = $this->queryModel->getQuery($filter, $input, $args);
 
-    // Lấy truy vấn gốc và tham số
-    $originalQuery = is_array($queryResult) ? $queryResult['query'] : $queryResult;
-    $params = $queryResult['params'] ?? [];
+        // Lấy truy vấn gốc và tham số
+        $originalQuery = is_array($queryResult) ? $queryResult['query'] : $queryResult;
+        $params = $queryResult['params'] ?? [];
 
-    if ($func === 'getUserTestSchedule') {
-        $count_query = "SELECT COUNT(*) AS total FROM dethi WHERE trangthai = 1";
-    } else {
-        // Loại bỏ ORDER BY và LIMIT nếu có
-        $cleanedQuery = preg_replace('/ORDER BY\s+[\w`.\s,]+(\s+(ASC|DESC))?/i', '', $originalQuery);
-        $cleanedQuery = preg_replace('/LIMIT\s+\d+(\s*,\s*\d+)?/i', '', $cleanedQuery);
-
-        // Đếm tổng kết quả qua subquery nếu chứa GROUP BY, UNION hoặc DISTINCT
-        $hasUnion = stripos($cleanedQuery, 'UNION') !== false;
-        $hasGroupBy = stripos($cleanedQuery, 'GROUP BY') !== false;
-        $hasDistinct = stripos($cleanedQuery, 'DISTINCT') !== false;
-
-        if ($hasGroupBy || $hasUnion || $hasDistinct) {
-            $count_query = "SELECT COUNT(*) AS total FROM ( $cleanedQuery ) AS counted_results";
+        if ($func === 'getUserTestSchedule') {
+            $count_query = "SELECT COUNT(*) AS total FROM dethi WHERE trangthai = 1";
         } else {
-            // Trường hợp đơn giản: thay SELECT ban đầu bằng COUNT(*)
-            $count_query = preg_replace('/^SELECT\s.+?\sFROM/i', 'SELECT COUNT(*) AS total FROM', $cleanedQuery);
+            // Loại bỏ ORDER BY và LIMIT nếu có
+            $cleanedQuery = preg_replace('/ORDER BY\s+[\w`.\s,]+(\s+(ASC|DESC))?/i', '', $originalQuery);
+            $cleanedQuery = preg_replace('/LIMIT\s+\d+(\s*,\s*\d+)?/i', '', $cleanedQuery);
+
+            // Đếm tổng kết quả qua subquery nếu chứa GROUP BY, UNION hoặc DISTINCT
+            $hasUnion = stripos($cleanedQuery, 'UNION') !== false;
+            $hasGroupBy = stripos($cleanedQuery, 'GROUP BY') !== false;
+            $hasDistinct = stripos($cleanedQuery, 'DISTINCT') !== false;
+
+            if ($hasGroupBy || $hasUnion || $hasDistinct) {
+                $count_query = "SELECT COUNT(*) AS total FROM ( $cleanedQuery ) AS counted_results";
+            } else {
+                // Trường hợp đơn giản: thay SELECT ban đầu bằng COUNT(*)
+                $count_query = preg_replace('/^SELECT\s.+?\sFROM/i', 'SELECT COUNT(*) AS total FROM', $cleanedQuery);
+            }
         }
+
+        // Gửi truy vấn và tham số về hàm phân trang
+        $queryData = [
+            'query' => $originalQuery,
+            'params' => $params,
+            'count_query' => $count_query
+        ];
+
+        $result = $this->paginationModel->getTotalPages($queryData, $limit, $args);
+        echo $result;
     }
-
-    // Gửi truy vấn và tham số về hàm phân trang
-    $queryData = [
-        'query' => $originalQuery,
-        'params' => $params,
-        'count_query' => $count_query
-    ];
-
-    $result = $this->paginationModel->getTotalPages($queryData, $limit, $args);
-    echo $result;
-}
 
 }

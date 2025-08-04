@@ -233,16 +233,6 @@ class Test extends Controller
         }
     }
 
-    public function delete()
-    {
-        if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("dethi", "delete")) {
-            $made = $_POST['made'];
-            $result = $this->dethimodel->delete($made);
-            echo json_encode($result);
-        } else {
-            echo json_encode(false);
-        }
-    }
     public function addTest()
     {
         if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("dethi", "create")) {
@@ -250,6 +240,14 @@ class Test extends Controller
 
             // Kiểm tra dữ liệu đầu vào
             $mamonhoc = trim($_POST['mamonhoc'] ?? '');
+            // Lấy tên môn học từ mã môn
+            $tenmonhoc = $mamonhoc; // fallback trong trường hợp không tìm thấy
+            $sqlTenMon = "SELECT tenmonhoc FROM monhoc WHERE mamonhoc = '$mamonhoc' LIMIT 1";
+            $resTenMon = mysqli_query($this->dethimodel->con, $sqlTenMon);
+            if ($row = mysqli_fetch_assoc($resTenMon)) {
+                $tenmonhoc = $row['tenmonhoc'];
+            }
+
             $nguoitao = $_SESSION['user_id'] ?? 0;
             $tende = trim($_POST['tende'] ?? '');
             $thoigianthi = (int)($_POST['thoigianthi'] ?? 0);
@@ -365,7 +363,12 @@ class Test extends Controller
             if ($made) {
                 $response['success'] = true;
                 $response['made'] = $made;
-                $content = '<span style="text-decoration: underline;">Đề thi mới: ' . $tende . ' – Môn ' . $mamonhoc . '</span>';
+                $link = "./test/start/$made";
+                $content_raw = '<span style="text-decoration: underline; color: blue; cursor: pointer;" onclick="window.open(\'' . $link . '\', \'_blank\')">
+Đề thi mới: ' . $tende . ' – Môn ' . $tenmonhoc . '
+</span>';
+                $content = mysqli_real_escape_string($this->dethimodel->con, $content_raw);
+
 
                 $thoigiantao = date("Y-m-d H:i:s");
 

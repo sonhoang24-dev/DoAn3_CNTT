@@ -144,10 +144,10 @@ class Question extends Controller
 
                 if ($macauhoi) {
                     // Tạo từng câu trả lời
-                   foreach ($cautraloi as $x) {
-    $content = strip_tags($x['content']);
-    $this->cauTraLoiModel->create($macauhoi, $content, $x['check'] == 'true' ? 1 : 0);
-}
+                    foreach ($cautraloi as $x) {
+                        $content = strip_tags($x['content']);
+                        $this->cauTraLoiModel->create($macauhoi, $content, $x['check'] == 'true' ? 1 : 0);
+                    }
 
 
                     // Trả về phản hồi thành công
@@ -238,57 +238,57 @@ class Question extends Controller
         }
     }
 
-   public function editQuesion()
-{
-    if (!AuthCore::checkPermission("cauhoi", "update")) {
-        return;
-    }
-
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $id         = $_POST['id'] ?? null;
-        $mamon      = $_POST['mamon'] ?? null;
-        $machuong   = $_POST['machuong'] ?? null;
-        $dokho      = $_POST['dokho'] ?? null;
-        $nguoitao   = $_SESSION['user_id'];
-        $noidungRaw = $_POST['noidung'] ?? '';
-        $cautraloi  = $_POST['cautraloi'] ?? [];
-
-        // Loại bỏ thẻ HTML trong nội dung câu hỏi
-        $noidung = trim(strip_tags($noidungRaw));
-
-        // Kiểm tra nội dung bắt buộc
-        if (!$id || !$mamon || !$machuong || !$dokho || $noidung === '' || empty($cautraloi)) {
-            return; // Không hợp lệ → không làm gì cả
+    public function editQuesion()
+    {
+        if (!AuthCore::checkPermission("cauhoi", "update")) {
+            return;
         }
 
-        // Kiểm tra từng đáp án hợp lệ
-        $validAnswers = [];
-        foreach ($cautraloi as $x) {
-            $content = trim(strip_tags($x['content'])); // Loại bỏ HTML
-            if ($content !== '') {
-                $validAnswers[] = [
-                    'content' => $content,
-                    'check'   => $x['check'] === 'true' ? 1 : 0
-                ];
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $id         = $_POST['id'] ?? null;
+            $mamon      = $_POST['mamon'] ?? null;
+            $machuong   = $_POST['machuong'] ?? null;
+            $dokho      = $_POST['dokho'] ?? null;
+            $nguoitao   = $_SESSION['user_id'];
+            $noidungRaw = $_POST['noidung'] ?? '';
+            $cautraloi  = $_POST['cautraloi'] ?? [];
+
+            // Loại bỏ thẻ HTML trong nội dung câu hỏi
+            $noidung = trim(strip_tags($noidungRaw));
+
+            // Kiểm tra nội dung bắt buộc
+            if (!$id || !$mamon || !$machuong || !$dokho || $noidung === '' || empty($cautraloi)) {
+                return; // Không hợp lệ → không làm gì cả
+            }
+
+            // Kiểm tra từng đáp án hợp lệ
+            $validAnswers = [];
+            foreach ($cautraloi as $x) {
+                $content = trim(strip_tags($x['content'])); // Loại bỏ HTML
+                if ($content !== '') {
+                    $validAnswers[] = [
+                        'content' => $content,
+                        'check'   => $x['check'] === 'true' ? 1 : 0
+                    ];
+                }
+            }
+
+            if (count($validAnswers) === 0) {
+                return; // Không có đáp án hợp lệ → không lưu
+            }
+
+            // Cập nhật câu hỏi
+            $result = $this->cauHoiModel->update($id, $noidung, $dokho, $mamon, $machuong, $nguoitao);
+
+            if ($result) {
+                // Xoá đáp án cũ và thêm mới
+                $this->cauTraLoiModel->deletebyanswer($id);
+                foreach ($validAnswers as $ans) {
+                    $this->cauTraLoiModel->create($id, $ans['content'], $ans['check']);
+                }
             }
         }
-
-        if (count($validAnswers) === 0) {
-            return; // Không có đáp án hợp lệ → không lưu
-        }
-
-        // Cập nhật câu hỏi
-        $result = $this->cauHoiModel->update($id, $noidung, $dokho, $mamon, $machuong, $nguoitao);
-
-        if ($result) {
-            // Xoá đáp án cũ và thêm mới
-            $this->cauTraLoiModel->deletebyanswer($id);
-            foreach ($validAnswers as $ans) {
-                $this->cauTraLoiModel->create($id, $ans['content'], $ans['check']);
-            }
-        }
     }
-}
 
 
     public function getTotalPage()
