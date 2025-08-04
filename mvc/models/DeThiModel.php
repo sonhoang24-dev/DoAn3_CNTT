@@ -661,29 +661,61 @@ class DeThiModel extends DB
             $func = $args["custom"]["function"];
             switch ($func) {
                 case "getUserTestSchedule":
-                    $query = "SELECT T1.*, diemthi FROM (SELECT DT.made, tende, thoigianbatdau, thoigianketthuc, CTN.manhom, tennhom, tenmonhoc, namhoc, hocky FROM chitietnhom CTN, giaodethi GDT, dethi DT, monhoc MH, nhom N WHERE N.trangthai != 0 AND N.manhom = CTN.manhom AND CTN.manhom = GDT.manhom AND DT.made = GDT.made AND MH.mamonhoc = DT.monthi AND DT.trangthai = 1 AND manguoidung = '" . $args['manguoidung'] . "') T1 LEFT JOIN (SELECT DISTINCT DT.made, diemthi FROM chitietnhom CTN, giaodethi GDT, dethi DT, monhoc MH, nhom N, ketqua KQ WHERE N.manhom = CTN.manhom AND CTN.manhom = GDT.manhom AND DT.made = GDT.made AND MH.mamonhoc = DT.monthi AND KQ.made = DT.made AND DT.trangthai = 1 AND KQ.manguoidung = '" . $args['manguoidung'] . "') T2 ON T1.made = T2.made WHERE 1";
-                    if (isset($filter)) {
-                        switch ($filter) {
-                            case "0":
-                                $query .= " AND CURRENT_TIMESTAMP() BETWEEN thoigianbatdau AND thoigianketthuc AND diemthi IS NULL";
-                                break;
-                            case "1":
-                                $query .= " AND CURRENT_TIMESTAMP() > thoigianketthuc AND diemthi IS NULL";
-                                break;
-                            case "2":
-                                $query .= " AND CURRENT_TIMESTAMP() < thoigianbatdau";
-                                break;
-                            case "3":
-                                $query .= " AND diemthi IS NOT NULL";
-                                break;
-                            default:
-                        }
-                    }
-                    if ($input) {
-                        $query .= " AND (tende LIKE N'%$input%' OR tenmonhoc LIKE N'%$input%')";
-                    }
-                    $query .= " ORDER BY made DESC";
-                    break;
+    $query = "SELECT T1.*, T2.diemthi, T2.dathi, T2.xemdiemthi
+              FROM (
+                  SELECT DT.made, tende, thoigianbatdau, thoigianketthuc, CTN.manhom,
+                         tennhom, tenmonhoc, namhoc, hocky
+                  FROM chitietnhom CTN, giaodethi GDT, dethi DT, monhoc MH, nhom N
+                  WHERE N.trangthai != 0
+                    AND N.manhom = CTN.manhom
+                    AND CTN.manhom = GDT.manhom
+                    AND DT.made = GDT.made
+                    AND MH.mamonhoc = DT.monthi
+                    AND DT.trangthai = 1
+                    AND manguoidung = '" . $args['manguoidung'] . "'
+              ) T1
+              LEFT JOIN (
+                  SELECT DISTINCT DT.made,
+                         CASE WHEN DT.xemdiemthi = 1 THEN KQ.diemthi ELSE NULL END AS diemthi,
+                         CASE WHEN KQ.manguoidung IS NOT NULL THEN 1 ELSE 0 END AS dathi,
+                         DT.xemdiemthi
+                  FROM chitietnhom CTN, giaodethi GDT, dethi DT,
+                       monhoc MH, nhom N, ketqua KQ
+                  WHERE N.manhom = CTN.manhom
+                    AND CTN.manhom = GDT.manhom
+                    AND DT.made = GDT.made
+                    AND MH.mamonhoc = DT.monthi
+                    AND KQ.made = DT.made
+                    AND DT.trangthai = 1
+                    AND KQ.manguoidung = '" . $args['manguoidung'] . "'
+              ) T2
+              ON T1.made = T2.made
+              WHERE 1";
+
+    if (isset($filter)) {
+        switch ($filter) {
+            case "0": // Đang thi
+                $query .= " AND CURRENT_TIMESTAMP() BETWEEN thoigianbatdau AND thoigianketthuc AND (T2.dathi IS NULL OR T2.dathi = 0)";
+                break;
+            case "1": // Hết hạn mà chưa thi
+                $query .= " AND CURRENT_TIMESTAMP() > thoigianketthuc AND (T2.dathi IS NULL OR T2.dathi = 0)";
+                break;
+            case "2": // Chưa mở
+                $query .= " AND CURRENT_TIMESTAMP() < thoigianbatdau";
+                break;
+            case "3": // Đã hoàn thành
+                $query .= " AND T2.dathi = 1";
+                break;
+        }
+    }
+
+    if ($input) {
+        $query .= " AND (tende LIKE N'%$input%' OR tenmonhoc LIKE N'%$input%')";
+    }
+
+    $query .= " ORDER BY made DESC";
+    break;
+
 
                 case "getAllCreatedTest":
                     $query = "SELECT DT.made, tende, MH.tenmonhoc, thoigianbatdau, thoigianketthuc, GROUP_CONCAT(DISTINCT N.tennhom SEPARATOR ', ') AS nhom, N.namhoc, N.hocky 

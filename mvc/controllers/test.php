@@ -364,9 +364,7 @@ class Test extends Controller
                 $response['success'] = true;
                 $response['made'] = $made;
                 $link = "./test/start/$made";
-                $content_raw = '<span style="text-decoration: underline; color: blue; cursor: pointer;" onclick="window.open(\'' . $link . '\', \'_blank\')">
-Đề thi mới: ' . $tende . ' – Môn ' . $tenmonhoc . '
-</span>';
+                $content_raw = '<span style="text-decoration: underline; color: blue; cursor: pointer;" onclick="window.open(\'' . $link . '\', \'_blank\')">' . $tende . ' – Môn ' . $tenmonhoc . '</span>';
                 $content = mysqli_real_escape_string($this->dethimodel->con, $content_raw);
 
 

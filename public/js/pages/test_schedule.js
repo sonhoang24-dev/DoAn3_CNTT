@@ -31,7 +31,9 @@ function showData(data) {
     // Trạng thái
     let state = { color: "secondary", text: "Chưa mở" };
     const now = Date.now();
-    if (test.diemthi !== null && test.diemthi !== "") {
+    const daThi = test.dathi == 1;
+
+    if (daThi) {
       state = { color: "success", text: "Đã hoàn thành" };
     } else if (now >= +open && now <= +close) {
       state = { color: "primary", text: "Chưa làm" };
@@ -62,7 +64,13 @@ function showData(data) {
           <i class="fa fa-users text-muted me-1"></i>
           ${tennhom}
         </td>
-        <td>${test.diemthi ?? "-"}</td>
+<td>${
+      test.xemdiemthi == 0
+        ? "Không được xem"
+        : test.diemthi
+        ? test.diemthi
+        : "-"
+    }</td>
         <td>
           <span class="badge bg-${state.color} rounded-pill px-3 py-2">
             <i class="fa fa-circle small me-1"></i>${state.text}

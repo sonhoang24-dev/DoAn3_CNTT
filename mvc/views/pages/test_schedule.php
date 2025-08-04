@@ -25,7 +25,7 @@
 
 
     <!-- Bảng danh sách đề thi -->
-  <div class="table-responsive">
+  <!-- <div class="table-responsive"> -->
   <table class="table table-bordered table-hover align-middle text-center">
     <thead class="bg-body-light text-uppercase fw-semibold">
       <tr class="text-primary">
