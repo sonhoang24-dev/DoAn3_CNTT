@@ -40,7 +40,10 @@ class Pagination extends Controller
         $params = $queryResult['params'] ?? [];
 
         if ($func === 'getUserTestSchedule') {
-            $count_query = "SELECT COUNT(*) AS total FROM dethi WHERE trangthai = 1";
+            $cleanedQuery = preg_replace('/ORDER BY\s+[\w`.\s,]+(\s+(ASC|DESC))?/i', '', $originalQuery);
+            $cleanedQuery = preg_replace('/LIMIT\s+\d+(\s*,\s*\d+)?/i', '', $cleanedQuery);
+
+            $count_query = "SELECT COUNT(*) AS total FROM ( $cleanedQuery ) AS sub";
         } else {
             // Loại bỏ ORDER BY và LIMIT nếu có
             $cleanedQuery = preg_replace('/ORDER BY\s+[\w`.\s,]+(\s+(ASC|DESC))?/i', '', $originalQuery);

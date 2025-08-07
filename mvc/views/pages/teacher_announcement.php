@@ -48,6 +48,7 @@
     <div class="row my-3">
         <?php
         if (isset($data["Plugin"]["pagination"])) {
+            
             require "./mvc/views/inc/pagination.php";
         }
 ?>

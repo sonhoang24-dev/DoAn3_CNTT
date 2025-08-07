@@ -370,9 +370,10 @@ class Test extends Controller
 
                 $thoigiantao = date("Y-m-d H:i:s");
 
-                $sql = "INSERT INTO thongbao(noidung, thoigiantao, nguoitao) 
-        VALUES ('$content', '$thoigiantao', '$nguoitao')";
-                $matb = $this->dethimodel->insertAndGetId($sql);
+                $sql = "INSERT INTO thongbao(noidung, thoigiantao, nguoitao, is_auto) 
+        VALUES ('$content', '$thoigiantao', '$nguoitao', 1)";
+$matb = $this->dethimodel->insertAndGetId($sql);
+
 
                 foreach ($manhom as $nhom) {
                     $sql = "INSERT INTO chitietthongbao(matb, manhom) VALUES ('$matb', '$nhom')";
@@ -691,7 +692,7 @@ class Test extends Controller
         $result = $this->ketquamodel->getStatictical($made, $manhom);
         echo json_encode($result);
     }
-//hàm chuyển tab trả về true nếu bảng dethi.solanchuyentab = 1 ngược lại thì false
+    //hàm chuyển tab trả về true nếu bảng dethi.solanchuyentab = 1 ngược lại thì false
     public function chuyentab()
     {
         $made = $_POST['made'];

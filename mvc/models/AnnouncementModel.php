@@ -63,11 +63,6 @@ class AnnouncementModel extends DB
         return $row['count'] ?? 0;
     }
 
-
-
-
-
-
     public function getAnnounce($manhom)
     {
         $sql = "SELECT DISTINCT `thongbao`.`matb`, `noidung`, `avatar` ,`thoigiantao`
@@ -88,7 +83,7 @@ class AnnouncementModel extends DB
     {
         $sql = "SELECT `chitietthongbao`.`matb`,`tennhom`,`noidung`, `tenmonhoc` ,`namhoc`, `hocky`, `thoigiantao`
         FROM `thongbao`, `chitietthongbao`,`nhom`,`monhoc` 
-        WHERE `thongbao`.`matb` = `chitietthongbao`.`matb` AND `chitietthongbao`.`manhom` = `nhom`.`manhom` AND `nhom`.`mamonhoc` = `monhoc`.`mamonhoc`
+        WHERE `thongbao`.`matb` = `chitietthongbao`.`matb` AND `chitietthongbao`.`manhom` = `nhom`.`manhom` AND `thongbao`.`is_auto` = 1 AND `nhom`.`mamonhoc` = `monhoc`.`mamonhoc`
         AND `thongbao`.`nguoitao` = $user_id ORDER BY thoigiantao DESC";
         $result = mysqli_query($this->con, $sql);
         $rows = array();
@@ -225,45 +220,62 @@ class AnnouncementModel extends DB
         return $rows;
     }
 
+public function getQuery($filter, $input, $args)
+{
+    error_log("Filter: " . json_encode($filter));
+    error_log("Input: " . $input);
+    error_log("Args: " . json_encode($args));
 
-    public function getQuery($filter, $input, $args)
-    {
-        $query = "SELECT TB.*, MH.tenmonhoc, N.namhoc, N.hocky, 
-                         GROUP_CONCAT(N.tennhom SEPARATOR ', ') AS nhom 
-                  FROM thongbao TB
-                  JOIN chitietthongbao CTTB ON TB.matb = CTTB.matb
-                  JOIN nhom N ON CTTB.manhom = N.manhom
-                  JOIN monhoc MH ON N.mamonhoc = MH.mamonhoc
-                  WHERE TB.nguoitao = ?";
-        $params = ['s', $args['id']];
+    $query = "
+        SELECT 
+            TB.*, 
+            MH.tenmonhoc, 
+            N.namhoc, 
+            N.hocky, 
+            GROUP_CONCAT(DISTINCT N.tennhom SEPARATOR ', ') AS nhom
+        FROM thongbao TB
+        JOIN chitietthongbao CTTB ON TB.matb = CTTB.matb
+        JOIN nhom N ON CTTB.manhom = N.manhom
+        JOIN monhoc MH ON N.mamonhoc = MH.mamonhoc
+        WHERE TB.nguoitao = ? AND TB.is_auto = 0
+    ";
 
-        if ($input) {
-            $query .= " AND TB.noidung LIKE ?";
-            $params[0] .= 's';
-            $params[] = "%$input%";
-        }
+    $params = ['s', $args['id']];
 
-        if (isset($filter)) {
-            if (isset($filter['mamonhoc'])) {
-                $query .= " AND MH.mamonhoc = ?";
-                $params[0] .= 's';
-                $params[] = $filter['mamonhoc'];
-            }
-            if (isset($filter['namhoc'])) {
-                $query .= " AND N.namhoc = ?";
-                $params[0] .= 's';
-                $params[] = $filter['namhoc'];
-            }
-            if (isset($filter['hocky'])) {
-                $query .= " AND N.hocky = ?";
-                $params[0] .= 's';
-                $params[] = $filter['hocky'];
-            }
-        }
-
-        $query .= " GROUP BY TB.matb ORDER BY TB.thoigiantao DESC";
-
-        return ['query' => $query, 'params' => $params];
+    // Lọc theo nội dung thông báo
+    if (!empty($input)) {
+        $query .= " AND TB.noidung LIKE ?";
+        $params[0] .= 's';
+        $params[] = '%' . $input . '%';
     }
+
+    // Lọc theo năm học + học kỳ
+    $namhoc = $filter['namhoc'] ?? null;
+    $hocky = $filter['hocky'] ?? null;
+    if ($namhoc && $hocky) {
+        $query .= " AND N.namhoc = ? AND N.hocky = ?";
+        $params[0] .= 'ss';
+        $params[] = $namhoc;
+        $params[] = $hocky;
+    }
+
+    // Lọc theo tên môn học (khi chọn từ dropdown nhóm học phần)
+    if (!empty($filter['tenmonhoc'])) {
+        $query .= " AND MH.tenmonhoc = ?";
+        $params[0] .= 's';
+        $params[] = $filter['tenmonhoc'];
+    }
+
+    // Gộp và sắp xếp
+    $query .= " GROUP BY TB.matb ORDER BY TB.thoigiantao DESC";
+
+    error_log("Query: " . $query);
+    error_log("Params: " . json_encode($params));
+
+    return ['query' => $query, 'params' => $params];
+}
+
+
+
 
 }

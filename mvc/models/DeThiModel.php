@@ -661,7 +661,7 @@ class DeThiModel extends DB
             $func = $args["custom"]["function"];
             switch ($func) {
                 case "getUserTestSchedule":
-    $query = "SELECT T1.*, T2.diemthi, T2.dathi, T2.xemdiemthi
+                    $query = "SELECT T1.*, T2.diemthi, T2.dathi, T2.xemdiemthi
               FROM (
                   SELECT DT.made, tende, thoigianbatdau, thoigianketthuc, CTN.manhom,
                          tennhom, tenmonhoc, namhoc, hocky
@@ -692,29 +692,28 @@ class DeThiModel extends DB
               ON T1.made = T2.made
               WHERE 1";
 
-    if (isset($filter)) {
-        switch ($filter) {
-            case "0": // Đang thi
-                $query .= " AND CURRENT_TIMESTAMP() BETWEEN thoigianbatdau AND thoigianketthuc AND (T2.dathi IS NULL OR T2.dathi = 0)";
-                break;
-            case "1": // Hết hạn mà chưa thi
-                $query .= " AND CURRENT_TIMESTAMP() > thoigianketthuc AND (T2.dathi IS NULL OR T2.dathi = 0)";
-                break;
-            case "2": // Chưa mở
-                $query .= " AND CURRENT_TIMESTAMP() < thoigianbatdau";
-                break;
-            case "3": // Đã hoàn thành
-                $query .= " AND T2.dathi = 1";
-                break;
-        }
-    }
+                    if (isset($filter)) {
+                        switch ($filter) {
+                            case "0":
+                                $query .= " AND CURRENT_TIMESTAMP() BETWEEN thoigianbatdau AND thoigianketthuc AND (T2.dathi IS NULL OR T2.dathi = 0)";
+                                break;
+                            case "1":
+                                $query .= " AND CURRENT_TIMESTAMP() > thoigianketthuc AND (T2.dathi IS NULL OR T2.dathi = 0)";
+                                break;
+                            case "2":
+                                $query .= " AND CURRENT_TIMESTAMP() < thoigianbatdau";
+                                break;
+                            case "3":
+                                $query .= " AND T2.dathi = 1";
+                                break;
+                        }
+                    }
 
-    if ($input) {
-        $query .= " AND (tende LIKE N'%$input%' OR tenmonhoc LIKE N'%$input%')";
-    }
-
-    $query .= " ORDER BY made DESC";
-    break;
+                    if ($input) {
+                        $query .= " AND (tende LIKE N'%$input%' OR tenmonhoc LIKE N'%$input%')";
+                    }
+                    $query .= " ORDER BY made DESC";
+                    break;
 
 
                 case "getAllCreatedTest":

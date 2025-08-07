@@ -262,7 +262,7 @@ $(document).ready(function () {
     } else {
       e.fire({
         title: "Lỗi!",
-        text: "Vui lòng nhập đầy đủ nội dung thông_inner dung và chọn nhóm học phần!",
+        text: "Vui lòng nhập đầy đủ nội dung thông tin nội dung và chọn nhóm học phần!",
         icon: "error",
         confirmButtonText: "OK",
       });

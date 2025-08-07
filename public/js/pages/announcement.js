@@ -108,7 +108,6 @@ function showListAnnounce(announces) {
   $(".list-announces").html(html);
   $('[data-bs-toggle="tooltip"]').tooltip();
 }
-
 function loadFilterSemesters() {
   $.ajax({
     type: "POST",
@@ -118,12 +117,15 @@ function loadFilterSemesters() {
     success: function (response) {
       let html = '<option value="">Tất cả học kỳ</option>';
       const seen = new Set();
+
       response.forEach((item) => {
-        if (!seen.has(item.hocky)) {
-          seen.add(item.hocky);
-          html += `<option value="${item.hocky}">HK${item.hocky}</option>`;
+        const key = `${item.namhoc}-${item.hocky}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          html += `<option value="${key}">${item.namhoc} - HK${item.hocky}</option>`;
         }
       });
+
       $("#filter-kihoc").html(html);
     },
     error: function (xhr, status, error) {
@@ -132,20 +134,27 @@ function loadFilterSemesters() {
   });
 }
 
-function loadFilterSubjects(hocky = null) {
+function loadFilterSubjects(kihoc = null) {
   return new Promise((resolve, reject) => {
+    const data = { hienthi: 1 };
+    if (kihoc) {
+      const [namhoc, hocky] = kihoc.split("-");
+      data.namhoc = namhoc;
+      data.hocky = hocky;
+    }
+
     $.ajax({
       type: "POST",
       url: "./module/loadData",
-      data: { hienthi: 1, hocky: hocky },
+      data: data,
       dataType: "json",
       success: function (response) {
-        let html = '<option value="">Tất cả nhóm học phần</option>';
+        let html = '<option value="">Tất cả học phần</option>';
         const seen = new Set();
         response.forEach((item) => {
-          if (!seen.has(item.mamonhoc)) {
-            seen.add(item.mamonhoc);
-            html += `<option value="${item.mamonhoc}">${item.mamonhoc} - ${item.tenmonhoc}</option>`;
+          if (!seen.has(item.tenmonhoc)) {
+            seen.add(item.tenmonhoc);
+            html += `<option value="${item.mamonhoc}">${item.tenmonhoc}</option>`;
           }
         });
         $("#filter-nhomhocphan").html(html);
@@ -159,12 +168,12 @@ function loadFilterSubjects(hocky = null) {
   });
 }
 
-$("#filter-kihoc").on("change", function () {
-  const selectedSemester = $(this).val();
-  loadFilterSubjects(selectedSemester).then(() => {
-    applyFilters();
-  });
-});
+// $("#filter-kihoc").on("change", function () {
+//   const selectedSemester = $(this).val();
+//   loadFilterSubjects(selectedSemester).then(() => {
+//     applyFilters();
+//   });
+// });
 
 $("#filter-nhomhocphan").on("change", function () {
   applyFilters();
@@ -180,27 +189,24 @@ $(document).ready(function () {
       data: { hienthi: 1 },
       dataType: "json",
       success: function (response) {
+        console.log("Dữ liệu nhóm học phần:", response); // Debug
         groups = response;
         response.forEach((item, index) => {
-          html += `<option value="${index}">${
-            item.mamonhoc +
-            " - " +
-            item.tenmonhoc +
-            " - NH" +
-            item.namhoc +
-            " - HK" +
-            item.hocky
-          }</option>`;
+          html += `<option value="${index}">${item.mamonhoc} - ${item.tenmonhoc} - NH${item.namhoc} - HK${item.hocky}</option>`;
         });
         $("#nhom-hp").html(html);
       },
       error: function (xhr, status, error) {
-        console.error("Error loading groups:", status, error);
+        console.error("Error loading groups:", status, error, xhr.responseText);
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times-circle me-1",
+          message: "Lỗi khi tải danh sách nhóm học phần!",
+        });
       },
     });
     loadFilterSubjects();
   }
-
   function showListGroup(index) {
     let html = ``;
     if (groups[index].nhom.length > 0) {
@@ -383,31 +389,36 @@ $(document).ready(function () {
     });
   });
   $("#filter-kihoc").on("change", function () {
-    const selectedSemester = $(this).val();
-    // Gọi loadFilterSubjects và chờ nó hoàn thành
+    const selectedSemester = $(this).val(); // ví dụ "2025-1"
     loadFilterSubjects(selectedSemester).then(() => {
-      applyFilters(); // Chỉ gọi applyFilters sau khi loadFilterSubjects hoàn tất
+      applyFilters();
     });
   });
 
   function applyFilters() {
     const keyword = $("#search-input").val().trim();
-    const hocky = $("#filter-kihoc").val() || null;
+    const kihoc = $("#filter-kihoc").val();
     const mamonhoc = $("#filter-nhomhocphan").val() || null;
 
     const filter = {};
 
-    // Reset filter đúng cách:
-    if (hocky) filter.hocky = hocky;
+    if (kihoc) {
+      const [namhoc, hocky] = kihoc.split("-");
+      if (namhoc && hocky) {
+        filter.namhoc = namhoc;
+        filter.hocky = hocky;
+      }
+    }
+
     if (mamonhoc) filter.mamonhoc = mamonhoc;
 
-    console.log("Áp dụng lọc:", filter);
+    console.log("Applying filters:", filter);
 
     mainPagePagination.getPagination(
       {
         ...mainPagePagination.option,
         input: keyword,
-        filter: filter, // <-- Không giữ filter cũ
+        filter: filter,
       },
       1
     );

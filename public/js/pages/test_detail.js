@@ -189,7 +189,7 @@ $(document).ready(function () {
     if (makq === "" || mainPagePagination.option.filter === "interrupted") {
       e.fire({
         icon: "warning",
-        title: "Thí sinh chưa làm bài thi !",
+        title: "Không thể xem. Thí sinh chưa làm bài thi !",
         confirmButtonText: "Đóng",
       });
     } else {
@@ -357,7 +357,11 @@ $(document).ready(function () {
         },
       });
     } else {
-      alert("Thí sinh này không thi nên không có kết quả !!");
+      e.fire({
+        icon: "warning",
+        title: "Không thể in kết quả. Thí sinh chưa làm bài thi!",
+        confirmButtonText: "Đóng",
+      });
     }
   });
 
