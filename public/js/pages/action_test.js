@@ -607,7 +607,7 @@ $(document).ready(function () {
     $("#tudongsoande").prop("disabled", checkD);
     $("#xemdiem").prop("checked", dethi.xemdiemthi == "1");
     $("#xemda").prop("checked", dethi.xemdapan == "1");
-    $("#xembailam").prop("checked", dethi.xemdapan == "1");
+    $("#xembailam").prop("checked", dethi.hienthibailam == "1");
     $("#daocauhoi").prop("checked", dethi.troncauhoi == "1");
     $("#daodapan").prop("checked", dethi.trondapan == "1");
     $("#tudongnop").prop("checked", dethi.nopbaichuyentab == "1");
@@ -727,6 +727,8 @@ $(document).ready(function () {
             `./test/select/${response.made}`
           );
         }
+        console.log("Dữ liệu từ server:", response);
+        console.log("Giá trị xembailam:", response.xembailam);
         infodethi = response;
         showInfo(response);
       },

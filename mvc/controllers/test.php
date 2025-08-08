@@ -260,7 +260,7 @@ class Test extends Controller
             $loaide = (int)($_POST['loaide'] ?? 0);
             $xemdiem = (int)($_POST['xemdiem'] ?? 0);
             $xemdapan = (int)($_POST['xemdapan'] ?? 0);
-            $xembailam = (int)($_POST['xembailam'] ?? 0);
+            $hienthibailam = (int)($_POST['xembailam'] ?? 0);
             $daocauhoi = (int)($_POST['daocauhoi'] ?? 0);
             $daodapan = (int)($_POST['daodapan'] ?? 0);
             $tudongnop = (int)($_POST['tudongnop'] ?? 0);
@@ -346,7 +346,7 @@ class Test extends Controller
                 $thoigianthi,
                 $thoigianbatdau,
                 $thoigianketthuc,
-                $xembailam,
+                $hienthibailam,
                 $xemdiem,
                 $xemdapan,
                 $daocauhoi,
@@ -408,7 +408,6 @@ class Test extends Controller
         if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("dethi", "update")) {
             $response = ['success' => false, 'error' => ''];
 
-            // Kiểm tra dữ liệu đầu vào
             $made = (int)($_POST['made'] ?? 0);
             $mamonhoc = trim($_POST['mamonhoc'] ?? '');
             $tende = trim($_POST['tende'] ?? '');
@@ -421,7 +420,7 @@ class Test extends Controller
             $loaide = (int)($_POST['loaide'] ?? 0);
             $xemdiem = (int)($_POST['xemdiem'] ?? 0);
             $xemdapan = (int)($_POST['xemdapan'] ?? 0);
-            $xembailam = (int)($_POST['xembailam'] ?? 0);
+            $hienthibailam = (int)($_POST['xembailam'] ?? 0);
             $daocauhoi = (int)($_POST['daocauhoi'] ?? 0);
             $daodapan = (int)($_POST['daodapan'] ?? 0);
             $tudongnop = (int)($_POST['tudongnop'] ?? 0);
@@ -511,7 +510,7 @@ class Test extends Controller
                 $thoigianthi,
                 $thoigianbatdau,
                 $thoigianketthuc,
-                $xembailam,
+                $hienthibailam,
                 $xemdiem,
                 $xemdapan,
                 $daocauhoi,

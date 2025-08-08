@@ -93,16 +93,19 @@ $(document).ready(function () {
                             }" alt="">
                         </div>
                         <div class="flex-grow-1 fs-sm pe-2">
-                            <div class="truncate truncate--3"><span class="fw-semibold">${
-                              notification.hoten
-                            }</span> đã gửi một thông báo đến lớp học phần <span class="fw-semibold">${
-          notification.tenmonhoc + " - " + notification.tennhom
-        }</span>: ${notification.noidung}${
+                           <div class="truncate truncate--3">
+  <span class="fw-semibold">${
+    notification.hoten
+  }</span> đã gửi một thông báo đến lớp học phần
+  <span class="fw-semibold">${
+    notification.tenmonhoc + " - " + notification.tennhom
+  }</span>:
+  <span class="fst-italic">${notification.noidung}</span>${
           notification.noidung.endsWith(".") ? "" : "."
-        }</div>
-                            <div class="text-muted">${
-                              displayDate || notification.thoigiantao
-                            }</div>
+        }
+</div>
+<div class="text-muted">${displayDate || notification.thoigiantao}</div>
+
                         </div>
                     </a>
                 </li>
