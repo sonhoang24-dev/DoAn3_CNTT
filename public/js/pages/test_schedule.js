@@ -67,7 +67,7 @@ function showData(data) {
 <td>${
       test.xemdiemthi == 0
         ? "Không được xem"
-        : test.diemthi
+        : test.diemthi != null
         ? test.diemthi
         : "-"
     }</td>

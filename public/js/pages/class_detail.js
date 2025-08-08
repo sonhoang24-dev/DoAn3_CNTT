@@ -604,7 +604,6 @@ $(document).ready(function () {
       },
     });
   });
-
   $("#nhap-file").click(function (e) {
     e.preventDefault();
     let password = $("#ps_user_group").val();
@@ -615,47 +614,92 @@ $(document).ready(function () {
         icon: "fa fa-times me-1",
         message: `Vui lòng điền đầy đủ thông tin!`,
       });
-    } else {
-      var file = $("#file-cau-hoi")[0].files[0];
-      var formData = new FormData();
-      formData.append("fileToUpload", file);
-      $.ajax({
-        type: "post",
-        url: "./user/addExcel",
-        data: formData,
-        contentType: false,
-        processData: false,
-        dataType: "json",
-        beforeSend: function () {
-          Dashmix.layout("header_loader_on");
-        },
-        success: function (response) {
-          addExcel(response, password);
-        },
-        complete: function () {
-          Dashmix.layout("header_loader_off");
-        },
-      });
+      return;
     }
+
+    var file = $("#file-cau-hoi")[0].files[0];
+    var formData = new FormData();
+    formData.append("fileToUpload", file);
+    $.ajax({
+      type: "post",
+      url: "./user/addExcel",
+      data: formData,
+      contentType: false,
+      processData: false,
+      dataType: "json",
+      beforeSend: function () {
+        Dashmix.layout("header_loader_on");
+      },
+      success: function (response) {
+        if (response.status === "error") {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            icon: "fa fa-times me-1",
+            message: response.message,
+          });
+          return;
+        }
+        addExcel(response.data, password);
+      },
+      error: function (xhr, status, error) {
+        console.error("Lỗi AJAX:", xhr.responseText);
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: `Lỗi khi xử lý file Excel: ${xhr.responseText}`,
+        });
+      },
+      complete: function () {
+        Dashmix.layout("header_loader_off");
+      },
+    });
   });
 
   function addExcel(data, password) {
     $.ajax({
       type: "post",
       url: "./user/addFileExcelGroup",
-      data: { listuser: data, group: manhom, password: password },
+      data: {
+        listuser: JSON.stringify(data),
+        group: manhom,
+        password: password,
+      },
+      dataType: "json",
+      beforeSend: function () {
+        Dashmix.layout("header_loader_on");
+      },
       success: function (response) {
-        getGroupSize(manhom);
-        mainPagePagination.valuePage.curPage = 1;
-        mainPagePagination.getPagination(mainPagePagination.option, 1);
-        $("#ps_user_group").val("");
-        $("#file-cau-hoi").val("");
         Dashmix.helpers("jq-notify", {
-          type: "success",
-          icon: "fa fa-times me-1",
-          message: `Thêm người dùng thành công!`,
+          type: response.status === "success" ? "success" : "danger",
+          icon:
+            response.status === "success"
+              ? "fa fa-check me-1"
+              : "fa fa-times me-1",
+          message:
+            response.message ||
+            (response.status === "success"
+              ? "Thêm người dùng thành công!"
+              : "Thêm người dùng thất bại!"),
         });
-        $("#modal-add-user").modal("hide");
+        if (response.status === "success") {
+          getGroupSize(manhom);
+          mainPagePagination.valuePage.curPage = 1;
+          mainPagePagination.getPagination(mainPagePagination.option, 1);
+          $("#ps_user_group").val("");
+          $("#file-cau-hoi").val("");
+          $("#modal-add-user").modal("hide");
+        }
+      },
+      error: function (xhr, status, error) {
+        console.error("Lỗi AJAX:", xhr.responseText);
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: `Lỗi khi thêm người dùng: ${xhr.responseText}`,
+        });
+      },
+      complete: function () {
+        Dashmix.layout("header_loader_off");
       },
     });
   }

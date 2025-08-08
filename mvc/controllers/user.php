@@ -158,7 +158,6 @@ class User extends Controller
             echo json_encode($result);
         }
     }
-
     public function addExcel()
     {
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -169,8 +168,13 @@ class User extends Controller
                 $objReader = PHPExcel_IOFactory::createReader($inputFileType);
                 $objPHPExcel = $objReader->load($inputFileName);
             } catch (Exception $e) {
-                die('Lỗi không thể đọc file "' . pathinfo($inputFileName, PATHINFO_BASENAME) . '": ' . $e->getMessage());
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Lỗi không thể đọc file: ' . $e->getMessage()
+                ]);
+                return;
             }
+
             $sheet = $objPHPExcel->setActiveSheetIndex(0);
             $Totalrow = $sheet->getHighestRow();
             $LastColumn = $sheet->getHighestColumn();
@@ -182,28 +186,48 @@ class User extends Controller
                 $mssv = "";
                 for ($j = 0; $j < $TotalCol; $j++) {
                     if ($j == 1) {
-                        $mssv = $sheet->getCellByColumnAndRow($j, $i)->getValue();
+                        $mssv = trim($sheet->getCellByColumnAndRow($j, $i)->getValue());
                     }
                     if ($j == 2) {
-                        $fullname .= $sheet->getCellByColumnAndRow($j, $i)->getValue();
+                        $fullname .= trim($sheet->getCellByColumnAndRow($j, $i)->getValue());
                     }
                     if ($j == 3) {
-                        $fullname .= $sheet->getCellByColumnAndRow($j, $i)->getValue();
+                        $fullname .= " " . trim($sheet->getCellByColumnAndRow($j, $i)->getValue());
                     }
                     if ($j == 7) {
-                        $email = $sheet->getCellByColumnAndRow($j, $i)->getValue();
+                        $email = trim($sheet->getCellByColumnAndRow($j, $i)->getValue());
                     }
                 }
-                $data[$i]['fullname'] = trim($fullname);
-                $data[$i]['email'] = trim($email);
-                $data[$i]['mssv'] = trim($mssv);
-                $data[$i]['nhomquyen'] = 11;
-                $data[$i]['trangthai'] = 1;
+                // Kiểm tra dữ liệu hợp lệ
+                if (empty($mssv) || empty($email) || empty($fullname)) {
+                    continue; // Bỏ qua dòng không hợp lệ
+                }
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    continue; // Bỏ qua email không hợp lệ
+                }
+                $data[] = [
+                    'fullname' => trim($fullname),
+                    'email' => trim($email),
+                    'mssv' => trim($mssv),
+                    'nhomquyen' => 2,
+                    'trangthai' => 1
+                ];
             }
-            echo json_encode($data);
+
+            if (empty($data)) {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Không có dữ liệu hợp lệ trong file'
+                ]);
+                return;
+            }
+
+            echo json_encode([
+                'status' => 'success',
+                'data' => $data
+            ]);
         }
     }
-
     public function addFileExcel()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -220,24 +244,54 @@ class User extends Controller
             ]);
         }
     }
-
     public function addFileExcelGroup()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $listUser = json_decode($_POST['listuser'], true);
+            $listUser = isset($_POST['listuser']) ? json_decode($_POST['listuser'], true) : [];
             $password = $_POST['password'] ?? '';
             $manhom = $_POST['group'] ?? '';
+
+            // Kiểm tra dữ liệu đầu vào
             if (empty($listUser) || empty($password) || empty($manhom)) {
-                echo json_encode(['status' => 'error', 'message' => 'Dữ liệu, mật khẩu hoặc nhóm không hợp lệ']);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Dữ liệu, mật khẩu hoặc nhóm không hợp lệ'
+                ]);
                 return;
             }
+
+            // Gọi hàm addFileGroup để thêm người dùng
             $result = $this->NguoiDungModel->addFileGroup($listUser, $password, $manhom);
+
+            // Xây dựng thông báo chi tiết
+            $message = '';
+            if (!empty($result['success'])) {
+                $message .= 'Đã thêm ' . count($result['success']) . ' sinh viên thành công. ';
+            }
+            if (!empty($result['exists'])) {
+                $message .= 'Sinh viên đã có trong nhóm: ' . implode(', ', $result['exists']) . '. ';
+            }
+            if (!empty($result['errors'])) {
+                $message .= 'Lỗi: ' . implode(', ', $result['errors']);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => trim($message)
+                ]);
+                return;
+            }
+
             echo json_encode([
-                'status' => $result ? 'success' : 'error',
-                'message' => $result ? 'Thêm người dùng và nhóm từ file thành công' : 'Thêm người dùng và nhóm từ file thất bại'
+                'status' => 'success',
+                'message' => trim($message) ?: 'Thêm người dùng thành công!'
+            ]);
+        } else {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Yêu cầu không hợp lệ'
             ]);
         }
     }
+
 
     public function getQuery($filter, $input, $args)
     {

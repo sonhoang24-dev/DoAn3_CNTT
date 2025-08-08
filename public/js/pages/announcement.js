@@ -168,18 +168,41 @@ function loadFilterSubjects(kihoc = null) {
   });
 }
 
-// $("#filter-kihoc").on("change", function () {
-//   const selectedSemester = $(this).val();
-//   loadFilterSubjects(selectedSemester).then(() => {
-//     applyFilters();
-//   });
-// });
-
-$("#filter-nhomhocphan").on("change", function () {
-  applyFilters();
-});
-
 $(document).ready(function () {
+  function applyFilters() {
+    const keyword = $("#search-input").val().trim();
+    const kihoc = $("#filter-kihoc").val();
+    const mamonhoc = $("#filter-nhomhocphan").val();
+
+    const filter = {};
+
+    // Nếu có học kỳ, tách năm học và học kỳ ra
+    if (kihoc) {
+      const [namhoc, hocky] = kihoc.split("-");
+      filter.namhoc = namhoc;
+      filter.hocky = hocky;
+    }
+
+    // Nếu có môn học được chọn
+    if (mamonhoc) {
+      filter.mamonhoc = mamonhoc;
+    }
+    if (keyword) {
+      filter.keyword = keyword;
+    }
+
+    console.log("Applying filters:", filter);
+
+    mainPagePagination.getPagination(
+      {
+        ...mainPagePagination.option,
+        input: keyword,
+        filter: filter,
+      },
+      1
+    );
+  }
+
   function showGroup() {
     let html = "<option value='' disabled selected>Chọn nhóm học phần</option>";
     $.ajax({
@@ -394,35 +417,6 @@ $(document).ready(function () {
       applyFilters();
     });
   });
-
-  function applyFilters() {
-    const keyword = $("#search-input").val().trim();
-    const kihoc = $("#filter-kihoc").val();
-    const mamonhoc = $("#filter-nhomhocphan").val() || null;
-
-    const filter = {};
-
-    if (kihoc) {
-      const [namhoc, hocky] = kihoc.split("-");
-      if (namhoc && hocky) {
-        filter.namhoc = namhoc;
-        filter.hocky = hocky;
-      }
-    }
-
-    if (mamonhoc) filter.mamonhoc = mamonhoc;
-
-    console.log("Applying filters:", filter);
-
-    mainPagePagination.getPagination(
-      {
-        ...mainPagePagination.option,
-        input: keyword,
-        filter: filter,
-      },
-      1
-    );
-  }
 
   $("#filter-kihoc, #filter-nhomhocphan").on("change", function () {
     applyFilters();

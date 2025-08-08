@@ -372,7 +372,7 @@ class Test extends Controller
 
                 $sql = "INSERT INTO thongbao(noidung, thoigiantao, nguoitao, is_auto) 
         VALUES ('$content', '$thoigiantao', '$nguoitao', 1)";
-$matb = $this->dethimodel->insertAndGetId($sql);
+                $matb = $this->dethimodel->insertAndGetId($sql);
 
 
                 foreach ($manhom as $nhom) {

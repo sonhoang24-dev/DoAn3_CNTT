@@ -220,13 +220,13 @@ class AnnouncementModel extends DB
         return $rows;
     }
 
-public function getQuery($filter, $input, $args)
-{
-    error_log("Filter: " . json_encode($filter));
-    error_log("Input: " . $input);
-    error_log("Args: " . json_encode($args));
+    public function getQuery($filter, $input, $args)
+    {
+        error_log("Filter: " . json_encode($filter));
+        error_log("Input: " . $input);
+        error_log("Args: " . json_encode($args));
 
-    $query = "
+        $query = "
         SELECT 
             TB.*, 
             MH.tenmonhoc, 
@@ -240,40 +240,40 @@ public function getQuery($filter, $input, $args)
         WHERE TB.nguoitao = ? AND TB.is_auto = 0
     ";
 
-    $params = ['s', $args['id']];
+        $params = ['s', $args['id']];
 
-    // Lọc theo nội dung thông báo
-    if (!empty($input)) {
-        $query .= " AND TB.noidung LIKE ?";
-        $params[0] .= 's';
-        $params[] = '%' . $input . '%';
+        // Lọc theo nội dung thông báo
+        if (!empty($input)) {
+            $query .= " AND TB.noidung LIKE ?";
+            $params[0] .= 's';
+            $params[] = '%' . $input . '%';
+        }
+
+        // Lọc theo năm học + học kỳ
+        $namhoc = $filter['namhoc'] ?? null;
+        $hocky = $filter['hocky'] ?? null;
+        if ($namhoc && $hocky) {
+            $query .= " AND N.namhoc = ? AND N.hocky = ?";
+            $params[0] .= 'ss';
+            $params[] = $namhoc;
+            $params[] = $hocky;
+        }
+
+        // Lọc theo tên môn học (khi chọn từ dropdown nhóm học phần)
+        if (!empty($filter['mamonhoc'])) {
+            $query .= " AND MH.mamonhoc = ?";
+            $params[0] .= 's';
+            $params[] = $filter['mamonhoc'];
+        }
+
+        // Gộp và sắp xếp
+        $query .= " GROUP BY TB.matb ORDER BY TB.thoigiantao DESC";
+
+        error_log("Query: " . $query);
+        error_log("Params: " . json_encode($params));
+
+        return ['query' => $query, 'params' => $params];
     }
-
-    // Lọc theo năm học + học kỳ
-    $namhoc = $filter['namhoc'] ?? null;
-    $hocky = $filter['hocky'] ?? null;
-    if ($namhoc && $hocky) {
-        $query .= " AND N.namhoc = ? AND N.hocky = ?";
-        $params[0] .= 'ss';
-        $params[] = $namhoc;
-        $params[] = $hocky;
-    }
-
-    // Lọc theo tên môn học (khi chọn từ dropdown nhóm học phần)
-    if (!empty($filter['tenmonhoc'])) {
-        $query .= " AND MH.tenmonhoc = ?";
-        $params[0] .= 's';
-        $params[] = $filter['tenmonhoc'];
-    }
-
-    // Gộp và sắp xếp
-    $query .= " GROUP BY TB.matb ORDER BY TB.thoigiantao DESC";
-
-    error_log("Query: " . $query);
-    error_log("Params: " . json_encode($params));
-
-    return ['query' => $query, 'params' => $params];
-}
 
 
 

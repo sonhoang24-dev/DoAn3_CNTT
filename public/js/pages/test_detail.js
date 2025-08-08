@@ -15,8 +15,12 @@ function showData(data) {
         <td class="text-center">${Element["manguoidung"]}</td>
         <td class="fs-sm d-flex align-items-center">
             <img class="img-avatar img-avatar48 me-3"
-                src="./public/media/avatars/${
-                  Element["avatar"] == null ? "avatar2.jpg" : Element["avatar"]
+               src="./public/media/avatars/${
+                 Element["avatar"] && Element["avatar"].trim() !== ""
+                   ? Element["avatar"]
+                   : "ANHSV.png"
+               }"
+
                 }" alt="${Element["hoten"]}">
             <div class="d-flex flex-column">
                 <strong class="text-primary">${Element["hoten"]}</strong>

@@ -284,7 +284,8 @@ $(document).ready(function () {
 
   // Logic xử lý chuyển tab
   //nộp bài ngay khi chuyển tab nếu bài thi đó có rán giá trị nộp bài chuyển tab(nopbaichuyentab) là 1
-  $(window).on("blur", function () { //lắng nghe sự kiện khi người dùng chuyển tab
+  $(window).on("blur", function () {
+    //lắng nghe sự kiện khi người dùng chuyển tab
     $.ajax({
       type: "post",
       url: "./test/chuyentab", //gọi đến hàm này trong controller test.php .← Gửi yêu cầu đến server kiểm tra số lần chuyển tab
@@ -303,15 +304,16 @@ $(document).ready(function () {
       },
     });
   });
-// hàm phát hiện chuyển tab trong khi thi 
+  // hàm phát hiện chuyển tab trong khi thi
   $(window).on("focus", function () {
-    if (localStorage.getItem("isTabSwitched_" + made) === "1") {// lắng nghe sự kiện khi người dùng chuyển tab quay lại trang
+    if (localStorage.getItem("isTabSwitched_" + made) === "1") {
+      // lắng nghe sự kiện khi người dùng chuyển tab quay lại trang
       let curTime = new Date().getTime();
       if (curTime < endTime) {
         Swal.fire({
           icon: "warning",
           title: "Bạn đã rời khỏi trang thi",
-          html: "<p class='fs-6 text-center mb-0'>Hệ thống phát hiện bạn đã chuyển tab trước đó. Bạn vẫn được tiếp tục vì còn thời gian làm bài.</p>",
+          html: "<p class='fs-6 text-center mb-0'>Hệ thống phát hiện bạn đã chuyển tab trước đó. Bạn vẫn được thi tiếp vì còn thời gian làm bài.</p>",
           confirmButtonText: "Tiếp tục",
         });
         localStorage.removeItem("isTabSwitched_" + made);

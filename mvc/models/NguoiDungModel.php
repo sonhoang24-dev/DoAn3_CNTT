@@ -274,27 +274,78 @@ class NguoiDungModel extends DB
         }
         return $check;
     }
-
     public function addFileGroup($data, $pass, $group)
     {
-        $check = true;
+        $success = [];
+        $exists = [];
+        $errors = [];
+
         foreach ($data as $user) {
-            $fullname = mysqli_real_escape_string($this->con, $user['fullname']);
-            $email = mysqli_real_escape_string($this->con, $user['email']);
-            $mssv = mysqli_real_escape_string($this->con, $user['mssv']);
-            $password = password_hash($pass, PASSWORD_DEFAULT);
-            $trangthai = (int)$user['trangthai'];
-            $nhomquyen = (int)$user['nhomquyen'];
+            $fullname = mysqli_real_escape_string($this->con, $user['fullname'] ?? '');
+            $email = mysqli_real_escape_string($this->con, $user['email'] ?? '');
+            $mssv = mysqli_real_escape_string($this->con, $user['mssv'] ?? '');
+            $trangthai = (int)($user['trangthai'] ?? 1);
+            $nhomquyen = (int)($user['nhomquyen'] ?? 2);
             $ngaythamgia = date('Y-m-d');
+
+            // Kiểm tra dữ liệu đầu vào
+            if (empty($mssv) || empty($email) || empty($fullname)) {
+                $errors[] = "Dữ liệu không hợp lệ cho MSSV: $mssv";
+                continue;
+            }
+
+            // Kiểm tra MSSV đã tồn tại trong hệ thống
+            $sql_check = "SELECT id FROM nguoidung WHERE id = '$mssv'";
+            $result = mysqli_query($this->con, $sql_check);
+            if (mysqli_num_rows($result) > 0) {
+                // Kiểm tra xem sinh viên có trong nhóm chưa
+                $sql_check_group = "SELECT manguoidung FROM chitietnhom WHERE manguoidung = '$mssv' AND manhom = '$group'";
+                $result_group = mysqli_query($this->con, $sql_check_group);
+                if (mysqli_num_rows($result_group) > 0) {
+                    $exists[] = $mssv;
+                    continue;
+                }
+                // Thêm vào nhóm nếu chưa có
+                if ($this->join($group, $mssv)) {
+                    $success[] = $mssv;
+                } else {
+                    $errors[] = "Không thể thêm MSSV $mssv vào nhóm";
+                }
+                continue;
+            }
+
+            // Kiểm tra email đã tồn tại
+            $sql_check_email = "SELECT email FROM nguoidung WHERE email = '$email'";
+            $result_email = mysqli_query($this->con, $sql_check_email);
+            if (mysqli_num_rows($result_email) > 0) {
+                $errors[] = "Email $email đã tồn tại cho MSSV $mssv";
+                continue;
+            }
+
+            // Thêm người dùng mới
+            $password = password_hash($pass, PASSWORD_DEFAULT);
             $sql = "INSERT INTO `nguoidung`(`id`, `email`, `hoten`, `matkhau`, `trangthai`, `manhomquyen`, `ngaythamgia`) 
-                    VALUES ('$mssv', '$email', '$fullname', '$password', $trangthai, $nhomquyen, '$ngaythamgia')";
+                VALUES ('$mssv', '$email', '$fullname', '$password', $trangthai, $nhomquyen, '$ngaythamgia')";
+
             if (mysqli_query($this->con, $sql)) {
-                $this->join($group, $mssv);
+                // Thêm vào nhóm
+                if ($this->join($group, $mssv)) {
+                    $success[] = $mssv;
+                } else {
+                    $errors[] = "Không thể thêm MSSV $mssv vào nhóm";
+                    // Xóa người dùng vừa thêm để đảm bảo tính nhất quán
+                    $this->delete($mssv);
+                }
             } else {
-                $check = false;
+                $errors[] = "Lỗi thêm MSSV $mssv: " . mysqli_error($this->con);
             }
         }
-        return $check;
+
+        return [
+            'success' => $success,
+            'exists' => $exists,
+            'errors' => $errors
+        ];
     }
 
     public function join($manhom, $manguoidung)
@@ -307,6 +358,20 @@ class NguoiDungModel extends DB
         }
         return false;
     }
+    public function exists($mssv)
+    {
+        $mssv = mysqli_real_escape_string($this->con, $mssv);
+        $sql = "SELECT COUNT(*) as total FROM nguoidung WHERE id = '$mssv'";
+        $result = mysqli_query($this->con, $sql);
+
+        if ($result && mysqli_num_rows($result) > 0) {
+            $row = mysqli_fetch_assoc($result);
+            return $row['total'] > 0;
+        }
+
+        return false;
+    }
+
 
     public function updateSiso($manhom)
     {
