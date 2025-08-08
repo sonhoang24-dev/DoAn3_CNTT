@@ -142,14 +142,14 @@
             <div class="col-sm-10 col-md-8 col-lg-6 col-xl-4 d-flex align-items-center p-4">
                 <div class="form-card w-full">
                     <div class="mb-4 text-center">
-                        <a class="fw-bold text-3xl text-decoration-none" href="/Quanlythitracnghiem">
+                        <a class="fw-bold text-3xl text-decoration-none" href="/Quanlythitracnghiemdht">
                             <span class="text-dark">DHT </span><span class="text-primary">OnTest</span>
                         </a>
                         <p class="text-uppercase fw-semibold text-muted mt-1 mb-2 text-sm">Quên mật khẩu</p>
                         <div id="recoverError" class="alert"></div>
                         <div id="loadingMessage" class="alert alert-info" style="display: none;">Đang xử lý yêu cầu...</div>
                     </div>
-                    <form id="recoverForm" class="js-validation-reminder" method="POST" action="/Quanlythitracnghiem/auth/sendOptAuth">
+                    <form id="recoverForm" class="js-validation-reminder" method="POST" action="/Quanlythitracnghiemdht/auth/sendOptAuth">
                          <div class="input-group">
               <span class="input-icon">
                 <i class="fa fa-envelope"></i>
@@ -162,7 +162,7 @@
                             <button id="btnRecover" type="submit" class="btn-primary">
                                 <i class="fa fa-reply me-1"></i> Khôi phục mật khẩu
                             </button>
-                            <a href="/Quanlythitracnghiem/auth/signin" class="btn-secondary">
+                            <a href="/Quanlythitracnghiemdht/auth/signin" class="btn-secondary">
                                 <i class="fa fa-sign-in-alt me-1"></i> Quay về đăng nhập
                             </a>
                         </div>

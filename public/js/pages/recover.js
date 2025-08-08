@@ -104,7 +104,7 @@ $("#btnRecover").on("click", function (e) {
 
 $("#btnResendOtp").on("click", function () {
   $.ajax({
-    url: "/Quanlythitracnghiem/auth/resendOtpAuth",
+    url: "/Quanlythitracnghiemdht/auth/resendOtpAuth",
     type: "POST",
     dataType: "json",
     success: function (res) {

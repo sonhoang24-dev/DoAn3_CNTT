@@ -44,7 +44,7 @@
           <input type="password" id="comfirm" name="comfirm" placeholder="Xác nhận mật khẩu" required>
         </div>
         <button id="btnChange"type="submit" class="btn-primary">Cập nhật</button>
-        <a href="/Quanlythitracnghiem/auth/signin" class="btn-secondary">← Quay lại đăng nhập</a>
+        <a href="/Quanlythitracnghiemdht/auth/signin" class="btn-secondary">← Quay lại đăng nhập</a>
       </form>
     </div>
   </div>

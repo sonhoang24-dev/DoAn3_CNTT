@@ -74,7 +74,7 @@ $error = $_SESSION['error'] ?? null;
             </script>
         <?php endif; ?>
 
-        <form id="signupForm" method="POST" action="/Quanlythitracnghiem/user/add">
+        <form id="signupForm" method="POST" action="/Quanlythitracnghiemdht/user/add">
             <div class="form-grid">
                 <input type="text" name="masinhvien" placeholder="Mã sinh viên" value="<?= htmlspecialchars($form_data['masinhvien'] ?? '') ?>" required>
                 <input type="email" name="email" placeholder="Địa chỉ Email" value="<?= htmlspecialchars($form_data['email'] ?? '') ?>" required>
