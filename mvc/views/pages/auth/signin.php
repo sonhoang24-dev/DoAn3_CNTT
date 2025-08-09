@@ -83,11 +83,11 @@ body {
 </button>
           </div>
           <div class="d-flex justify-content-between mt-4 small">
-            <a class="text-muted" href="/Quanlythitracnghiemdht/auth/recover"><i class="fa fa-question-circle me-1"></i> Quên mật khẩu?</a>
-            <a class="text-muted" href="/Quanlythitracnghiemdht/auth/signup"><i class="fa fa-user-plus me-1"></i> Tạo tài khoản</a>
+            <a class="text-muted" href="/Quanlythitracnghiem/auth/recover"><i class="fa fa-question-circle me-1"></i> Quên mật khẩu?</a>
+            <a class="text-muted" href="/Quanlythitracnghiem/auth/signup"><i class="fa fa-user-plus me-1"></i> Tạo tài khoản</a>
           </div>
           <div class="text-center mt-4">
-            <a href="/Quanlythitracnghiemdht" class="btn btn-outline-secondary btn-sm rounded-3 px-4">
+            <a href="/Quanlythitracnghiem" class="btn btn-outline-secondary btn-sm rounded-3 px-4">
               <i class="fa fa-arrow-left me-1"></i> Quay lại trang chủ
             </a>
           </div>
@@ -133,7 +133,7 @@ $(document).ready(function () {
   $btnText.html(`<i class="fa fa-spinner fa-spin me-2"></i> Đang xử lý...`);
 
   $.ajax({
-    url: '/Quanlythitracnghiemdht/auth/checkLogin',
+    url: '/Quanlythitracnghiem/auth/checkLogin',
     type: 'POST',
     data: $(this).serialize(),
     dataType: 'json',
@@ -146,7 +146,7 @@ $(document).ready(function () {
           .fadeIn();
 
       
-          window.location.href = '/Quanlythitracnghiemdht/dashboard';
+          window.location.href = '/Quanlythitracnghiem/dashboard';
    
       } else {
         $loginError

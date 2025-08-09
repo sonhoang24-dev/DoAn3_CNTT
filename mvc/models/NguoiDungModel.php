@@ -87,13 +87,15 @@ class NguoiDungModel extends DB
         return $rows;
     }
 
-    public function getById($id)
-    {
-        $id = mysqli_real_escape_string($this->con, $id);
-        $sql = "SELECT * FROM `nguoidung` WHERE `id`='$id'";
-        $result = mysqli_query($this->con, $sql);
-        return $result ? mysqli_fetch_assoc($result) : false;
-    }
+public function getById($id)
+{
+    $sql = "SELECT * FROM nguoidung WHERE id = ?";
+    $stmt = $this->con->prepare($sql);
+    $stmt->bind_param("i", $id); // dùng kiểu số nguyên
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result ? $result->fetch_assoc() : false;
+}
 
     public function getByEmail($email)
     {
@@ -114,15 +116,24 @@ class NguoiDungModel extends DB
     }
 
 
-    public function changePassword($id, $new_password_hashed)
-    {
-        $sql = "UPDATE nguoidung SET matkhau = ? WHERE id = ?";
-        $stmt = mysqli_prepare($this->con, $sql);
-        mysqli_stmt_bind_param($stmt, "ss", $new_password_hashed, $id);
-        $result = mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        return $result;
+public function changePassword($id, $new_password_hashed)
+{
+    $sql = "UPDATE nguoidung SET matkhau = ? WHERE id = ?";
+    $stmt = $this->con->prepare($sql);
+    $stmt->bind_param("si", $new_password_hashed, $id);
+    if ($stmt->execute()) {
+        if ($stmt->affected_rows > 0) {
+            return true;
+        } else {
+            error_log("Không có dòng nào bị thay đổi trong UPDATE mật khẩu.");
+            return false;
+        }
+    } else {
+        error_log("Lỗi khi UPDATE mật khẩu: " . $stmt->error);
+        return false;
     }
+}
+
 
 
     public function checkPassword($id, $password)

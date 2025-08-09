@@ -240,15 +240,24 @@
                         <label class="form-label"><i class="fa fa-font text-primary"></i> Tên đề kiểm tra</label>
                         <input type="text" class="form-control" id="name-exam" name="tende" placeholder="Nhập tên đề kiểm tra">
                     </div>
-                    <div class="row mb-4">
-                        <label class="form-label"><i class="fa fa-clock text-info"></i> Thời gian</label>
-                        <div class="col-xl-6">
-                            <input type="text" class="js-flatpickr form-control" id="time-start" name="thoigianbatdau" data-enable-time="true" data-time_24hr="true" placeholder="Từ">
-                        </div>
-                        <div class="col-xl-6">
-                            <input type="text" class="js-flatpickr form-control" id="time-end" name="thoigianketthuc" data-enable-time="true" data-time_24hr="true" placeholder="Đến">
-                        </div>
-                    </div>
+                   <div class="row mb-4">
+    <div class="col-xl-6">
+        <label for="time-start" class="form-label">
+            <i class="fa fa-play text-success"></i> Thời gian bắt đầu
+        </label>
+        <input type="text" class="js-flatpickr form-control" id="time-start" name="thoigianbatdau"
+               data-enable-time="true" data-time_24hr="true" placeholder="Từ">
+    </div>
+
+    <div class="col-xl-6">
+        <label for="time-end" class="form-label">
+            <i class="fa fa-stop text-danger"></i> Thời gian kết thúc
+        </label>
+        <input type="text" class="js-flatpickr form-control" id="time-end" name="thoigianketthuc"
+               data-enable-time="true" data-time_24hr="true" placeholder="Đến">
+    </div>
+</div>
+
                     <div class="mb-4">
                         <div class="input-group">
                             <span class="input-group-text"><i class="fa fa-stopwatch text-secondary"></i></span>

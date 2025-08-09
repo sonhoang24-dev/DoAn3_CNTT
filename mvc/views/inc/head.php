@@ -16,7 +16,7 @@
     <meta property="og:site_name" content="DHT OnTest">
     <meta property="og:description" content="Hệ thống hỗ trợ giáo viên và nhà trường tạo đề, tổ chức thi trắc nghiệm online thông minh, bảo mật, hiệu quả.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://htdvapple.site">
+    <meta property="og:url" content="http://localhost/Quanlythitracnghiem">
     <meta property="og:image" content="./public/media/favicons/og-image.jpg">
 
     <!-- Đường dẫn mặc định -->

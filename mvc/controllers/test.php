@@ -232,6 +232,16 @@ class Test extends Controller
             $this->view("single_layout", ["Page" => "error/page_404", "Title" => "Lỗi !"]);
         }
     }
+     public function delete()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("dethi", "delete")) {
+            $made = $_POST['made'];
+            $result = $this->dethimodel->delete($made);
+            echo json_encode($result);
+        } else {
+            echo json_encode(false);
+        }
+    }
 
     public function addTest()
     {

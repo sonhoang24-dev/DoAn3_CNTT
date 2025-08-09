@@ -33,7 +33,7 @@ Dashmix.onLoad(() =>
         rules: {
           passwordNew: {
             required: true,
-            minlength: 6,
+            // minlength: 6,
           },
           comfirm: {
             required: true,
@@ -43,7 +43,7 @@ Dashmix.onLoad(() =>
         messages: {
           passwordNew: {
             required: "Vui lòng không để trống",
-            minlength: "Mật khẩu ít nhất 6 ký tự",
+            // minlength: "Mật khẩu ít nhất 6 ký tự",
           },
           comfirm: {
             required: "Vui lòng không để trống",
@@ -104,7 +104,7 @@ $("#btnRecover").on("click", function (e) {
 
 $("#btnResendOtp").on("click", function () {
   $.ajax({
-    url: "/Quanlythitracnghiemdht/auth/resendOtpAuth",
+    url: "/Quanlythitracnghiem/auth/resendOtpAuth",
     type: "POST",
     dataType: "json",
     success: function (res) {
