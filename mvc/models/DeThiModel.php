@@ -72,7 +72,9 @@ class DeThiModel extends DB
 
     public function create($monthi, $nguoitao, $tende, $thoigianthi, $thoigianbatdau, $thoigianketthuc, $hienthibailam, $xemdiemthi, $xemdapan, $troncauhoi, $trondapan, $nopbaichuyentab, $loaide, $socaude, $socautb, $socaukho, $chuong, $nhom)
     {
-        // Kiểm tra số lượng câu hỏi nếu là đề tự động
+        if ($loaide == 0) {
+        $troncauhoi = 0; 
+    }
         if ($loaide == 1) {
             $check = $this->checkQuestionAvailability($monthi, $chuong, $socaude, $socautb, $socaukho);
             if (!$check['valid']) {
@@ -454,36 +456,38 @@ public function create_dethi_auto($made, $monhoc, $chuong, $socaude, $socautb, $
         return $question;
     }
 
-    public function getQuestionByUser($made, $user)
-    {
-        $sql_ketqua = "SELECT * FROM ketqua where made = '$made' and manguoidung = '$user'";
-        $result_ketqua = mysqli_query($this->con, $sql_ketqua);
-        $data_ketqua = mysqli_fetch_assoc($result_ketqua);
-        $ketqua = $data_ketqua['makq'];
-        $sql_question = "SELECT * FROM chitietketqua ctkq JOIN cauhoi ch on ctkq.macauhoi = ch.macauhoi WHERE makq = '$ketqua'";
-        $data_question = mysqli_query($this->con, $sql_question);
-        $ctlmodel = new CauTraLoiModel();
-        $sql_dethi = "SELECT * FROM dethi where made='$made'";
-        $result_dethi = mysqli_query($this->con, $sql_dethi);
-        $data_dethi = mysqli_fetch_assoc($result_dethi);
-        $trondapan = $data_dethi['trondapan'];
-        $rows = array();
-        foreach ($data_question as $row) {
-            if ($trondapan == 1) {
-                $arrDapAn = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-                shuffle($arrDapAn);
-                $row['cautraloi'] = $arrDapAn;
-            } else {
-                $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-            }
-            $rows[] = $row;
+public function getQuestionByUser($made, $user)
+{
+    $sql_ketqua = "SELECT * FROM ketqua where made = '$made' and manguoidung = '$user'";
+    $result_ketqua = mysqli_query($this->con, $sql_ketqua);
+    $data_ketqua = mysqli_fetch_assoc($result_ketqua);
+    $ketqua = $data_ketqua['makq'];
+    $sql_question = "SELECT * FROM chitietketqua ctkq JOIN cauhoi ch on ctkq.macauhoi = ch.macauhoi WHERE makq = '$ketqua'";
+    $data_question = mysqli_query($this->con, $sql_question);
+    $ctlmodel = new CauTraLoiModel();
+    $sql_dethi = "SELECT * FROM dethi where made='$made'";
+    $result_dethi = mysqli_query($this->con, $sql_dethi);
+    $data_dethi = mysqli_fetch_assoc($result_dethi);
+    $trondapan = $data_dethi['trondapan'];
+    $troncauhoi = $data_dethi['troncauhoi'];
+    $loaide = $data_dethi['loaide'];
+    $rows = array();
+    foreach ($data_question as $row) {
+        if ($trondapan == 1) {
+            $arrDapAn = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+            shuffle($arrDapAn);
+            $row['cautraloi'] = $arrDapAn;
+        } else {
+            $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
         }
-        $troncauhoi = $data_dethi['troncauhoi'];
-        if ($troncauhoi == 1) {
-            shuffle($rows);
-        }
-        return $rows;
+        $rows[] = $row;
     }
+    // Chỉ xáo trộn nếu là đề tự động và troncauhoi = 1
+    if ($loaide == 1 && $troncauhoi == 1) {
+        shuffle($rows);
+    }
+    return $rows;
+}
 
     public function getAllSubjects()
     {

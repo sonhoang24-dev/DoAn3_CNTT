@@ -13,7 +13,8 @@
             <span class="text-primary fs-2">OnTest</span>
           </p>
           <p class="text-uppercase fw-bold fs-sm text-dark mt-3 mb-1">Xác minh OTP</p>
-          <p class="fw-semibold fs-sm text-muted">Chúng tôi đã gửi mã OTP đến email của bạn</p>
+          <p id="otpMessage" class="fs-sm text-muted"></p>
+
         </div>
 
         <form id="formOpt">
@@ -32,7 +33,12 @@
           </div>
 
           <div class="text-center small text-muted mb-2">
-            <span id="countdownText">Bạn có thể yêu cầu mã mới sau <span id="countdown">60</span>s</span>
+<span id="countdownText">
+  Bạn có thể yêu cầu mã mới sau 
+  <span style="color:red;" id="countdownWrapper">
+    <span id="countdown">60</span>s
+  </span>
+</span>
           </div>
           <div class="text-center">
             <button type="button" id="btnResendOtp" class="btn btn-sm btn-outline-primary rounded-pill" disabled>
@@ -65,4 +71,15 @@
       }
     }, 1000);
   });
+document.addEventListener("DOMContentLoaded", () => {
+  const email = localStorage.getItem("otpEmail");
+  if (email) {
+    document.getElementById("otpMessage").innerHTML =
+      `<span class="text-muted">Mã OTP đã được gửi đến email:</span> <strong>${email}</strong>`;
+  }
+});
+
+
+
+
 </script>

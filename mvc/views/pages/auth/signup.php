@@ -145,7 +145,6 @@ $error = $_SESSION['error'] ?? null;
         const password = form.password.value;
         const confirmPassword = form.confirm_password.value;
 
-        // Client-side validation
         const today = new Date();
         const dob = new Date(ngaysinh);
         const age = today.getFullYear() - dob.getFullYear();
@@ -160,8 +159,6 @@ if (!emailPattern.test(email)) {
     return;
 }
 
-
-        
 
         if (dob > today) {
             document.getElementById('errorMessage').textContent = 'Ngày sinh không được là ngày trong tương lai';

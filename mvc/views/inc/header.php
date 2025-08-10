@@ -58,9 +58,9 @@
         </div>
       </div>
       <!-- END Theme Dropdown -->
-    </div>
+</div>
       <div class="flex-grow-1 text-center">
-      <a class="text-decoration-none" style="color: teal; font-size: 18px; font-weight: bold;">
+      <a class="text-decoration-none" style="color: #191970; font-size: 18px; font-weight: bold;">
         <i class="fa fa-graduation-cap fa-sm me-1"></i>
         DHT Ontest - Website tạo và quản lý bài thi cá nhân hóa
       </a>

@@ -110,10 +110,10 @@ class Auth extends Controller
             $confirm_password = $_POST['confirm_password'] ?? '';
 
             // Kiểm tra dữ liệu đầu vào
-            if (empty($email) || empty($id) || empty($hoten) || empty($password) || empty($confirm_password)) {
-                echo json_encode(['status' => 'error', 'message' => 'Vui lòng điền đầy đủ thông tin']);
-                return;
-            }
+            // if (empty($email) || empty($id) || empty($hoten) || empty($password) || empty($confirm_password)) {
+            //     echo json_encode(['status' => 'error', 'message' => 'Vui lòng điền đầy đủ thông tin']);
+            //     return;
+            // }
 
             // Kiểm tra định dạng email
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {

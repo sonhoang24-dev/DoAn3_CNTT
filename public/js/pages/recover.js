@@ -65,6 +65,13 @@ $("#btnRecover").on("click", function (e) {
 
   if ($(".js-validation-reminder").valid()) {
     let mail = $("#reminder-credential").val();
+    localStorage.setItem("otpEmail", mail);
+
+    // Hiển thị trạng thái loading
+    let $btn = $(this);
+    $btn
+      .prop("disabled", true)
+      .html('<i class="fa fa-spinner fa-spin me-1"></i> Đang xác minh');
 
     $.ajax({
       type: "post",
@@ -72,7 +79,6 @@ $("#btnRecover").on("click", function (e) {
       data: { "reminder-credential": mail },
       dataType: "json",
       success: function (response) {
-        console.log(response);
         if (response.status === "success") {
           Dashmix.helpers("jq-notify", {
             type: "success",
@@ -97,6 +103,10 @@ $("#btnRecover").on("click", function (e) {
           icon: "fa fa-exclamation-circle me-1",
           message: "Không thể gửi yêu cầu. Vui lòng thử lại.",
         });
+      },
+      complete: function () {
+        // Tắt loading
+        $btn.prop("disabled", false).html("Khôi phục mật khẩu");
       },
     });
   }

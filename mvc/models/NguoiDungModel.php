@@ -8,7 +8,7 @@ class NguoiDungModel extends DB
         $email = mysqli_real_escape_string($this->con, $email);
         $hoten = mysqli_real_escape_string($this->con, $hoten);
         $gioitinh = $gioitinh !== null ? (int)$gioitinh : 'NULL';
-        $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '1990-01-01');
+        $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '2004-01-01');
         $sodienthoai = $sodienthoai !== null ? (int)$sodienthoai : 'NULL';
         $password = password_hash($password, PASSWORD_DEFAULT);
         $ngaythamgia = date('Y-m-d'); // Mặc định là ngày hiện tại
@@ -35,7 +35,7 @@ class NguoiDungModel extends DB
         $email = mysqli_real_escape_string($this->con, $email);
         $hoten = mysqli_real_escape_string($this->con, $hoten);
         $gioitinh = $gioitinh !== null ? (int)$gioitinh : 'NULL';
-        $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '1990-01-01');
+        $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '2004-01-01');
         $sodienthoai = $sodienthoai !== null ? (int)$sodienthoai : 'NULL';
         $trangthai = (int)$trangthai;
         $manhomquyen = (int)$manhomquyen;
@@ -53,7 +53,7 @@ class NguoiDungModel extends DB
         $email = mysqli_real_escape_string($this->con, $email);
         $hoten = mysqli_real_escape_string($this->con, $hoten);
         $gioitinh = $gioitinh !== null ? (int)$gioitinh : 'NULL';
-        $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '1990-01-01');
+        $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '2004-01-01');
 
         $sql = "UPDATE `nguoidung` SET `email`='$email', `hoten`='$hoten', `gioitinh`=$gioitinh, `ngaysinh`='$ngaysinh' WHERE `id`='$id'";
         $result = mysqli_query($this->con, $sql);
@@ -91,11 +91,12 @@ public function getById($id)
 {
     $sql = "SELECT * FROM nguoidung WHERE id = ?";
     $stmt = $this->con->prepare($sql);
-    $stmt->bind_param("i", $id); // dùng kiểu số nguyên
+    $stmt->bind_param("s", $id); // dùng string thay vì integer
     $stmt->execute();
     $result = $stmt->get_result();
     return $result ? $result->fetch_assoc() : false;
 }
+
 
     public function getByEmail($email)
     {

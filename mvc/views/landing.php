@@ -91,7 +91,7 @@ $data["Title"] = " DHT ONTEST";
             <div class="bg-light text-center py-6 position-relative" style="background: linear-gradient(135deg, #f0f4f8 0%, #e0e7f7 100%);">
                 <div class="container py-5">
                     <h1 class="fw-bold fs-1 mb-4 text-dark">DHT ONTEST - Hệ thống tạo và quản lý bài thi cá nhân hóa</h1>
-                    <p class="lead text-muted mb-5">Hỗ trợ tạo và quản lý ngân hàng câu hỏi, đề thi trắc nghiệm, bài giảng, tổ chức thi online và giao bài tập trên mọi nền tảng.</p>
+                    <p class="lead text-muted mb-5">Hỗ trợ tạo và quản lý ngân hàng câu hỏi, đề thi trắc nghiệm, tổ chức thi online và giao bài tập trên nền tảng website.</p>
                     <a class="btn btn-primary btn-lg m-2 btn-custom" href="auth/signin">Tham gia ngay</a>
                     <a class="btn btn-outline-primary btn-lg m-2 btn-custom" href="#section--1">Tìm hiểu thêm</a>
                 </div>
@@ -146,7 +146,7 @@ $data["Title"] = " DHT ONTEST";
                     <div class="row g-4">
                         <div class="col-md-4">
                             <div class="card h-100 text-center p-4 shadow-sm border-0 rounded-4 team-card animated">
-                                <img class="card-img-top rounded-circle mx-auto mb-3" src="https://cdn-icons-png.flaticon.com/512/3781/3781986.png?size=460" alt="Phạm Sơn Hoàng" style="width: 180px; height: 180px; object-fit: cover;">
+                                <img class="card-img-top rounded-circle mx-auto mb-3" src="https://static.vecteezy.com/system/resources/previews/043/900/708/non_2x/user-profile-icon-illustration-vector.jpg?size=460" alt="Phạm Sơn Hoàng" style="width: 180px; height: 180px; object-fit: cover;">
                                 <div class="card-body">
                                     <h5 class="card-title fw-bold">Phạm Sơn Hoàng</h5>
                                     <p class="card-text text-muted">Mã SV: CNTT2211056</p>
