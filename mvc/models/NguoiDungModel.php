@@ -135,8 +135,6 @@ public function changePassword($id, $new_password_hashed)
     }
 }
 
-
-
     public function checkPassword($id, $password)
     {
         $user = $this->getById($id);
@@ -286,6 +284,7 @@ public function changePassword($id, $new_password_hashed)
         }
         return $check;
     }
+    
     public function addFileGroup($data, $pass, $group)
     {
         $success = [];

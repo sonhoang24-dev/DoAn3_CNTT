@@ -482,7 +482,7 @@ class NhomModel extends DB
     public function addSV($mssv, $hoten, $password)
     {
         $password = password_hash($password, PASSWORD_DEFAULT);
-        $sql = "INSERT INTO `nguoidung`(`id`,`hoten`,`matkhau`,`trangthai`, `manhomquyen`) VALUES ('$mssv','$hoten','$password','1', '11')";
+        $sql = "INSERT INTO `nguoidung`(`id`,`hoten`,`matkhau`,`trangthai`, `manhomquyen`) VALUES ('$mssv','$hoten','$password','1', '2')";
         $check = true;
         $result = mysqli_query($this->con, $sql);
         if (!$result) {

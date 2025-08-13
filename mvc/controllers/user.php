@@ -180,7 +180,7 @@ class User extends Controller
             $LastColumn = $sheet->getHighestColumn();
             $TotalCol = PHPExcel_Cell::columnIndexFromString($LastColumn);
             $data = [];
-            for ($i = 3; $i <= $Totalrow; $i++) {
+            for ($i = 3; $i <= $Totalrow; $i++) { //bỏ qua 2 dòng đầu
                 $fullname = "";
                 $email = "";
                 $mssv = "";

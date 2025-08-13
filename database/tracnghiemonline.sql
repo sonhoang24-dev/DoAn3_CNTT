@@ -2702,7 +2702,8 @@ CREATE TABLE `thongbao` (
   `matb` int(11) NOT NULL,
   `noidung` varchar(255) DEFAULT NULL,
   `thoigiantao` datetime DEFAULT NULL,
-  `nguoitao` varchar(50) NOT NULL DEFAULT ''
+  `nguoitao`varchar(50) NOT NULL DEFAULT '',
+  `is_auto` TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

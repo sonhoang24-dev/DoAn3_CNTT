@@ -1,5 +1,21 @@
 function showData(data) {
   let html = "";
+  let now = new Date();
+  let start = new Date(Element["thoigianbatdau"]);
+  let end = new Date(Element["thoigianketthuc"]);
+  let statusText = "";
+
+  if (!Element["thoigianvaothi"]) {
+    if (now > end) {
+      statusText = "(Vắng thi)";
+    } else if (now >= start && now <= end) {
+      statusText = "(Chưa thi)";
+    } else {
+      statusText = "(Chưa tới giờ thi)";
+    }
+  } else {
+    statusText = Element["thoigianvaothi"];
+  }
   data.forEach((Element) => {
     var totalSeconds = Element["thoigianlambai"] || 0;
     var hours = Math.floor(totalSeconds / 3600);
@@ -29,7 +45,9 @@ function showData(data) {
                 }</span>
             </div>
         </td>
-        <td class="text-center">${Element["diemthi"] || "(Chưa nộp bài)"}</td>
+<td class="text-center">
+  ${Element["diemthi"] ?? "(Chưa nộp bài)"}
+</td>
         <td class="text-center">${
           Element["thoigianvaothi"] || "(Vắng thi)"
         }</td>

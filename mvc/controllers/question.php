@@ -166,36 +166,43 @@ class Question extends Controller
             }
         }
     }
-
-
     public function addQuesFile()
-    {
-        if (AuthCore::checkPermission("cauhoi", "create")) {
-            if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                $nguoitao = $_SESSION['user_id'];
-                $monhoc = $_POST['monhoc'];
-                $chuong = $_POST['chuong'];
-                $questions = $_POST["questions"];
-                foreach ($questions as $question) {
-                    $level = $question['level'];
-                    $noidung = $question['question'];
-                    $answer = $question['answer'];
-                    $options = $question['option'];
-                    $result = $this->cauHoiModel->create($noidung, $level, $monhoc, $chuong, $nguoitao);
-                    $macauhoi = mysqli_insert_id($result);
-                    $index = 1;
-                    foreach ($options as $option) {
-                        $check = 0;
-                        if ($index == $answer) {
-                            $check = 1;
-                        }
-                        $this->cauTraLoiModel->create($macauhoi, $option, $check);
-                        $index++;
-                    }
+{
+    if (AuthCore::checkPermission("cauhoi", "create")) {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $nguoitao = $_SESSION['user_id'];
+            $monhoc   = $_POST['monhoc'];
+            $chuong   = $_POST['chuong'];
+            $questions = $_POST["questions"];
+
+            foreach ($questions as $question) {
+                $level   = (int)$question['level']; // dùng luôn từ request
+                $noidung = $question['question'];
+                $answer  = (int)$question['answer']; // 1-4
+                $options = $question['option'];
+
+                // Thêm câu hỏi và lấy ID
+                $macauhoi = $this->cauHoiModel->create($noidung, $level, $monhoc, $chuong, $nguoitao);
+                if (!$macauhoi) {
+                    continue; // insert lỗi thì bỏ qua
+                }
+
+                // Thêm đáp án
+                $index = 1;
+                foreach ($options as $option) {
+                    $check = ($index == $answer) ? 1 : 0;
+                    $this->cauTraLoiModel->create($macauhoi, $option, $check);
+                    $index++;
                 }
             }
+
+            echo json_encode([
+                'status' => 'success',
+                'inserted' => count($questions)
+            ]);
         }
     }
+}
 
 
     public function getQuestion()
