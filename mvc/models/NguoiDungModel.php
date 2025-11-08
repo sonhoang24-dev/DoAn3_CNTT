@@ -209,22 +209,41 @@ public function changePassword($id, $new_password_hashed)
     }
 
     public function validateToken($token)
-    {
-        $token = mysqli_real_escape_string($this->con, $token);
-        $sql = "SELECT * FROM `nguoidung` WHERE `token`='$token'";
-        $result = mysqli_query($this->con, $sql);
-        if ($result && mysqli_num_rows($result) > 0) {
-            $row = mysqli_fetch_assoc($result);
-            $_SESSION['user_id'] = $row['id'];
-            $_SESSION['user_email'] = $row['email'];
-            $_SESSION['user_name'] = $row['hoten'];
-            $_SESSION['avatar'] = $row['avatar'];
-            $_SESSION['user_role'] = $row['manhomquyen'];
+{
+    if (empty($token)) return false;
+
+    // Chuẩn hóa token để tránh SQL injection
+    $token = mysqli_real_escape_string($this->con, $token);
+    $sql = "SELECT * FROM `nguoidung` WHERE `token`='$token' LIMIT 1";
+    $result = mysqli_query($this->con, $sql);
+
+    if ($result && mysqli_num_rows($result) > 0) {
+        $row = mysqli_fetch_assoc($result);
+
+        // Kiểm tra xem $row có dữ liệu hợp lệ
+        if (!$row) return false;
+
+        $_SESSION['user_id'] = $row['id'] ?? null;
+        $_SESSION['user_email'] = $row['email'] ?? null;
+        $_SESSION['user_name'] = $row['hoten'] ?? null;
+        $_SESSION['avatar'] = $row['avatar'] ?? null;
+
+        // Chỉ lấy role nếu manhomquyen tồn tại
+        if (isset($row['manhomquyen'])) {
+            $_SESSION['user_permission_group'] = $row['manhomquyen'];
             $_SESSION['user_role'] = $this->getRole($row['manhomquyen']);
-            return true;
+            $_SESSION['is_admin'] = ($row['manhomquyen'] == 3);
+        } else {
+            $_SESSION['user_role'] = null;
+            $_SESSION['is_admin'] = false;
         }
-        return false;
+
+        return true;
     }
+
+    return false;
+}
+
 
     public function getRole($manhomquyen)
     {

@@ -3,16 +3,25 @@
 class PhanCongModel extends DB
 {
     public function getGiangVien()
-    {
-        $sql = "SELECT ng.id,ng.manhomquyen,ng.hoten FROM nguoidung ng join chitietquyen ctq on ng.manhomquyen = ctq.manhomquyen where ctq.chucnang = 'cauhoi' OR ctq.chucnang = 'monhoc' OR ctq.chucnang='hocphan' OR ctq.chucnang = 'chuong' GROUP BY ng.id";
-        $result = mysqli_query($this->con, $sql);
-        $rows = array();
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row;
-        }
-        return $rows;
+{
+    $sql = "SELECT ng.id, ng.manhomquyen, ng.hoten 
+            FROM nguoidung ng 
+            WHERE EXISTS (
+                SELECT 1 
+                FROM chitietquyen ctq 
+                WHERE ctq.manhomquyen = ng.manhomquyen 
+                  AND ctq.chucnang IN ('cauhoi', 'monhoc', 'hocphan', 'chuong')
+            )
+            AND ng.manhomquyen != 3 
+            GROUP BY ng.id";
+    
+    $result = mysqli_query($this->con, $sql);
+    $rows = array();
+    while ($row = mysqli_fetch_assoc($result)) {
+        $rows[] = $row;
     }
-
+    return $rows;
+}
     public function getMonHoc()
     {
         $sql = "SELECT * FROM `monhoc`";
