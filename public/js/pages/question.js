@@ -120,6 +120,9 @@ function showData(data) {
 $(document).ready(function () {
   let options = [];
   $(".js-select2").select2();
+    $("#loai-cau-hoi").select2({
+      dropdownParent: $("#modal-add-question"),
+    });
   $("#mon-hoc").select2({
     dropdownParent: $("#modal-add-question"),
   });
@@ -143,6 +146,26 @@ $(document).ready(function () {
   $("[data-bs-target='#add_option']").on("click", function () {
     $("#update-option").hide();
     $("#save-option").show();
+  });
+
+  // Toggle between MCQ and Essay
+  function toggleQuestionType(type) {
+    if (type === "essay") {
+      // hide options area
+      $("#list-options").closest('.mb-4.row').hide();
+      $("#add_option").collapse('hide');
+      $("#essay-area").show();
+    } else {
+      $("#list-options").closest('.mb-4.row').show();
+      $("#essay-area").hide();
+    }
+  }
+
+  // initial toggle based on default select
+  toggleQuestionType($("#loai-cau-hoi").val());
+
+  $(document).on('change', '#loai-cau-hoi', function() {
+    toggleQuestionType($(this).val());
   });
 
   $("#save-option").click(function (e) {
@@ -438,14 +461,22 @@ $(document).ready(function () {
     if ($("#form_add_question").valid()) {
       let ch = CKEDITOR.instances["js-ckeditor"].getData().length == 0;
       if (ch == "") {
-        if (options.length == 0) {
+        // if essay type, allow no options and use essay-answer as single item
+        let qtype = $("#loai-cau-hoi").val();
+        if (qtype === 'essay') {
+          // create one non-correct answer with essay content (can be empty)
+          let essayContent = $("#essay-answer").val() || "";
+          options = [{ content: essayContent, check: false }];
+        }
+
+        if (qtype !== 'essay' && options.length == 0) {
           Dashmix.helpers("jq-notify", {
             type: "danger",
             icon: "fa fa-times me-1",
             message: "Vui lòng thêm câu trả lời!",
           });
         } else {
-          if (!checkSOption(options)) {
+          if (qtype !== 'essay' && !checkSOption(options)) {
             Dashmix.helpers("jq-notify", {
               type: "danger",
               icon: "fa fa-times me-1",
@@ -464,6 +495,7 @@ $(document).ready(function () {
                 machuong: machuong,
                 dokho: dokho,
                 noidung: noidung,
+                loai: qtype,
                 cautraloi: JSON.stringify(options),
               },
               success: function (response) {
@@ -516,6 +548,8 @@ $(document).ready(function () {
     options = [];
     $("#add_option").collapse("hide");
     $("#list-options").html("");
+    $("#loai-cau-hoi").val('mcq').trigger('change');
+    $("#essay-answer").val('');
     $("#file-cau-hoi").val(null);
     $("#btabs-alt-static-home-tab").tab("show");
     $("#content-file").html("");
@@ -565,13 +599,19 @@ $(document).ready(function () {
     let noidung = CKEDITOR.instances["js-ckeditor"].getData();
     let cautraloi = options;
     let id = $("#question_id").val();
+    let qtype = $("#loai-cau-hoi").val();
+    // if essay, allow single non-correct answer payload
+    if (qtype === 'essay') {
+      let essayContent = $("#essay-answer").val() || "";
+      cautraloi = [{ content: essayContent, check: false }];
+    }
+
     if (
       mamonhoc != "" &&
       machuong != "" &&
       dokho != "" &&
       noidung != "" &&
-      cautraloi.length > 1 &&
-      checkSOption(options) == true
+      (qtype === 'essay' || (cautraloi.length > 0 && checkSOption(options) == true))
     ) {
       $.ajax({
         type: "post",
@@ -582,7 +622,8 @@ $(document).ready(function () {
           machuong: machuong,
           dokho: dokho,
           noidung: noidung,
-          cautraloi: options,
+          loai: qtype,
+          cautraloi: cautraloi,
         },
         success: function (response) {
           Dashmix.helpers("jq-notify", {
@@ -681,14 +722,26 @@ $(document).ready(function () {
       success: function (response) {
         options = [];
         let data = response;
-        data.forEach((option_get) => {
-          let option = {
-            content: option_get["noidungtl"],
-            check: option_get["ladapan"] == 1 ? true : false,
-          };
-          options.push(option);
-        });
-        showOptions(options);
+        // Detect essay: single answer which is not marked as correct
+        if (Array.isArray(data) && data.length === 1 && data[0].ladapan == 0) {
+          // treat as essay
+          $("#loai-cau-hoi").val('essay').trigger('change');
+          $("#essay-answer").val(data[0].noidungtl);
+          // keep options empty
+          options = [];
+          $("#list-options").html("");
+        } else {
+          // treat as MCQ
+          $("#loai-cau-hoi").val('mcq').trigger('change');
+          data.forEach((option_get) => {
+            let option = {
+              content: option_get["noidungtl"],
+              check: option_get["ladapan"] == 1 ? true : false,
+            };
+            options.push(option);
+          });
+          showOptions(options);
+        }
       },
     });
   }

@@ -118,6 +118,13 @@
                                             <option value="3">Nâng cao</option>
                                         </select>
                                     </div>
+                                    <div class="col-4">
+                                        <label class="form-label">Loại câu hỏi</label>
+                                        <select class="js-select2 form-select" id="loai-cau-hoi" name="loai-cau-hoi" style="width:100%;" data-placeholder="Chọn loại..">
+                                            <option value="mcq">Trắc nghiệm</option>
+                                            <option value="essay">Tự luận</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div class="mb-4">
@@ -156,6 +163,12 @@
                                         </p>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="mb-4" id="essay-area" style="display:none;">
+                                <label class="form-label" for="essay-answer">Gợi ý đáp án (tự luận)</label>
+                                <textarea class="form-control" id="essay-answer" name="essay-answer" rows="4"
+                                    placeholder="(Tuỳ chọn) Nhập gợi ý hoặc đáp án mẫu cho câu hỏi tự luận"></textarea>
+                                <small class="text-muted">Phần này chỉ dành cho câu hỏi tự luận. Nếu để trống, hệ thống sẽ lưu câu hỏi không có đáp án mẫu.</small>
                             </div>
                             <div class="mb-4">
                                 <button type="submit" class="btn btn-alt-primary" id="add_question"><i

@@ -2,15 +2,16 @@
 
 class CauHoiModel extends DB
 {
-    public function create($noidung, $dokho, $mamonhoc, $machuong, $nguoitao)
+    public function create($noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai = 'mcq')
     {
-        $sql = "INSERT INTO `cauhoi` (`noidung`, `dokho`, `mamonhoc`, `machuong`, `nguoitao`) VALUES (?, ?, ?, ?, ?)";
+        // Note: the `cauhoi` table must have a `loai` column (varchar) to store question type.
+        $sql = "INSERT INTO `cauhoi` (`noidung`, `dokho`, `mamonhoc`, `machuong`, `nguoitao`, `loai`) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = mysqli_prepare($this->con, $sql);
         if ($stmt === false) {
             die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
         }
 
-        mysqli_stmt_bind_param($stmt, "sisss", $noidung, $dokho, $mamonhoc, $machuong, $nguoitao);
+        mysqli_stmt_bind_param($stmt, "sissss", $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai);
         $result = mysqli_stmt_execute($stmt);
 
         if ($result) {
@@ -24,14 +25,15 @@ class CauHoiModel extends DB
     }
 
 
-    public function update($macauhoi, $noidung, $dokho, $mamonhoc, $machuong, $nguoitao)
+    public function update($macauhoi, $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai = 'mcq')
     {
-        $sql = "UPDATE `cauhoi` SET `noidung`=?, `dokho`=?, `mamonhoc`=?, `machuong`=?, `nguoitao`=? WHERE `macauhoi`=?";
+        // Update includes `loai` so question type can be changed
+        $sql = "UPDATE `cauhoi` SET `noidung`=?, `dokho`=?, `mamonhoc`=?, `machuong`=?, `nguoitao`=?, `loai`=? WHERE `macauhoi`=?";
         $stmt = mysqli_prepare($this->con, $sql);
         if ($stmt === false) {
             die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
         }
-        mysqli_stmt_bind_param($stmt, "sisssi", $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $macauhoi);
+        mysqli_stmt_bind_param($stmt, "sissssi", $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $macauhoi);
         $result = mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
         return $result;

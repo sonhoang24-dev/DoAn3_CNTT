@@ -135,12 +135,13 @@ class Question extends Controller
                 $machuong = $_POST['machuong'];
                 $dokho = $_POST['dokho'];
                 $noidung = strip_tags($_POST['noidung']);
+                $loai = isset($_POST['loai']) ? $_POST['loai'] : 'mcq';
                 $cautraloi_json = $_POST['cautraloi'];
                 $cautraloi = json_decode($cautraloi_json, true);
                 $nguoitao = $_SESSION['user_id'];
 
                 // Tạo câu hỏi và lấy mã câu hỏi mới
-                $macauhoi = $this->cauHoiModel->create($noidung, $dokho, $mamon, $machuong, $nguoitao);
+                $macauhoi = $this->cauHoiModel->create($noidung, $dokho, $mamon, $machuong, $nguoitao, $loai);
 
                 if ($macauhoi) {
                     // Tạo từng câu trả lời
@@ -167,42 +168,42 @@ class Question extends Controller
         }
     }
     public function addQuesFile()
-    {
-        if (AuthCore::checkPermission("cauhoi", "create")) {
-            if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                $nguoitao = $_SESSION['user_id'];
-                $monhoc   = $_POST['monhoc'];
-                $chuong   = $_POST['chuong'];
-                $questions = $_POST["questions"];
+{
+    if (AuthCore::checkPermission("cauhoi", "create")) {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $nguoitao = $_SESSION['user_id'];
+            $monhoc   = $_POST['monhoc'];
+            $chuong   = $_POST['chuong'];
+            $questions = $_POST["questions"];
 
-                foreach ($questions as $question) {
-                    $level   = (int)$question['level']; // dùng luôn từ request
-                    $noidung = $question['question'];
-                    $answer  = (int)$question['answer']; // 1-4
-                    $options = $question['option'];
+            foreach ($questions as $question) {
+                $level   = (int)$question['level']; // dùng luôn từ request
+                $noidung = $question['question'];
+                $answer  = (int)$question['answer']; // 1-4
+                $options = $question['option'];
 
-                    // Thêm câu hỏi và lấy ID
-                    $macauhoi = $this->cauHoiModel->create($noidung, $level, $monhoc, $chuong, $nguoitao);
-                    if (!$macauhoi) {
-                        continue; // insert lỗi thì bỏ qua
-                    }
-
-                    // Thêm đáp án
-                    $index = 1;
-                    foreach ($options as $option) {
-                        $check = ($index == $answer) ? 1 : 0;
-                        $this->cauTraLoiModel->create($macauhoi, $option, $check);
-                        $index++;
-                    }
+                // Thêm câu hỏi và lấy ID (file import assumed MCQ)
+                $macauhoi = $this->cauHoiModel->create($noidung, $level, $monhoc, $chuong, $nguoitao, 'mcq');
+                if (!$macauhoi) {
+                    continue; // insert lỗi thì bỏ qua
                 }
 
-                echo json_encode([
-                    'status' => 'success',
-                    'inserted' => count($questions)
-                ]);
+                // Thêm đáp án
+                $index = 1;
+                foreach ($options as $option) {
+                    $check = ($index == $answer) ? 1 : 0;
+                    $this->cauTraLoiModel->create($macauhoi, $option, $check);
+                    $index++;
+                }
             }
+
+            echo json_encode([
+                'status' => 'success',
+                'inserted' => count($questions)
+            ]);
         }
     }
+}
 
 
     public function getQuestion()
@@ -258,6 +259,7 @@ class Question extends Controller
             $dokho      = $_POST['dokho'] ?? null;
             $nguoitao   = $_SESSION['user_id'];
             $noidungRaw = $_POST['noidung'] ?? '';
+            $loai = $_POST['loai'] ?? 'mcq';
             $cautraloi  = $_POST['cautraloi'] ?? [];
 
             // Loại bỏ thẻ HTML trong nội dung câu hỏi
@@ -285,7 +287,7 @@ class Question extends Controller
             }
 
             // Cập nhật câu hỏi
-            $result = $this->cauHoiModel->update($id, $noidung, $dokho, $mamon, $machuong, $nguoitao);
+            $result = $this->cauHoiModel->update($id, $noidung, $dokho, $mamon, $machuong, $nguoitao, $loai);
 
             if ($result) {
                 // Xoá đáp án cũ và thêm mới
@@ -360,3 +362,4 @@ class Question extends Controller
         }
     }
 }
+
