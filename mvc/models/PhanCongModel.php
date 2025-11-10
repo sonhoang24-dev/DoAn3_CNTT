@@ -3,8 +3,8 @@
 class PhanCongModel extends DB
 {
     public function getGiangVien()
-{
-    $sql = "SELECT ng.id, ng.manhomquyen, ng.hoten 
+    {
+        $sql = "SELECT ng.id, ng.manhomquyen, ng.hoten 
             FROM nguoidung ng 
             WHERE EXISTS (
                 SELECT 1 
@@ -14,14 +14,14 @@ class PhanCongModel extends DB
             )
             AND ng.manhomquyen != 3 
             GROUP BY ng.id";
-    
-    $result = mysqli_query($this->con, $sql);
-    $rows = array();
-    while ($row = mysqli_fetch_assoc($result)) {
-        $rows[] = $row;
+
+        $result = mysqli_query($this->con, $sql);
+        $rows = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $rows[] = $row;
+        }
+        return $rows;
     }
-    return $rows;
-}
     public function getMonHoc()
     {
         $sql = "SELECT * FROM `monhoc`";
@@ -72,6 +72,19 @@ class PhanCongModel extends DB
         error_log("getAssignmentByUser result: " . json_encode($rows));
         return $rows;
     }
+    public function update($old_mamonhoc, $old_manguoidung, $new_mamonhoc, $new_manguoidung)
+{
+    $sql = "UPDATE phancong 
+            SET mamonhoc = ?, manguoidung = ? 
+            WHERE mamonhoc = ? AND manguoidung = ?";
+    
+    $stmt = mysqli_prepare($this->con, $sql);
+    mysqli_stmt_bind_param($stmt, "ssss", $new_mamonhoc, $new_manguoidung, $old_mamonhoc, $old_manguoidung);
+    $result = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    
+    return $result; // true/false
+}
     public function delete($mamon, $id)
     {
         $sql = "DELETE FROM `phancong` WHERE mamonhoc = '$mamon' and manguoidung = '$id'";
@@ -86,8 +99,7 @@ class PhanCongModel extends DB
         return $result;
     }
 
-    public function getQuery($filter, $input, $args)
-    {
+      public function getQuery($filter, $input, $args) {
         if (isset($args["custom"]["function"])) {
             $func = $args["custom"]["function"];
             switch ($func) {

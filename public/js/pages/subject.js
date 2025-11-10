@@ -99,7 +99,7 @@ function showData(subjects) {
 
           <a
             href="javascript:void(0)"
-            class="btn btn-sm btn-alt-secondary btn-edit-subject"
+            class="btn btn-sm btn-alt-warning btn-edit"
             data-role="monhoc"
             data-action="update"
             data-id="${subject.mamonhoc}"
@@ -107,12 +107,12 @@ function showData(subjects) {
             data-bs-original-title="Sửa môn học"
             aria-label="Sửa môn học"
           >
-            <i class="fa fa-fw fa-pencil"></i>
+            <i class="fa fa-edit"></i>
           </a>
 
           <a
             href="javascript:void(0)"
-            class="btn btn-sm btn-alt-secondary btn-delete-subject"
+            class="btn btn-sm btn-alt-danger btn-delete"
             data-role="monhoc"
             data-action="delete"
             data-id="${subject.mamonhoc}"
@@ -120,7 +120,7 @@ function showData(subjects) {
             data-bs-original-title="Xoá môn học"
             aria-label="Xoá môn học"
           >
-            <i class="fa fa-fw fa-times"></i>
+            <i class="fa fa-trash"></i>
           </a>
         </td>
       </tr>

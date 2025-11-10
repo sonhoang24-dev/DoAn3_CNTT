@@ -23,46 +23,66 @@ Dashmix.onLoad(() =>
   }.init()
 );
 
-// Store assigned (checked) subjects while modal is opening
 let subject = new Set();
-
 function showAssignment(data) {
-  if (data.length === 0) {
-    $("#listAssignment").html("");
-    $('[data-bs-toggle="tooltip"]').tooltip();
+  if (!data || data.length === 0) {
+    $("#listAssignment").html(
+      '<tr><td colspan="5" class="text-center text-muted py-4">Chưa có phân công nào</td></tr>'
+    );
+    // Hủy tooltip cũ nếu có
+    $('[data-bs-toggle="tooltip"]').tooltip("dispose");
     return;
   }
 
   let html = "";
-  let index = 1; // Khởi tạo lại mỗi lần gọi
-  let limit = this.option?.limit || 5;
-  let curPage = this.valuePage?.curPage || 1;
-  let offset = (curPage - 1) * limit;
+  const limit = this.option?.limit || 10;
+  const curPage = this.valuePage?.curPage || 1;
+  const offset = (curPage - 1) * limit;
 
-  data.forEach((element) => {
-    html += `<tr>
-            <td class="text-center fs-sm">
-                <a class="fw-semibold" href="#">
-                    <strong>${offset + index}</strong>
-                </a>
-            </td>
-            <td>${element["hoten"] || ""}</td>
-            <td class="text-center">${element["mamonhoc"] || ""}</td>
-            <td><a class="fw-semibold">${element["tenmonhoc"] || ""}</a></td>
-            <td class="text-center col-action">
-                <a data-role="phancong" data-action="delete" 
-                   class="btn btn-sm btn-alt-secondary btn-delete-assignment" 
-                   data-bs-toggle="tooltip" aria-label="Delete" 
-                   data-bs-original-title="Delete" 
-                   data-id="${element["manguoidung"]}">
-                    <i class="fa fa-fw fa-times"></i>
-                </a>
-            </td>
-        </tr>`;
-    index++; // Tăng sau khi dùng
+  data.forEach((el, idx) => {
+    const stt = offset + idx + 1;
+    const assignment_id = el.assignment_id || el.id || "";
+    const giangvien_id = el.manguoidung || el.giangvien_id || "";
+    const monhoc_code = el.mamonhoc || "";
+    const hoten = el.hoten ? $("<div>").text(el.hoten).html() : "";
+    const tenmonhoc = el.tenmonhoc ? $("<div>").text(el.tenmonhoc).html() : "";
+
+    html += `
+      <tr>
+        <td class="text-center"><strong>${stt}</strong></td>
+        <td class="fw-semibold">${hoten}</td>
+        <td class="text-center">${$("<div>").text(monhoc_code).html()}</td>
+        <td>${tenmonhoc}</td>
+        <td class="text-center col-action">
+          <!-- Nút chỉnh sửa -->
+          <a href="javascript:void(0)"
+             class="btn btn-sm btn-alt-warning btn-edit btn-edit-assignment me-1"
+             data-bs-toggle="tooltip"
+             data-bs-placement="top"
+             title="Chỉnh sửa"
+             data-id="${assignment_id}"
+             data-giangvien="${giangvien_id}"
+             data-monhoc="${monhoc_code}">
+            <i class="fa fa-edit"></i>
+          </a>
+
+          <!-- Nút xóa -->
+          <a href="javascript:void(0)"
+             class="btn btn-sm btn-alt-danger btn-delete btn-delete-assignment"
+             data-bs-toggle="tooltip"
+             data-bs-placement="top"
+             title="Xóa"
+             data-id="${giangvien_id}"
+             data-mamon="${monhoc_code}">
+            <i class="fa fa-trash"></i>
+          </a>
+        </td>
+      </tr>`;
   });
 
   $("#listAssignment").html(html);
+
+  // Khởi tạo tooltip sau khi render
   $('[data-bs-toggle="tooltip"]').tooltip();
 }
 
@@ -103,23 +123,43 @@ $(document).ready(function () {
     dropdownParent: $("#modal-add-assignment"),
   });
 
+  $("#modal-default-vcenter").on("shown.bs.modal", function () {
+    $("#edit-giang-vien, #edit-mon-hoc").select2({
+      dropdownParent: $("#modal-default-vcenter"),
+    });
+  });
+
   $.get(
     "./assignment/getGiangVien",
     function (data) {
       let html = "<option></option>";
-      data.forEach((element) => {
-        html += `<option value="${element["id"]}">${element["hoten"]}</option>`;
+      data.forEach((el) => {
+        html += `<option value="${el["id"]}">${el["hoten"]}</option>`;
       });
       $("#giang-vien").html(html);
+      $("#edit-giang-vien").html(html);
+    },
+    "json"
+  );
+
+  $.get(
+    "./assignment/getMonHoc",
+    function (data) {
+      let html = "<option></option>";
+      data.forEach((el) => {
+        html += `<option value="${el["mamonhoc"]}">${el["tenmonhoc"]}</option>`;
+      });
+      $("#edit-mon-hoc").html(html);
     },
     "json"
   );
 
   $("#add_assignment").click(function () {
     $("#giang-vien").val("").trigger("change");
+    subject.clear();
     modalAddAssignmentPagination.getPagination(
       modalAddAssignmentPagination.option,
-      modalAddAssignmentPagination.valuePage.curPage
+      1
     );
   });
 
@@ -132,179 +172,159 @@ $(document).ready(function () {
       let giangvien = $("#giang-vien").val();
       if (subject.size === 0) {
         deleteAssignmentUser(giangvien);
-        mainPagePagination.getPagination(
-          mainPagePagination.option,
-          mainPagePagination.valuePage.curPage
-        );
         $("#modal-add-assignment").modal("hide");
         Dashmix.helpers("jq-notify", {
           type: "success",
-          icon: "fa fa-check me-1",
           message: "Phân công thành công! :)",
         });
       } else {
         clearAllAndAddAssignmentUser(giangvien, [...subject]);
       }
+      mainPagePagination.getPagination(
+        mainPagePagination.option,
+        mainPagePagination.valuePage.curPage
+      );
     }
   });
 
-  $(document).on("change", "#giang-vien", function (e) {
-    let giangvien = $("#giang-vien").val();
-    $.ajax({
-      type: "post",
-      url: "./assignment/getAssignmentByUser",
-      data: {
-        id: giangvien,
-      },
-      dataType: "json",
-      success: function (response) {
-        subject = new Set(response.map((el) => el.mamonhoc));
-        modalAddAssignmentPagination.valuePage.curPage = 1;
+  $(document).on("change", "#giang-vien", function () {
+    let giangvien = $(this).val();
+    $.post(
+      "./assignment/getAssignmentByUser",
+      { id: giangvien },
+      function (res) {
+        subject = new Set(res.map((el) => el.mamonhoc));
         modalAddAssignmentPagination.getPagination(
           modalAddAssignmentPagination.option,
-          modalAddAssignmentPagination.valuePage.curPage
+          1
         );
       },
-      error: function (err) {
-        console.error(err.responseText);
-      },
-    });
+      "json"
+    );
   });
 
-  $("#list-subject").click(function (e) {
-    if (!e.target.closest('input[type=checkbox][name="selectSubject"]')) {
-      return;
-    }
-    const el = e.target;
-    const mamonhoc = el.value;
-    if (el.checked) {
-      subject.add(mamonhoc);
-      el.setAttribute("checked", "checked");
-    } else {
-      subject.delete(mamonhoc);
-      el.removeAttribute("checked");
-    }
+  $("#list-subject").on("click", "input[type=checkbox]", function () {
+    const val = $(this).val();
+    if ($(this).is(":checked")) subject.add(val);
+    else subject.delete(val);
   });
 
   function addAssignment(giangvien, listSubject) {
-    $.ajax({
-      type: "post",
-      url: "./assignment/addAssignment",
-      data: {
-        magiangvien: giangvien,
-        listSubject: listSubject,
-      },
-      dataType: "json",
-      success: function (response) {
-        if (response) {
-          $("#modal-add-assignment").modal("hide");
-          Dashmix.helpers("jq-notify", {
-            type: "success",
-            icon: "fa fa-check me-1",
-            message: "Phân công thành công! :)",
-          });
-        } else {
-          $("#modal-add-assignment").modal("hide");
-          setTimeout(function () {
-            Dashmix.helpers("jq-notify", {
-              type: "danger",
-              icon: "fa fa-times me-1",
-              message: "Phân công chưa thành công!",
-            });
-          }, 10);
-        }
+    $.post(
+      "./assignment/addAssignment",
+      { magiangvien: giangvien, listSubject: listSubject },
+      function (res) {
+        $("#modal-add-assignment").modal("hide");
+        Dashmix.helpers("jq-notify", {
+          type: res ? "success" : "danger",
+          message: res ? "Phân công thành công!" : "Lỗi!",
+        });
         mainPagePagination.getPagination(
           mainPagePagination.option,
           mainPagePagination.valuePage.curPage
         );
       },
-      error: function (err) {
-        console.error(err.responseText);
-      },
-    });
+      "json"
+    );
   }
 
   function deleteAssignmentUser(giangvien) {
-    $.ajax({
-      type: "post",
-      url: "./assignment/deleteAll",
-      data: {
-        id: giangvien,
-      },
-      success: function (response) {},
-    });
+    $.post("./assignment/deleteAll", { id: giangvien });
   }
 
   function clearAllAndAddAssignmentUser(giangvien, listSubject) {
-    $.ajax({
-      type: "post",
-      url: "./assignment/deleteAll",
-      data: {
-        id: giangvien,
-      },
-      success: function (response) {
-        addAssignment(giangvien, listSubject);
-      },
-    });
+    deleteAssignmentUser(giangvien);
+    addAssignment(giangvien, listSubject);
   }
 
-  $(document).on("click", ".btn-delete-assignment", function () {
-    let id = $(this).data("id");
-    let mamon = $(this).closest("td").closest("tr").children().eq(2).text();
-    let e = Swal.mixin({
-      buttonsStyling: !1,
-      target: "#page-container",
-      customClass: {
-        confirmButton: "btn btn-success m-1",
-        cancelButton: "btn btn-danger m-1",
-        input: "form-control",
-      },
-    });
+  // SỬA
+  $(document).on("click", ".btn-edit-assignment", function () {
+    const row = $(this).closest("tr");
+    const giangvien_id = $(this).data("giangvien");
+    const monhoc_code = $(this).data("monhoc");
 
-    e.fire({
-      title: "Are you sure?",
-      text: "Bạn có chắc chắn muốn xoá phân công?",
-      icon: "warning",
-      showCancelButton: !0,
-      customClass: {
-        confirmButton: "btn btn-danger m-1",
-        cancelButton: "btn btn-secondary m-1",
+    // Lưu tạm vào row để lấy lại khi lưu
+    row.data("old_gv", giangvien_id);
+    row.data("old_mh", monhoc_code);
+
+    $("#edit-giang-vien").val(giangvien_id).trigger("change");
+    $("#edit-mon-hoc").val(monhoc_code).trigger("change");
+    $("#modal-default-vcenter").modal("show");
+  });
+
+  $("#form-edit-assignment").submit(function (e) {
+    e.preventDefault();
+
+    // Lấy dữ liệu cũ từ row (đảm bảo chính xác)
+    const row = $("#listAssignment tr")
+      .filter(function () {
+        return $(this).data("old_gv") != undefined;
+      })
+      .first();
+
+    const old_mh = row.data("old_mh");
+    const old_gv = row.data("old_gv");
+
+    $.post(
+      "./assignment/update",
+      {
+        old_mamonhoc: old_mh,
+        old_manguoidung: old_gv,
+        mamonhoc: $("#edit-mon-hoc").val(),
+        magiangvien: $("#edit-giang-vien").val(),
       },
-      confirmButtonText: "Vâng, tôi chắc chắn!",
-      html: !1,
-      preConfirm: (e) =>
-        new Promise((e) => {
-          setTimeout(() => {
-            e();
-          }, 50);
-        }),
-    }).then((t) => {
-      if (t.value == true) {
-        $.ajax({
-          type: "post",
-          url: "./assignment/delete",
-          data: {
-            id: id,
-            mamon: mamon,
-          },
-          success: function (response) {
-            if (response) {
-              e.fire("Deleted!", "Xóa phân công thành công!", "success");
-              mainPagePagination.getPagination(
-                mainPagePagination.option,
-                mainPagePagination.valuePage.curPage
-              );
-            } else {
-              e.fire("Lỗi !", "Xoá phân công thành công !)", "error");
-            }
-          },
+      function (res) {
+        if (res.success) {
+          Dashmix.helpers("jq-notify", {
+            type: "success",
+            message: "Cập nhật phân công thành công!",
+          });
+          $("#modal-default-vcenter").modal("hide");
+          mainPagePagination.getPagination(
+            mainPagePagination.option,
+            mainPagePagination.valuePage.curPage
+          );
+        } else {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: "Cập nhật thất bại!",
+          });
+        }
+      },
+      "json"
+    );
+  });
+  // XÓA
+  $(document).on("click", ".btn-delete-assignment", function () {
+    const id = $(this).data("id");
+    const mamon = $(this).data("mamon");
+    Swal.fire({
+      title: "Xóa phân công?",
+      text: "Không thể hoàn tác!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Xóa",
+    }).then((r) => {
+      if (r.isConfirmed) {
+        $.post("./assignment/delete", { id: id, mamon: mamon }, function (res) {
+          const success = res.success || res == 1;
+          Swal.fire(
+            success ? "Thành công!" : "Lỗi!",
+            success ? "Đã xóa!" : "Xóa thất bại!",
+            success ? "success" : "error"
+          );
+          if (success)
+            mainPagePagination.getPagination(
+              mainPagePagination.option,
+              mainPagePagination.valuePage.curPage
+            );
         });
       }
     });
   });
 });
 
-// Pagination
+// Pagination (giữ nguyên)
 const paginationContainer = document.querySelectorAll(".pagination-container");
 paginationContainer[0].classList.add(paginationClassName[0]);
 paginationContainer[1].classList.add(paginationClassName[1]);
@@ -337,3 +357,7 @@ const modalAddAssignmentPagination = new Pagination(
 modalAddAssignmentPagination.option.controller = "assignment";
 modalAddAssignmentPagination.option.model = "PhanCongModel";
 modalAddAssignmentPagination.option.custom.function = "monhoc";
+modalAddAssignmentPagination.getPagination(
+  modalAddAssignmentPagination.option,
+  1
+);

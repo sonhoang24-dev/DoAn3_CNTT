@@ -96,15 +96,15 @@ const showData = function (users) {
     }</span>
                           </td> 
                           <td class="text-center col-action">
-                              <a data-role="nguoidung" data-action="update" class="btn btn-sm btn-alt-secondary user-edit" href="javascript:void(0)"
+                              <a data-role="nguoidung" data-action="update" class="btn btn-sm btn-alt-warning btn-edit" href="javascript:void(0)"
                               data-bs-toggle="tooltip" aria-label="Chỉnh sửa" data-bs-original-title="Chỉnh sửa" data-id="${user.id}">
-                                  <i class="fa fa-fw fa-pencil"></i>
+                                  <i class="fa fa-edit"></i>
                               </a>
-                              <a data-role="nguoidung" data-action="delete" class="btn btn-sm btn-alt-secondary user-delete" href="javascript:void(0)" data-bs-toggle="tooltip"
+                              <a data-role="nguoidung" data-action="delete" class="btn btn-sm btn-alt-danger btn-delete" href="javascript:void(0)" data-bs-toggle="tooltip"
                                   aria-label="Xoá" data-bs-original-title="Xoá" data-id="${
                                     user.id
                                   }">
-                                  <i class="fa fa-fw fa-times"></i>
+                                 <i class="fa fa-trash"></i>
                               </a>
                           </td>
                       </tr>

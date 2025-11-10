@@ -87,15 +87,15 @@ class NguoiDungModel extends DB
         return $rows;
     }
 
-public function getById($id)
-{
-    $sql = "SELECT * FROM nguoidung WHERE id = ?";
-    $stmt = $this->con->prepare($sql);
-    $stmt->bind_param("s", $id); // dùng string thay vì integer
-    $stmt->execute();
-    $result = $stmt->get_result();
-    return $result ? $result->fetch_assoc() : false;
-}
+    public function getById($id)
+    {
+        $sql = "SELECT * FROM nguoidung WHERE id = ?";
+        $stmt = $this->con->prepare($sql);
+        $stmt->bind_param("s", $id); // dùng string thay vì integer
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result ? $result->fetch_assoc() : false;
+    }
 
 
     public function getByEmail($email)
@@ -117,23 +117,23 @@ public function getById($id)
     }
 
 
-public function changePassword($id, $new_password_hashed)
-{
-    $sql = "UPDATE nguoidung SET matkhau = ? WHERE id = ?";
-    $stmt = $this->con->prepare($sql);
-    $stmt->bind_param("si", $new_password_hashed, $id);
-    if ($stmt->execute()) {
-        if ($stmt->affected_rows > 0) {
-            return true;
+    public function changePassword($id, $new_password_hashed)
+    {
+        $sql = "UPDATE nguoidung SET matkhau = ? WHERE id = ?";
+        $stmt = $this->con->prepare($sql);
+        $stmt->bind_param("si", $new_password_hashed, $id);
+        if ($stmt->execute()) {
+            if ($stmt->affected_rows > 0) {
+                return true;
+            } else {
+                error_log("Không có dòng nào bị thay đổi trong UPDATE mật khẩu.");
+                return false;
+            }
         } else {
-            error_log("Không có dòng nào bị thay đổi trong UPDATE mật khẩu.");
+            error_log("Lỗi khi UPDATE mật khẩu: " . $stmt->error);
             return false;
         }
-    } else {
-        error_log("Lỗi khi UPDATE mật khẩu: " . $stmt->error);
-        return false;
     }
-}
 
     public function checkPassword($id, $password)
     {
@@ -209,40 +209,44 @@ public function changePassword($id, $new_password_hashed)
     }
 
     public function validateToken($token)
-{
-    if (empty($token)) return false;
-
-    // Chuẩn hóa token để tránh SQL injection
-    $token = mysqli_real_escape_string($this->con, $token);
-    $sql = "SELECT * FROM `nguoidung` WHERE `token`='$token' LIMIT 1";
-    $result = mysqli_query($this->con, $sql);
-
-    if ($result && mysqli_num_rows($result) > 0) {
-        $row = mysqli_fetch_assoc($result);
-
-        // Kiểm tra xem $row có dữ liệu hợp lệ
-        if (!$row) return false;
-
-        $_SESSION['user_id'] = $row['id'] ?? null;
-        $_SESSION['user_email'] = $row['email'] ?? null;
-        $_SESSION['user_name'] = $row['hoten'] ?? null;
-        $_SESSION['avatar'] = $row['avatar'] ?? null;
-
-        // Chỉ lấy role nếu manhomquyen tồn tại
-        if (isset($row['manhomquyen'])) {
-            $_SESSION['user_permission_group'] = $row['manhomquyen'];
-            $_SESSION['user_role'] = $this->getRole($row['manhomquyen']);
-            $_SESSION['is_admin'] = ($row['manhomquyen'] == 3);
-        } else {
-            $_SESSION['user_role'] = null;
-            $_SESSION['is_admin'] = false;
+    {
+        if (empty($token)) {
+            return false;
         }
 
-        return true;
-    }
+        // Chuẩn hóa token để tránh SQL injection
+        $token = mysqli_real_escape_string($this->con, $token);
+        $sql = "SELECT * FROM `nguoidung` WHERE `token`='$token' LIMIT 1";
+        $result = mysqli_query($this->con, $sql);
 
-    return false;
-}
+        if ($result && mysqli_num_rows($result) > 0) {
+            $row = mysqli_fetch_assoc($result);
+
+            // Kiểm tra xem $row có dữ liệu hợp lệ
+            if (!$row) {
+                return false;
+            }
+
+            $_SESSION['user_id'] = $row['id'] ?? null;
+            $_SESSION['user_email'] = $row['email'] ?? null;
+            $_SESSION['user_name'] = $row['hoten'] ?? null;
+            $_SESSION['avatar'] = $row['avatar'] ?? null;
+
+            // Chỉ lấy role nếu manhomquyen tồn tại
+            if (isset($row['manhomquyen'])) {
+                $_SESSION['user_permission_group'] = $row['manhomquyen'];
+                $_SESSION['user_role'] = $this->getRole($row['manhomquyen']);
+                $_SESSION['is_admin'] = ($row['manhomquyen'] == 3);
+            } else {
+                $_SESSION['user_role'] = null;
+                $_SESSION['is_admin'] = false;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
 
 
     public function getRole($manhomquyen)
@@ -303,7 +307,7 @@ public function changePassword($id, $new_password_hashed)
         }
         return $check;
     }
-    
+
     public function addFileGroup($data, $pass, $group)
     {
         $success = [];
@@ -409,23 +413,18 @@ public function changePassword($id, $new_password_hashed)
         $sql = "UPDATE `nhom` SET `siso`=(SELECT COUNT(*) FROM `chitietnhom` WHERE manhom=$manhom) WHERE `manhom`=$manhom";
         return mysqli_query($this->con, $sql) !== false;
     }
-
     public function getQuery($filter, $input, $args)
     {
-        $query = "SELECT ND.*, NQ.tennhomquyen 
-                  FROM nguoidung ND 
-                  LEFT JOIN nhomquyen NQ ON ND.manhomquyen = NQ.manhomquyen";
+        $query = "SELECT ND.*, NQ.tennhomquyen FROM nguoidung ND, nhomquyen NQ WHERE ND.manhomquyen = NQ.manhomquyen";
         if (isset($filter['role'])) {
-            $query .= " AND ND.manhomquyen = " . (int)$filter['role'];
+            $query .= " AND ND.manhomquyen = " . $filter['role'];
         }
         if ($input) {
-            $input = mysqli_real_escape_string($this->con, $input);
-            $query .= " AND (ND.hoten LIKE '%$input%' OR ND.id LIKE '%$input%')";
+            $query = $query . " AND (ND.hoten LIKE N'%${input}%' OR ND.id LIKE '%${input}%')";
         }
-        $query .= " ORDER BY ND.id ASC";
+        $query = $query . " ORDER BY id ASC";
         return $query;
     }
-
     public function checkUser($mssv, $email)
     {
         $mssv = mysqli_real_escape_string($this->con, $mssv);

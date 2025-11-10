@@ -232,7 +232,7 @@ class Test extends Controller
             $this->view("single_layout", ["Page" => "error/page_404", "Title" => "Lỗi !"]);
         }
     }
-     public function delete()
+    public function delete()
     {
         if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("dethi", "delete")) {
             $made = $_POST['made'];

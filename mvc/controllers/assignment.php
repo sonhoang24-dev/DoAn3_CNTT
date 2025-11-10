@@ -16,7 +16,7 @@ class Assignment extends Controller
         if (AuthCore::checkPermission("phancong", "view")) {
             $this->view("main_layout", [
                 "Page" => "assignment",
-                "Title" => "Phân quyền",
+                "Title" => "Phân Công Giảng Dạy",
                 "Plugin" => [
                     "ckeditor" => 1,
                     "select" => 1,
@@ -68,6 +68,17 @@ class Assignment extends Controller
             $result = $this->PhanCongModel->addAssignment($magiangvien, $l_subject);
             echo $result;
         }
+    }
+    public function update()
+    {
+        $old_mamonhoc     = $_POST['old_mamonhoc']     ?? '';
+        $old_manguoidung  = $_POST['old_manguoidung']  ?? '';
+        $new_mamonhoc     = $_POST['mamonhoc']         ?? '';
+        $new_manguoidung  = $_POST['magiangvien']      ?? '';
+
+        $result = $this->PhanCongModel->update($old_mamonhoc, $old_manguoidung, $new_mamonhoc, $new_manguoidung);
+
+        echo json_encode(['success' => $result]);
     }
 
     public function delete()

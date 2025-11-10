@@ -1,4 +1,5 @@
 <?php
+
 $GLOBALS['navbar'] = [
     [
         'name' => 'Dashboard',
@@ -79,6 +80,12 @@ $GLOBALS['navbar'] = [
                 'role' => 'nguoidung'
             ],
             [
+            'name' => 'Năm học',
+            'icon' => 'fas fa-calendar-alt', // biểu tượng phân công
+            'url'  => 'namhoc',
+            'role' => 'phancong'
+            ],
+            [
                 'name' => 'Tạo môn học',
                 'icon' => 'fas fa-plus-circle', // biểu tượng thêm môn
                 'url'  => 'subject',
@@ -111,24 +118,24 @@ function getActiveNav()
 function build_navbar()
 {
     // Lọc các navbar item không thuộc quyền của user
-  foreach ($GLOBALS['navbar'] as $key => $nav) {
-    if (isset($nav['navbarItem'])) {
-        foreach ($nav['navbarItem'] as $key1 => $navItem) {
-            $role = $navItem['role'];
-            // Nếu role là admin, chỉ show với admin
-            if ($role == 'nguoidung' || $role == 'monhoc_admin' || $role == 'phancong') {
-                if (empty($_SESSION['is_admin'])) {
-                    unset($GLOBALS['navbar'][$key]['navbarItem'][$key1]);
-                }
-            } else {
-                // check role bình thường
-                if (!array_key_exists($role, $_SESSION['user_role'])) {
-                    unset($GLOBALS['navbar'][$key]['navbarItem'][$key1]);
+    foreach ($GLOBALS['navbar'] as $key => $nav) {
+        if (isset($nav['navbarItem'])) {
+            foreach ($nav['navbarItem'] as $key1 => $navItem) {
+                $role = $navItem['role'];
+                // Nếu role là admin, chỉ show với admin
+                if ($role == 'nguoidung' || $role == 'monhoc_admin' || $role == 'phancong') {
+                    if (empty($_SESSION['is_admin'])) {
+                        unset($GLOBALS['navbar'][$key]['navbarItem'][$key1]);
+                    }
+                } else {
+                    // check role bình thường
+                    if (!array_key_exists($role, $_SESSION['user_role'])) {
+                        unset($GLOBALS['navbar'][$key]['navbarItem'][$key1]);
+                    }
                 }
             }
         }
     }
-}
 
 
     // Render HTML menu
@@ -152,4 +159,3 @@ function build_navbar()
 
     echo $html;
 }
-?>

@@ -73,8 +73,8 @@ class DeThiModel extends DB
     public function create($monthi, $nguoitao, $tende, $thoigianthi, $thoigianbatdau, $thoigianketthuc, $hienthibailam, $xemdiemthi, $xemdapan, $troncauhoi, $trondapan, $nopbaichuyentab, $loaide, $socaude, $socautb, $socaukho, $chuong, $nhom)
     {
         if ($loaide == 0) {
-        $troncauhoi = 0; 
-    }
+            $troncauhoi = 0;
+        }
         if ($loaide == 1) {
             $check = $this->checkQuestionAvailability($monthi, $chuong, $socaude, $socautb, $socaukho);
             if (!$check['valid']) {
@@ -94,61 +94,61 @@ class DeThiModel extends DB
         }
     }
 
-public function create_dethi_auto($made, $monhoc, $chuong, $socaude, $socautb, $socaukho)
-{
-    $check = $this->checkQuestionAvailability($monhoc, $chuong, $socaude, $socautb, $socaukho);
-    if (!$check['valid']) {
-        return $check;
+    public function create_dethi_auto($made, $monhoc, $chuong, $socaude, $socautb, $socaukho)
+    {
+        $check = $this->checkQuestionAvailability($monhoc, $chuong, $socaude, $socautb, $socaukho);
+        if (!$check['valid']) {
+            return $check;
+        }
+
+        // Lấy giá trị troncauhoi từ bảng dethi
+        $sql_dethi = "SELECT troncauhoi FROM dethi WHERE made = '$made'";
+        $data_dethi = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
+        $troncauhoi = $data_dethi['troncauhoi'];
+
+        // Sử dụng ORDER BY cố định nếu troncauhoi = 0
+        $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
+
+        $sql_caude = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 1 AND ch.trangthai != 0 AND ";
+        $sql_cautb = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 2 AND ch.trangthai != 0 AND ";
+        $sql_caukho = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 3 AND ch.trangthai != 0 AND ";
+
+        $countChuong = count($chuong) - 1;
+        $detailChuong = "(";
+        for ($i = 0; $i < $countChuong; $i++) {
+            $detailChuong .= "ch.machuong='$chuong[$i]' OR ";
+        }
+        $detailChuong .= "ch.machuong='$chuong[$countChuong]')";
+
+        $sql_caude .= $detailChuong . " $orderBy LIMIT $socaude";
+        $sql_cautb .= $detailChuong . " $orderBy LIMIT $socautb";
+        $sql_caukho .= $detailChuong . " $orderBy LIMIT $socaukho";
+
+        $result_cd = mysqli_query($this->con, $sql_caude);
+        $result_tb = mysqli_query($this->con, $sql_cautb);
+        $result_ck = mysqli_query($this->con, $sql_caukho);
+
+        $data_cd = [];
+        while ($row = mysqli_fetch_assoc($result_cd)) {
+            $data_cd[] = $row;
+        }
+        while ($row = mysqli_fetch_assoc($result_tb)) {
+            $data_cd[] = $row;
+        }
+        while ($row = mysqli_fetch_assoc($result_ck)) {
+            $data_cd[] = $row;
+        }
+
+        // Chỉ xáo trộn nếu troncauhoi = 1
+        if ($troncauhoi == 1) {
+            shuffle($data_cd);
+        }
+
+        return [
+            'valid' => true,
+            'data' => $data_cd
+        ];
     }
-
-    // Lấy giá trị troncauhoi từ bảng dethi
-    $sql_dethi = "SELECT troncauhoi FROM dethi WHERE made = '$made'";
-    $data_dethi = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
-    $troncauhoi = $data_dethi['troncauhoi'];
-
-    // Sử dụng ORDER BY cố định nếu troncauhoi = 0
-    $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
-
-    $sql_caude = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 1 AND ch.trangthai != 0 AND ";
-    $sql_cautb = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 2 AND ch.trangthai != 0 AND ";
-    $sql_caukho = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 3 AND ch.trangthai != 0 AND ";
-
-    $countChuong = count($chuong) - 1;
-    $detailChuong = "(";
-    for ($i = 0; $i < $countChuong; $i++) {
-        $detailChuong .= "ch.machuong='$chuong[$i]' OR ";
-    }
-    $detailChuong .= "ch.machuong='$chuong[$countChuong]')";
-
-    $sql_caude .= $detailChuong . " $orderBy LIMIT $socaude";
-    $sql_cautb .= $detailChuong . " $orderBy LIMIT $socautb";
-    $sql_caukho .= $detailChuong . " $orderBy LIMIT $socaukho";
-
-    $result_cd = mysqli_query($this->con, $sql_caude);
-    $result_tb = mysqli_query($this->con, $sql_cautb);
-    $result_ck = mysqli_query($this->con, $sql_caukho);
-
-    $data_cd = [];
-    while ($row = mysqli_fetch_assoc($result_cd)) {
-        $data_cd[] = $row;
-    }
-    while ($row = mysqli_fetch_assoc($result_tb)) {
-        $data_cd[] = $row;
-    }
-    while ($row = mysqli_fetch_assoc($result_ck)) {
-        $data_cd[] = $row;
-    }
-
-    // Chỉ xáo trộn nếu troncauhoi = 1
-    if ($troncauhoi == 1) {
-        shuffle($data_cd);
-    }
-
-    return [
-        'valid' => true,
-        'data' => $data_cd
-    ];
-}
 
     public function create_chuongdethi($made, $chuong)
     {
@@ -456,38 +456,38 @@ public function create_dethi_auto($made, $monhoc, $chuong, $socaude, $socautb, $
         return $question;
     }
 
-public function getQuestionByUser($made, $user)
-{
-    $sql_ketqua = "SELECT * FROM ketqua where made = '$made' and manguoidung = '$user'";
-    $result_ketqua = mysqli_query($this->con, $sql_ketqua);
-    $data_ketqua = mysqli_fetch_assoc($result_ketqua);
-    $ketqua = $data_ketqua['makq'];
-    $sql_question = "SELECT * FROM chitietketqua ctkq JOIN cauhoi ch on ctkq.macauhoi = ch.macauhoi WHERE makq = '$ketqua'";
-    $data_question = mysqli_query($this->con, $sql_question);
-    $ctlmodel = new CauTraLoiModel();
-    $sql_dethi = "SELECT * FROM dethi where made='$made'";
-    $result_dethi = mysqli_query($this->con, $sql_dethi);
-    $data_dethi = mysqli_fetch_assoc($result_dethi);
-    $trondapan = $data_dethi['trondapan'];
-    $troncauhoi = $data_dethi['troncauhoi'];
-    $loaide = $data_dethi['loaide'];
-    $rows = array();
-    foreach ($data_question as $row) {
-        if ($trondapan == 1) {
-            $arrDapAn = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-            shuffle($arrDapAn);
-            $row['cautraloi'] = $arrDapAn;
-        } else {
-            $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+    public function getQuestionByUser($made, $user)
+    {
+        $sql_ketqua = "SELECT * FROM ketqua where made = '$made' and manguoidung = '$user'";
+        $result_ketqua = mysqli_query($this->con, $sql_ketqua);
+        $data_ketqua = mysqli_fetch_assoc($result_ketqua);
+        $ketqua = $data_ketqua['makq'];
+        $sql_question = "SELECT * FROM chitietketqua ctkq JOIN cauhoi ch on ctkq.macauhoi = ch.macauhoi WHERE makq = '$ketqua'";
+        $data_question = mysqli_query($this->con, $sql_question);
+        $ctlmodel = new CauTraLoiModel();
+        $sql_dethi = "SELECT * FROM dethi where made='$made'";
+        $result_dethi = mysqli_query($this->con, $sql_dethi);
+        $data_dethi = mysqli_fetch_assoc($result_dethi);
+        $trondapan = $data_dethi['trondapan'];
+        $troncauhoi = $data_dethi['troncauhoi'];
+        $loaide = $data_dethi['loaide'];
+        $rows = array();
+        foreach ($data_question as $row) {
+            if ($trondapan == 1) {
+                $arrDapAn = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                shuffle($arrDapAn);
+                $row['cautraloi'] = $arrDapAn;
+            } else {
+                $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+            }
+            $rows[] = $row;
         }
-        $rows[] = $row;
+        // Chỉ xáo trộn nếu là đề tự động và troncauhoi = 1
+        if ($loaide == 1 && $troncauhoi == 1) {
+            shuffle($rows);
+        }
+        return $rows;
     }
-    // Chỉ xáo trộn nếu là đề tự động và troncauhoi = 1
-    if ($loaide == 1 && $troncauhoi == 1) {
-        shuffle($rows);
-    }
-    return $rows;
-}
 
     public function getAllSubjects()
     {
@@ -508,21 +508,21 @@ public function getQuestionByUser($made, $user)
         return $data['makq'];
     }
 
-public function getQuestionTestAuto($made)
-{
-    $sql_dethi = "SELECT * FROM dethi WHERE made = '$made'";
-    $data_dethi = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
+    public function getQuestionTestAuto($made)
+    {
+        $sql_dethi = "SELECT * FROM dethi WHERE made = '$made'";
+        $data_dethi = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
 
-    $socaude = $data_dethi['socaude'];
-    $socautb = $data_dethi['socautb'];
-    $socaukho = $data_dethi['socaukho'];
-    $mamonhoc = $data_dethi['monthi'];
-    $troncauhoi = $data_dethi['troncauhoi'];
+        $socaude = $data_dethi['socaude'];
+        $socautb = $data_dethi['socautb'];
+        $socaukho = $data_dethi['socaukho'];
+        $mamonhoc = $data_dethi['monthi'];
+        $troncauhoi = $data_dethi['troncauhoi'];
 
-    // Sử dụng ORDER BY cố định nếu troncauhoi = 0
-    $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
+        // Sử dụng ORDER BY cố định nếu troncauhoi = 0
+        $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
 
-    $sql_cd = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
+        $sql_cd = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
         FROM dethitudong dttd 
         JOIN cauhoi ch ON dttd.machuong = ch.machuong 
         WHERE ch.dokho = 1 
@@ -532,7 +532,7 @@ public function getQuestionTestAuto($made)
         $orderBy 
         LIMIT $socaude";
 
-    $sql_ctb = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
+        $sql_ctb = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
         FROM dethitudong dttd 
         JOIN cauhoi ch ON dttd.machuong = ch.machuong 
         WHERE ch.dokho = 2 
@@ -542,7 +542,7 @@ public function getQuestionTestAuto($made)
         $orderBy 
         LIMIT $socautb";
 
-    $sql_ck = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
+        $sql_ck = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
         FROM dethitudong dttd 
         JOIN cauhoi ch ON dttd.machuong = ch.machuong 
         WHERE ch.dokho = 3 
@@ -552,35 +552,35 @@ public function getQuestionTestAuto($made)
         $orderBy 
         LIMIT $socaukho";
 
-    $result_cd = mysqli_query($this->con, $sql_cd);
-    $result_tb = mysqli_query($this->con, $sql_ctb);
-    $result_ck = mysqli_query($this->con, $sql_ck);
+        $result_cd = mysqli_query($this->con, $sql_cd);
+        $result_tb = mysqli_query($this->con, $sql_ctb);
+        $result_ck = mysqli_query($this->con, $sql_ck);
 
-    $result = array();
-    while ($row = mysqli_fetch_assoc($result_cd)) {
-        $result[] = $row;
-    }
-    while ($row = mysqli_fetch_assoc($result_tb)) {
-        $result[] = $row;
-    }
-    while ($row = mysqli_fetch_assoc($result_ck)) {
-        $result[] = $row;
-    }
+        $result = array();
+        while ($row = mysqli_fetch_assoc($result_cd)) {
+            $result[] = $row;
+        }
+        while ($row = mysqli_fetch_assoc($result_tb)) {
+            $result[] = $row;
+        }
+        while ($row = mysqli_fetch_assoc($result_ck)) {
+            $result[] = $row;
+        }
 
-    // Chỉ xáo trộn nếu troncauhoi = 1
-    if ($troncauhoi == 1) {
-        shuffle($result);
-    }
+        // Chỉ xáo trộn nếu troncauhoi = 1
+        if ($troncauhoi == 1) {
+            shuffle($result);
+        }
 
-    $rows = array();
-    $ctlmodel = new CauTraLoiModel();
-    foreach ($result as $row) {
-        $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-        $rows[] = $row;
-    }
+        $rows = array();
+        $ctlmodel = new CauTraLoiModel();
+        foreach ($result as $row) {
+            $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+            $rows[] = $row;
+        }
 
-    return $rows;
-}
+        return $rows;
+    }
     public function getNameGroup($manhom)
     {
         $sql = "SELECT * FROM `nhom` WHERE manhom=$manhom";
