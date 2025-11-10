@@ -23,6 +23,7 @@ class Assignment extends Controller
                     "notify" => 1,
                     "sweetalert2" => 1,
                     "jquery-validate" => 1,
+                    "pagination" => ["main-page-pagination", "modal-add-assignment-pagination"],
                 ],
                 "Script" => "assignment"
             ]);
@@ -58,52 +59,38 @@ class Assignment extends Controller
         }
     }
 
-   public function addAssignment()
-{
-    AuthCore::checkAuthentication();
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $magiangvien = $_POST['magiangvien'];
-        $l_subject   = $_POST['listSubject'];
-        $namhoc      = $_POST['namhoc'] ?? null;
-        $hocky       = $_POST['hocky']  ?? null;
-
-        $result = $this->PhanCongModel->addAssignment($magiangvien, $l_subject, $namhoc, $hocky);
-        echo $result ? 1 : 0;
+    public function addAssignment()
+    {
+        AuthCore::checkAuthentication();
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $magiangvien = $_POST['magiangvien'];
+            $l_subject = $_POST['listSubject'];
+            $result = $this->PhanCongModel->addAssignment($magiangvien, $l_subject);
+            echo $result;
+        }
     }
-}
-public function update()
-{
-    $old_mamonhoc     = $_POST['old_mamonhoc']     ?? '';
-    $old_manguoidung  = $_POST['old_manguoidung']  ?? '';
-    $old_namhoc       = $_POST['old_namhoc']       ?? null;
-    $old_hocky        = $_POST['old_hocky']        ?? null;
+    public function update()
+    {
+        $old_mamonhoc     = $_POST['old_mamonhoc']     ?? '';
+        $old_manguoidung  = $_POST['old_manguoidung']  ?? '';
+        $new_mamonhoc     = $_POST['mamonhoc']         ?? '';
+        $new_manguoidung  = $_POST['magiangvien']      ?? '';
 
-    $new_mamonhoc     = $_POST['mamonhoc']         ?? '';
-    $new_manguoidung  = $_POST['magiangvien']      ?? '';
-    $new_namhoc       = $_POST['namhoc']           ?? null;
-    $new_hocky        = $_POST['hocky']            ?? null;
+        $result = $this->PhanCongModel->update($old_mamonhoc, $old_manguoidung, $new_mamonhoc, $new_manguoidung);
 
-    $result = $this->PhanCongModel->update(
-        $old_mamonhoc, $old_manguoidung, $old_namhoc, $old_hocky,
-        $new_mamonhoc, $new_manguoidung, $new_namhoc, $new_hocky
-    );
-
-    echo json_encode(['success' => $result]);
-}
-
-   public function delete()
-{
-    AuthCore::checkAuthentication();
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $id      = $_POST['id'];
-        $mamon   = $_POST['mamon'];
-        $namhoc  = $_POST['namhoc'] ?? null;
-        $hocky   = $_POST['hocky']  ?? null;
-
-        $result = $this->PhanCongModel->delete($mamon, $id, $namhoc, $hocky);
         echo json_encode(['success' => $result]);
     }
-}
+
+    public function delete()
+    {
+        AuthCore::checkAuthentication();
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $id = $_POST['id'];
+            $mamon = $_POST['mamon'];
+            $result = $this->PhanCongModel->delete($mamon, $id);
+            echo $result;
+        }
+    }
 
     public function deleteAll()
     {
@@ -115,17 +102,14 @@ public function update()
     }
 
     public function getAssignmentByUser()
-{
-    AuthCore::checkAuthentication();
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $id      = $_POST['id'];
-        $namhoc  = $_POST['namhoc'] ?? null;
-        $hocky   = $_POST['hocky']  ?? null;
-
-        $result = $this->PhanCongModel->getAssignmentByUser($id, $namhoc, $hocky);
-        echo json_encode($result);
+    {
+        AuthCore::checkAuthentication();
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $id = $_POST['id'];
+            $result = $this->PhanCongModel->getAssignmentByUser($id);
+            echo json_encode($result);
+        }
     }
-}
 
     public function getQuery($filter, $input, $args)
     {
