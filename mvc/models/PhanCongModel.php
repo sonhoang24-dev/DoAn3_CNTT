@@ -1,7 +1,6 @@
 <?php
+class PhanCongModel extends DB{
 
-class PhanCongModel extends DB
-{
     public function getGiangVien()
     {
         $sql = "SELECT ng.id, ng.manhomquyen, ng.hoten 
@@ -22,55 +21,48 @@ class PhanCongModel extends DB
         }
         return $rows;
     }
-    public function getMonHoc()
-    {
+
+    public function getMonHoc(){
         $sql = "SELECT * FROM `monhoc`";
-        $result = mysqli_query($this->con, $sql);
+        $result = mysqli_query($this->con,$sql);
         $rows = array();
-        while ($row = mysqli_fetch_assoc($result)) {
+        while($row = mysqli_fetch_assoc($result)){
             $rows[] = $row;
         }
         return $rows;
     }
 
-    public function addAssignment($giangvien, $listSubject)
-    {
+    public function addAssignment($giangvien,$listSubject){
         $check = true;
-        $values = array();
-        foreach ($listSubject as $mamonhoc) {
-            $values[] = "('$mamonhoc', '$giangvien')";
-        }
-        if (!empty($values)) {
-            $sql = "INSERT INTO `phancong` (`mamonhoc`, `manguoidung`) VALUES " . implode(', ', $values);
-            $result = mysqli_query($this->con, $sql);
-            if (!$result) {
-                $check = false;
+        $sql = "INSERT INTO `phancong`(`mamonhoc`, `manguoidung`) VALUES ";
+        foreach($listSubject as $key => $mamonhoc){
+            $sql .= "('$mamonhoc','$giangvien')";
+            if ($key != count($listSubject) - 1) {
+                $sql .= ", ";
             }
+        }
+        $result = mysqli_query($this->con,$sql);
+        if($result){
+        } else {
+            $check = false;
         }
         return $check;
     }
-    public function getAssignmentByUser($user)
-    {
-        error_log("getAssignmentByUser input: user=$user");
-        $sql = "SELECT pc.mamonhoc 
-        FROM `phancong` pc 
-        JOIN monhoc mh ON pc.mamonhoc = mh.mamonhoc 
-        WHERE pc.manguoidung = ? AND mh.trangthai = 1";
-        $stmt = mysqli_prepare($this->con, $sql);
-        if ($stmt === false) {
-            error_log("Lỗi chuẩn bị truy vấn getAssignmentByUser: " . mysqli_error($this->con));
-            return [];
-        }
-        mysqli_stmt_bind_param($stmt, "s", $user);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
+
+    public function getAssignment(){
+        $sql = "SELECT pc.mamonhoc, pc.manguoidung, ng.hoten, mh.tenmonhoc FROM phancong as pc JOIN monhoc as mh on pc.mamonhoc=mh.mamonhoc JOIN nguoidung as ng on pc.manguoidung=ng.id";
+        $result = mysqli_query($this->con,$sql);
         $rows = array();
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row['mamonhoc'];
+        while($row = mysqli_fetch_assoc($result)){
+            $rows[] = $row;
         }
-        mysqli_stmt_close($stmt);
-        error_log("getAssignmentByUser result: " . json_encode($rows));
         return $rows;
+    }
+
+    public function delete($mamon,$id){
+        $sql = "DELETE FROM `phancong` WHERE mamonhoc = '$mamon' and manguoidung = '$id'";
+        $result = mysqli_query($this->con,$sql);
+        return $result;
     }
     public function update($old_mamonhoc, $old_manguoidung, $new_mamonhoc, $new_manguoidung)
 {
@@ -85,21 +77,29 @@ class PhanCongModel extends DB
     
     return $result; // true/false
 }
-    public function delete($mamon, $id)
-    {
-        $sql = "DELETE FROM `phancong` WHERE mamonhoc = '$mamon' and manguoidung = '$id'";
-        $result = mysqli_query($this->con, $sql);
-        return $result;
-    }
 
-    public function deleteAll($id)
-    {
+    public function deleteAll($id){
         $sql = "DELETE FROM `phancong` WHERE manguoidung = '$id'";
-        $result = mysqli_query($this->con, $sql);
+        $result = mysqli_query($this->con,$sql);
         return $result;
     }
 
-      public function getQuery($filter, $input, $args) {
+    public function getAssignmentByUser($user){
+        // $sql = "SELECT * FROM `phancong` where manguoidung = '$user'";
+        $sql = "SELECT mamonhoc FROM `phancong` where manguoidung = '$user'";
+        $result = mysqli_query($this->con,$sql);
+        $num_rows = mysqli_num_rows($result);
+        if ($num_rows == 0) {
+            return [];
+        }
+        $row = array();
+        while($row = mysqli_fetch_assoc($result)){
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    public function getQuery($filter, $input, $args) {
         if (isset($args["custom"]["function"])) {
             $func = $args["custom"]["function"];
             switch ($func) {
@@ -120,3 +120,4 @@ class PhanCongModel extends DB
         return $query;
     }
 }
+?>
