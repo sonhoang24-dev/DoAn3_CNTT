@@ -18,7 +18,6 @@
         </button>
       </div>
     </div>
-
     <div class="block-content">
       <!-- Tìm kiếm -->
       <form action="#" id="search-form" onsubmit="return false;">
@@ -55,71 +54,6 @@
       <?php if (isset($data["Plugin"]["pagination"])) {
           require "./mvc/views/inc/pagination.php";
       } ?>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Thêm/Chỉnh sửa Môn học -->
-<div class="modal fade" id="modal-add-subject" tabindex="-1" role="dialog" aria-labelledby="modal-add-subject"
-  aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="block block-rounded block-themed block-transparent mb-0">
-        <div class="block-header bg-primary-dark text-white">
-          <h3 class="block-title add-subject-element">Thêm môn học</h3>
-          <h3 class="block-title update-subject-element">Chỉnh sửa môn học</h3>
-          <div class="block-options">
-            <button type="button" class="btn-block-option text-white" data-bs-dismiss="modal" aria-label="Close">
-              <i class="fa fa-fw fa-times"></i>
-            </button>
-          </div>
-        </div>
-        <form class="block-content fs-sm form-add-subject">
-          <div class="mb-3">
-            <label class="form-label">Mã môn học</label>
-            <input type="text" class="form-control form-control-alt" name="mamonhoc" id="mamonhoc"
-              placeholder="Nhập mã môn học">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tên môn học</label>
-            <input type="text" class="form-control form-control-alt" name="tenmonhoc" id="tenmonhoc"
-              placeholder="Nhập tên môn học">
-          </div>
-        <div class="mb-3">
-  <label class="form-label">Hình thức</label>
-  <select class="form-control form-control-alt" name="loaimon" id="loaimon">
-    <option value="lt">Lý thuyết</option>
-    <option value="th">Thực hành</option>
-    <option value="lt+th">Lý thuyết & Thực hành</option>
-  </select>
-</div>
-
-          
-          <div class="mb-3">
-            <label class="form-label">Tổng số tín chỉ</label>
-            <input type="number" class="form-control form-control-alt" name="sotinchi" id="sotinchi"
-              placeholder="Nhập số tín chỉ">
-          </div>
-          <div class="row">
-            <div class="col-6 mb-3">
-              <label class="form-label">Số tiết lý thuyết</label>
-              <input type="number" class="form-control form-control-alt" name="sotiet_lt" id="sotiet_lt"
-                placeholder="Nhập số tiết lý thuyết">
-            </div>
-            <div class="col-6 mb-3">
-              <label class="form-label">Số tiết thực hành</label>
-              <input type="number" class="form-control form-control-alt" name="sotiet_th" id="sotiet_th"
-                placeholder="Nhập số tiết thực hành">
-            </div>
-          </div>
-        </form>
-        <div class="block-content block-content-full text-end bg-body">
-          <button type="button" class="btn btn-sm btn-alt-secondary me-2" data-bs-dismiss="modal" >Đóng</button>
-          <button type="button" class="btn btn-sm btn-primary add-subject-element" id="add_subject">Lưu</button>
-          <button type="button" class="btn btn-sm btn-primary update-subject-element" id="update_subject"
-            data-id="">Cập nhật</button>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -176,7 +110,6 @@
           </div>
         </div>
       </div>
-
       <div class="modal-footer bg-body-light">
         <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Thoát</button>
       </div>

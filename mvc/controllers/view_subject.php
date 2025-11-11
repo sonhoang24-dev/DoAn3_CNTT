@@ -20,7 +20,7 @@ class view_subject extends Controller
             $this->view("main_layout", [
                 "Page" => "view_subject",
                 "Title" => "Quản lý môn học",
-                "Script" => "subject",
+                "Script" => "view_subject",
                 "Plugin" => [
                     "sweetalert2" => 1,
                     "jquery-validate" => 1,
@@ -32,4 +32,66 @@ class view_subject extends Controller
             $this->view("single_layout", ["Page" => "error/page_403", "Title" => "Lỗi !"]);
         }
     }
+     public function getSubjectAssignment()
+    {
+        $id = $_SESSION['user_id'];
+        $data = $this->monHocModel->getAllSubjectAssignment($id);
+        echo json_encode($data);
+    }
+
+    public function getDetail()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $data = $this->monHocModel->getById($_POST['mamon']);
+            echo json_encode($data);
+        }
+        echo false;
+    }
+
+    //Chapter
+    public function getAllChapter()
+    {
+        $result = $this->chuongModel->getAll($_POST['mamonhoc']);
+        echo json_encode($result);
+    }
+
+    public function chapterDelete()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $result = $this->chuongModel->delete($_POST['machuong']);
+            echo $result;
+        }
+    }
+
+    public function addChapter()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $result = $this->chuongModel->insert($_POST['mamonhoc'], $_POST['tenchuong']);
+            echo $result;
+        }
+    }
+
+    public function updateChapter()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $result = $this->chuongModel->update($_POST['machuong'], $_POST['tenchuong']);
+            echo $result;
+        }
+    }
+
+    public function search()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $result = $this->monHocModel->search($_POST['input']);
+            echo json_encode($result);
+        }
+    }
+
+    public function getQuery($filter, $input, $args)
+    {
+        $result = $this->monHocModel->getQuery($filter, $input, $args);
+        return $result;
+    }
+
+
 }

@@ -116,59 +116,6 @@ function showData(subjects) {
   $('[data-bs-toggle="tooltip"]').tooltip();
 }
 
-$("#sotinchi").on("input", function () {
-  let tinchi = parseFloat($(this).val());
-  let loaimon = $("#loaimon").val();
-  if (isNaN(tinchi) || tinchi <= 0 || !loaimon) {
-    $("#sotiet_lt").val("");
-    $("#sotiet_th").val("");
-    return;
-  }
-  let totalTiet = tinchi * 15; // Tổng số tiết cơ bản (1 TC = 15 tiết)
-
-  switch (loaimon) {
-    case "lt": // Toàn lý thuyết
-      $("#sotiet_lt").val(totalTiet);
-      $("#sotiet_th").val(0);
-      break;
-
-    case "th": // Toàn thực hành
-      if (tinchi === 1) {
-        $("#sotiet_lt").val(0);
-        $("#sotiet_th").val(30);
-      } else if (tinchi === 2) {
-        $("#sotiet_lt").val(0);
-        $("#sotiet_th").val(60);
-      } else if (tinchi === 3) {
-        $("#sotiet_lt").val(0);
-        $("#sotiet_th").val(0);
-      } else if (tinchi === 4) {
-        $("#sotiet_lt").val(0);
-        $("#sotiet_th").val(60);
-      }
-      break;
-
-    case "lt+th": // Lý thuyết + Thực hành
-      if (tinchi === 1) {
-        $("#sotiet_lt").val(15);
-        $("#sotiet_th").val(0);
-      } else if (tinchi === 2) {
-        $("#sotiet_lt").val(15);
-        $("#sotiet_th").val(30);
-      } else if (tinchi === 3) {
-        $("#sotiet_lt").val(30);
-        $("#sotiet_th").val(30);
-      } else if (tinchi === 4) {
-        $("#sotiet_lt").val(45);
-        $("#sotiet_th").val(30);
-      }
-      break;
-  }
-  $("#loaimon").on("change", function () {
-    $("#sotinchi").trigger("input");
-  });
-});
-
 $(document).ready(function () {
   $("[data-bs-target='#modal-add-subject']").click(function (e) {
     e.preventDefault();
@@ -263,13 +210,27 @@ $(document).ready(function () {
       dataType: "json",
       success: function (response) {
         if (response) {
-          $("#mamonhoc").val(response.mamonhoc).prop("disabled", true),
-            $("#tenmonhoc").val(response.tenmonhoc),
-            $("#sotinchi").val(response.sotinchi),
-            $("#sotiet_lt").val(response.sotietlythuyet),
-            $("#sotiet_th").val(response.sotietthuchanh),
-            $("#modal-add-subject").modal("show"),
-            $("#update_subject").data("id", response.mamonhoc);
+          $("#mamonhoc").val(response.mamonhoc).prop("disabled", true);
+          $("#tenmonhoc").val(response.tenmonhoc);
+          $("#sotinchi").val(response.sotinchi);
+          $("#sotiet_lt").val(response.sotietlythuyet);
+          $("#sotiet_th").val(response.sotietthuchanh);
+
+          // Determine loaimon based on sotietlythuyet and sotietthuchanh
+          let sotiet_lt = parseInt(response.sotietlythuyet) || 0;
+          let sotiet_th = parseInt(response.sotietthuchanh) || 0;
+          let loaimon = "lt+th";
+          if (sotiet_lt > 0 && sotiet_th === 0) {
+            loaimon = "lt";
+          } else if (sotiet_lt === 0 && sotiet_th > 0) {
+            loaimon = "th";
+          } else if (sotiet_lt > 0 && sotiet_th > 0) {
+            loaimon = "lt+th";
+          }
+          $("#loaimon").val(loaimon);
+
+          $("#modal-add-subject").modal("show");
+          $("#update_subject").data("id", response.mamonhoc);
         }
       },
     });
@@ -462,7 +423,7 @@ $(document).ready(function () {
     } else {
       $.ajax({
         type: "post",
-        url: "./subject/addChapter",
+        url: "./view_subject/addChapter",
         data: {
           mamonhoc: mamonhoc,
           tenchuong: $("#name_chapter").val(),
