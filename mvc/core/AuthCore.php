@@ -1,4 +1,5 @@
 <?php
+
 require_once "./mvc/models/NguoiDungModel.php";
 class AuthCore
 {

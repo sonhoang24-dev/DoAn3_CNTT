@@ -1,12 +1,12 @@
-
 <div class="content">
     <div class="block block-rounded">
         <div class="block-header block-header-default">
             <h3 class="block-title">Tất cả phân công</h3>
             <div class="block-options">
                 <button data-role="phancong" data-action="create" type="button" class="btn btn-hero btn-primary" data-bs-toggle="modal"
-                    data-bs-target="#modal-add-assignment" id="add_assignment"><i class="fa-regular fa-plus"></i> Thêm
-                    phân công mới</button>
+                    data-bs-target="#modal-add-assignment" id="add_assignment">
+                    <i class="fa-regular fa-plus"></i> Thêm phân công mới
+                </button>
             </div>
         </div>
         <div class="block-content">
@@ -22,101 +22,101 @@
                 </div>
             </form>
             <div class="table-responsive">
-                <table class="table table-vcenter">
+                <table class="table table-vcenter table-hover">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 100px;">ID</th>
+                            <th class="text-center" style="width: 60px;">STT</th>
                             <th>Tên giảng viên</th>
                             <th class="text-center">Mã môn</th>
                             <th>Môn học</th>
-                            <th class="text-center col-header-action">Action</th>
+                            <th class="text-center">Năm học</th>
+                            <th class="text-center">Học kỳ</th>
+                            <th class="text-center" style="width: 100px;">Hành động</th>
                         </tr>
                     </thead>
-                    <tbody id="listAssignment">
-
-                    </tbody>
+                    <tbody id="listAssignment"></tbody>
                 </table>
             </div>
-            <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"?>
+            <?php if (isset($data["Plugin"]["pagination"])) {
+                require "./mvc/views/inc/pagination.php";
+            }?>
         </div>
     </div>
 </div>
-<div class="modal fade" id="modal-add-assignment" tabindex="-1" role="dialog" aria-labelledby="modal-add-assignment"
-    aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-xl" role="document">
+
+<!-- Modal: Thêm phân công -->
+<div class="modal fade" id="modal-add-assignment" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-xl">
         <div class="modal-content">
             <ul class="nav nav-tabs nav-tabs-alt mb-1" role="tablist">
                 <li class="nav-item">
-                    <button class="nav-link active" id="btabs-alt-static-home-tab" data-bs-toggle="tab"
-                        data-bs-target="#btabs-alt-static-home" role="tab" aria-controls="btabs-alt-static-home"
-                        aria-selected="true">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#btabs-alt-static-home">
                         Thêm thủ công
                     </button>
                 </li>
                 <li class="nav-item ms-auto">
-                    <button type="button" class="btn btn-close p-3" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn btn-close p-3" data-bs-dismiss="modal"></button>
                 </li>
             </ul>
             <div class="modal-body block block-transparent bg-white mb-0 block-rounded">
-                <div class="block-content tab-content">
-                    <div class="tab-pane active" id="btabs-alt-static-home" role="tabpanel"
-                        aria-labelledby="btabs-static-home-tab" tabindex="0">
+                <div class="tab-content">
+                    <div class="tab-pane active" id="btabs-alt-static-home">
                         <form class="mb-4 form-phancong">
-                            <div class="row">
-                                <div class="col-6 d-flex flex-row w-100">
-                                    <div class="d-flex align-items-center">
-                                        <label for="giang-vien" class="form-label" style="width: 100px">
-                                            Giảng viên
-                                        </label>
-                                    </div>
-                                    <select class="js-select2 form-select data-monhoc" data-tab="1" id="giang-vien"
-                                        name="giang-vien" style="width: 100%;" data-placeholder="Chọn giảng viên cần phân công"
-                                        required>
-                                        <option value=""></option>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Giảng viên <span class="text-danger">*</span></label>
+                                    <select class="js-select2 form-select" id="giang-vien" name="giang-vien" required>
+                                        <option value="">Chọn giảng viên</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Năm học <span class="text-danger">*</span></label>
+                                    <select class="js-select2 form-select" id="namhoc" name="namhoc" required>
+                                        <option value="">Chọn năm học</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Học kỳ <span class="text-danger">*</span></label>
+                                    <select class="js-select2 form-select" id="hocky" name="hocky" required>
+                                        <option value="">Chọn học kỳ</option>
                                     </select>
                                 </div>
                             </div>
                         </form>
 
-                        <form action="#" id="modal-add-assignment-search-form" onsubmit="return false;">
-                            <div class="mb-4">
-                                <div class="input-group">
-                                    <input type="text" class="form-control form-control-alt" id="search-input" name="search-input"
-                                        placeholder="Tìm kiếm môn học...">
-                                    <button class="input-group-text bg-body border-0 btn-search">
-                                        <i class="fa fa-search"></i>
-                                    </button>
-                                </div>
+                        <form action="#" id="modal-add-assignment-search-form" onsubmit="return false;" class="mt-3">
+                            <div class="input-group">
+                                <input type="text" class="form-control form-control-alt" placeholder="Tìm kiếm môn học...">
+                                <button class="input-group-text bg-body border-0 btn-search">
+                                    <i class="fa fa-search"></i>
+                                </button>
                             </div>
                         </form>
-                        <div class="mb-4 row">
-                            <div class="table-responsive">
-                                <table class="table table-vcenter">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-center" style="width: 100px;">Chọn</th>
-                                            <th class="text-center">Mã môn học</th>
-                                            <th>Tên môn học</th>
-                                            <th class="text-center">Số tín chỉ</th>
-                                            <th class="text-center">Số tiết lý thuyết</th>
-                                            <th class="text-center">Số tiết thực hành</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="list-subject">
 
-                                    </tbody>
-                                </table>
-                            </div>
-                            <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"?>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-vcenter">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center" style="width: 60px;">Chọn</th>
+                                        <th class="text-center">Mã môn</th>
+                                        <th>Tên môn học</th>
+                                        <th class="text-center">Tín chỉ</th>
+                                        <th class="text-center">Lý thuyết</th>
+                                        <th class="text-center">Thực hành</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="list-subject"></tbody>
+                            </table>
                         </div>
-                        <div class="mb-4 d-flex flex-row-reverse">
-                            <button type="submit" class="btn btn-alt-primary" id="btn_assignment"><i
-                                    class="fa fa-fw fa-plus me-1"></i> Lưu phân công</button>
-                            <!-- <button class="btn btn-alt-primary" id="edit_assignment"><i class="fa fa-fw fa-plus me-1"></i> Sửa phân công</button> -->
-                            <input type="hidden" value="" id="question_id">
+                        <?php if (isset($data["Plugin"]["pagination"])) {
+                            require "./mvc/views/inc/pagination.php";
+                        }?>
+
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="button" class="btn btn-alt-primary" id="btn_assignment">
+                                <i class="fa fa-save me-1"></i> Lưu phân công
+                            </button>
                         </div>
-                        <!-- <form method="POST" onsubmit="return false;">
-                        </form> -->
                     </div>
                 </div>
             </div>
@@ -132,32 +132,41 @@
                 <h5 class="modal-title fw-bold">
                     <i class="fa fa-edit me-2"></i> Chỉnh sửa phân công
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form id="form-edit-assignment">
                 <div class="modal-body p-4">
-                    <input type="hidden" name="assignment_id" id="assignment_id">
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <label for="edit-giang-vien" class="form-label fw-semibold text-teal">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-teal">
                                 <i class="fa fa-chalkboard-teacher me-2"></i> Giảng viên
                             </label>
-                            <select class="js-select2 form-select form-select-lg shadow-sm border-teal" 
-                                    id="edit-giang-vien" name="edit-giang-vien" 
-                                    style="width: 100%;" data-placeholder="Chọn giảng viên" required disabled>
-                                <option value=""></option>
+                            <select class="js-select2 form-select" id="edit-giang-vien" required disabled>
+                                <option value="">Chọn giảng viên</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <label for="edit-mon-hoc" class="form-label fw-semibold text-teal">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-teal">
                                 <i class="fa fa-book-open me-2"></i> Môn học
                             </label>
-                            <select class="js-select2 form-select form-select-lg shadow-sm border-teal" 
-                                    id="edit-mon-hoc" name="edit-mon-hoc" 
-                                    style="width: 100%;" data-placeholder="Chọn môn học" required>
-                                <option value=""></option>
+                            <select class="js-select2 form-select" id="edit-mon-hoc" required>
+                                <option value="">Chọn môn học</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-teal">
+                                <i class="fa fa-calendar me-2"></i> Năm học
+                            </label>
+                            <select class="js-select2 form-select" id="edit-namhoc" required>
+                                <option value="">Chọn năm học</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-teal">
+                                <i class="fa fa-clock me-2"></i> Học kỳ
+                            </label>
+                            <select class="js-select2 form-select" id="edit-hocky" required disabled>
+                                <option value="">Chọn học kỳ</option>
                             </select>
                         </div>
                     </div>
@@ -166,7 +175,7 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         <i class="fa fa-times me-1"></i> Hủy
                     </button>
-                    <button type="submit" class="btn btn-teal shadow-sm" id="btn-save-edit">
+                    <button type="submit" class="btn btn-teal shadow-sm">
                         <i class="fa fa-save me-1"></i> Lưu thay đổi
                     </button>
                 </div>
@@ -174,7 +183,6 @@
         </div>
     </div>
 </div>
-
 <!-- Custom CSS -->
 <style>
 /* Gradient Backgrounds */

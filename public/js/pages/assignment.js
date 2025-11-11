@@ -7,9 +7,13 @@ Dashmix.onLoad(() =>
       jQuery(".form-phancong").validate({
         rules: {
           "giang-vien": { required: true },
+          namhoc: { required: true },
+          hocky: { required: true },
         },
         messages: {
           "giang-vien": { required: "Vui lòng chọn giảng viên" },
+          namhoc: { required: "Vui lòng chọn năm học" },
+          hocky: { required: "Vui lòng chọn học kỳ" },
         },
       });
     }
@@ -19,12 +23,14 @@ Dashmix.onLoad(() =>
   }.init()
 );
 
+// Bộ môn đã chọn
 let subject = new Set();
 
+// Hiển thị danh sách phân công
 function showAssignment(data) {
   if (data.length === 0) {
     $("#listAssignment").html(
-      '<tr><td colspan="5" class="text-center text-muted py-4">Chưa có phân công nào</td></tr>'
+      '<tr><td colspan="7" class="text-center text-muted py-4">Chưa có phân công nào</td></tr>'
     );
     $('[data-bs-toggle="tooltip"]').tooltip("dispose");
     return;
@@ -37,9 +43,7 @@ function showAssignment(data) {
 
   data.forEach((element, idx) => {
     const stt = offset + idx + 1;
-    const assignment_id = element["assignment_id"] || element["id"] || "";
-    const giangvien_id =
-      element["manguoidung"] || element["giangvien_id"] || "";
+    const giangvien_id = element["manguoidung"] || "";
     const monhoc_code = element["mamonhoc"] || "";
     const hoten = element["hoten"]
       ? $("<div>").text(element["hoten"]).html()
@@ -48,26 +52,35 @@ function showAssignment(data) {
       ? $("<div>").text(element["tenmonhoc"]).html()
       : "";
 
+    const namhoc = element["tennamhoc"] || "-";
+    const hocky = element["tenhocky"] || "-";
+    console.log(`Môn: ${tenmonhoc}, Năm học: ${namhoc}, Học kỳ: ${hocky}`);
+
     html += `
       <tr>
         <td class="text-center"><strong>${stt}</strong></td>
         <td class="fw-semibold">${hoten}</td>
         <td class="text-center">${$("<div>").text(monhoc_code).html()}</td>
         <td>${tenmonhoc}</td>
+        <td class="text-center">${namhoc}</td>
+        <td class="text-center">${hocky}</td>
         <td class="text-center col-action">
           <a href="javascript:void(0)"
-             class="btn btn-sm btn-alt-warning btn-edit btn-edit-assignment me-1"
+             class="btn btn-sm btn-alt-warning btn-edit-assignment me-1"
              data-bs-toggle="tooltip" data-bs-placement="top" title="Chỉnh sửa"
-             data-id="${assignment_id}"
              data-giangvien="${giangvien_id}"
-             data-monhoc="${monhoc_code}">
+             data-monhoc="${monhoc_code}"
+             data-namhoc="${element["namhoc"] || ""}"
+             data-hocky="${element["hocky"] || ""}">
             <i class="fa fa-edit"></i>
           </a>
           <a href="javascript:void(0)"
-             class="btn btn-sm btn-alt-danger btn-delete btn-delete-assignment"
+             class="btn btn-sm btn-alt-danger btn-delete-assignment"
              data-bs-toggle="tooltip" data-bs-placement="top" title="Xóa"
              data-id="${giangvien_id}"
-             data-mamon="${monhoc_code}">
+             data-mamon="${monhoc_code}"
+             data-namhoc="${element["namhoc"] || ""}"
+             data-hocky="${element["hocky"] || ""}">
             <i class="fa fa-trash"></i>
           </a>
         </td>
@@ -78,16 +91,20 @@ function showAssignment(data) {
   $('[data-bs-toggle="tooltip"]').tooltip();
 }
 
+// Hiển thị danh sách môn học trong modal
 function showSubject(data) {
-  if (data.length == 0) {
-    $("#list-subject").html("");
+  if (data.length === 0) {
+    $("#list-subject").html(
+      "<tr><td colspan='6' class='text-center text-muted'>Không tìm thấy môn học</td></tr>"
+    );
     return;
   }
   let html = "";
   data.forEach((element) => {
+    const checked = subject.has(element["mamonhoc"]) ? "checked" : "";
     html += `<tr>
         <td class="text-center">
-            <input class="form-check-input" type="checkbox" name="selectSubject" value="${element["mamonhoc"]}">
+            <input class="form-check-input" type="checkbox" name="selectSubject" value="${element["mamonhoc"]}" ${checked}>
         </td>
         <td class="text-center">${element["mamonhoc"]}</td>
         <td>${element["tenmonhoc"]}</td>
@@ -99,26 +116,20 @@ function showSubject(data) {
   $("#list-subject").html(html);
 }
 
-function updateCheckmarkSubject(checkedSubjects) {
-  $("input:checkbox[name=selectSubject]:checked").removeAttr("checked");
-  checkedSubjects.forEach(function (subject) {
-    $(`input:checkbox[value=${subject}]`).attr("checked", "checked");
-  });
-}
-
 $(document).ready(function () {
+  // Khởi tạo Select2
   $(".js-select2").select2({ dropdownParent: $("#modal-add-assignment") });
-
   $("#modal-default-vcenter").on("shown.bs.modal", function () {
-    $("#edit-giang-vien, #edit-mon-hoc").select2({
+    $("#edit-giang-vien, #edit-mon-hoc, #edit-namhoc, #edit-hocky").select2({
       dropdownParent: $("#modal-default-vcenter"),
     });
   });
 
+  // Tải dữ liệu giảng viên
   $.get(
     "./assignment/getGiangVien",
     function (data) {
-      let html = "<option></option>";
+      let html = "<option value=''>Chọn giảng viên</option>";
       data.forEach((el) => {
         html += `<option value="${el["id"]}">${el["hoten"]}</option>`;
       });
@@ -127,10 +138,11 @@ $(document).ready(function () {
     "json"
   );
 
+  // Tải dữ liệu môn học
   $.get(
     "./assignment/getMonHoc",
     function (data) {
-      let html = "<option></option>";
+      let html = "<option value=''>Chọn môn học</option>";
       data.forEach((el) => {
         html += `<option value="${el["mamonhoc"]}">${el["tenmonhoc"]}</option>`;
       });
@@ -139,8 +151,45 @@ $(document).ready(function () {
     "json"
   );
 
+  // Tải năm học
+  $.get(
+    "./assignment/getNamHoc",
+    function (data) {
+      let html = '<option value="">Chọn năm học</option>';
+      data.forEach((el) => {
+        html += `<option value="${el.manamhoc}">${el.tennamhoc}</option>`;
+      });
+      $("#namhoc").html(html);
+    },
+    "json"
+  );
+
+  // Khi chọn năm học → tải học kỳ
+  $("#namhoc").on("change", function () {
+    const manamhoc = $(this).val();
+    if (!manamhoc) {
+      $("#hocky").html('<option value="">Chọn học kỳ</option>');
+      return;
+    }
+    $.post(
+      "./assignment/getHocKy",
+      { manamhoc },
+      function (data) {
+        let html = '<option value="">Chọn học kỳ</option>';
+        data.forEach((el) => {
+          html += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
+        });
+        $("#hocky").html(html);
+      },
+      "json"
+    );
+  });
+
+  // Mở modal thêm phân công
   $("#add_assignment").click(function () {
     $("#giang-vien").val("").trigger("change");
+    $("#namhoc").val("").trigger("change");
+    $("#hocky").val("").trigger("change");
     subject.clear();
     modalAddAssignmentPagination.getPagination(
       modalAddAssignmentPagination.option,
@@ -152,175 +201,205 @@ $(document).ready(function () {
     subject.clear();
   });
 
-  // Thêm môn mới, kiểm tra trùng
-  $("#btn_assignment").click(function () {
-    if ($(".form-phancong").valid()) {
-      let giangvien = $("#giang-vien").val();
-      let listSubject = [...subject];
+  // Khi chọn giảng viên → tải môn đã phân công
+  $(document).on("change", "#giang-vien", function () {
+    const giangvien = $(this).val();
+    if (!giangvien) {
+      subject.clear();
+      modalAddAssignmentPagination.getPagination(
+        modalAddAssignmentPagination.option,
+        1
+      );
+      return;
+    }
 
-      if (listSubject.length === 0) {
-        Dashmix.helpers("jq-notify", {
-          type: "info",
-          message: "Chưa chọn môn nào để phân công.",
-        });
-        return;
-      }
+    const namhoc = $("#namhoc").val();
+    const hocky = $("#hocky").val();
 
+    if (namhoc && hocky) {
       $.post(
-        "./assignment/checkDuplicate",
-        { magiangvien: giangvien, listSubject: listSubject },
+        "./assignment/getAssignmentByUser",
+        { id: giangvien, namhoc, hocky },
         function (res) {
-          const duplicates = res.duplicates || [];
-          const newSubjects = listSubject.filter(
-            (mh) => !duplicates.includes(mh)
+          subject = new Set(res.map((el) => el.mamonhoc));
+          modalAddAssignmentPagination.getPagination(
+            modalAddAssignmentPagination.option,
+            1
           );
-
-          // Thông báo các môn trùng
-          if (duplicates.length > 0) {
-            Dashmix.helpers("jq-notify", {
-              type: "danger",
-              message:
-                "Các môn sau đã phân công cho giảng viên này: " +
-                duplicates.join(", "),
-            });
-          }
-
-          // Thêm các môn mới
-          if (newSubjects.length > 0) {
-            $.post(
-              "./assignment/addAssignment",
-              { magiangvien: giangvien, listSubject: newSubjects },
-              function (res) {
-                Dashmix.helpers("jq-notify", {
-                  type: "info",
-                  message:
-                    "Phân công thành công môn: " + newSubjects.join(", "),
-                });
-
-                // Nếu có môn mới, đóng form
-                $("#modal-add-assignment").modal("hide");
-
-                // Cập nhật lại danh sách
-                mainPagePagination.getPagination(
-                  mainPagePagination.option,
-                  mainPagePagination.valuePage.curPage
-                );
-              },
-              "json"
-            );
-          }
         },
         "json"
       );
     }
   });
 
-  $(document).on("change", "#giang-vien", function () {
-    let giangvien = $(this).val();
-    $.post(
-      "./assignment/getAssignmentByUser",
-      { id: giangvien },
-      function (res) {
-        subject = new Set(res.map((el) => el.mamonhoc));
-        modalAddAssignmentPagination.getPagination(
-          modalAddAssignmentPagination.option,
-          1
-        );
-      },
-      "json"
-    );
-  });
-
-  $("#list-subject").on("click", "input[type=checkbox]", function () {
+  // Chọn môn học
+  $("#list-subject").on("change", "input[type=checkbox]", function () {
     const val = $(this).val();
     if ($(this).is(":checked")) subject.add(val);
     else subject.delete(val);
   });
 
-  function addAssignment(giangvien, listSubject) {
+  // Lưu phân công
+  $("#btn_assignment").click(function () {
+    if (!$(".form-phancong").valid()) return;
+
+    const giangvien = $("#giang-vien").val();
+    const namhoc = $("#namhoc").val();
+    const hocky = $("#hocky").val();
+    const listSubject = [...subject];
+
+    if (!giangvien || !namhoc || !hocky) {
+      Dashmix.helpers("jq-notify", {
+        type: "warning",
+        message: "Vui lòng chọn đầy đủ thông tin!",
+      });
+      return;
+    }
+
+    if (listSubject.length === 0) {
+      Dashmix.helpers("jq-notify", {
+        type: "info",
+        message: "Chưa chọn môn nào để phân công.",
+      });
+      return;
+    }
+
     $.post(
-      "./assignment/addAssignment",
-      { magiangvien: giangvien, listSubject: listSubject },
+      "./assignment/checkDuplicate",
+      {
+        magiangvien: giangvien,
+        listSubject: listSubject,
+        namhoc: namhoc,
+        hocky: hocky,
+      },
       function (res) {
-        $("#modal-add-assignment").modal("hide");
-        Dashmix.helpers("jq-notify", {
-          type: res.success ? "success" : "danger",
-          message:
-            res.message ||
-            (res.success ? "Phân công thành công!" : "Lỗi thêm môn mới!"),
-        });
-        mainPagePagination.getPagination(
-          mainPagePagination.option,
-          mainPagePagination.valuePage.curPage
+        const duplicates = res.duplicates || [];
+        const newSubjects = listSubject.filter(
+          (mh) => !duplicates.includes(mh)
         );
+
+        if (duplicates.length > 0) {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message:
+              "Các môn sau đã được phân công trong học kỳ này: " +
+              duplicates.join(", "),
+          });
+        }
+
+        if (newSubjects.length > 0) {
+          $.post(
+            "./assignment/addAssignment",
+            {
+              magiangvien: giangvien,
+              listSubject: newSubjects,
+              namhoc: namhoc,
+              hocky: hocky,
+            },
+            function (res) {
+              if (res.success) {
+                Dashmix.helpers("jq-notify", {
+                  type: "success",
+                  message: res.message,
+                });
+                $("#modal-add-assignment").modal("hide");
+                mainPagePagination.getPagination(
+                  mainPagePagination.option,
+                  mainPagePagination.valuePage.curPage
+                );
+              } else {
+                Dashmix.helpers("jq-notify", {
+                  type: "danger",
+                  message: res.message,
+                });
+              }
+            },
+            "json"
+          );
+        }
       },
       "json"
     );
-  }
-
-  function deleteAssignmentUser(giangvien) {
-    $.post("./assignment/deleteAll", { id: giangvien });
-  }
+  });
 
   // Chỉnh sửa phân công
   $(document).on("click", ".btn-edit-assignment", function () {
-    const row = $(this).closest("tr");
-    const giangvien_id = $(this).data("giangvien");
-    const monhoc_code = $(this).data("monhoc");
+    const $btn = $(this);
+    const giangvien_id = $btn.data("giangvien");
+    const monhoc_code = $btn.data("monhoc");
+    const namhoc = $btn.data("namhoc");
+    const hocky = $btn.data("hocky");
 
-    row.data("old_gv", giangvien_id);
-    row.data("old_mh", monhoc_code);
+    $btn.closest("tr").data({
+      old_gv: giangvien_id,
+      old_mh: monhoc_code,
+      old_nh: namhoc,
+      old_hk: hocky,
+    });
 
     $("#edit-giang-vien").val(giangvien_id).trigger("change");
     $("#edit-mon-hoc").val(monhoc_code).trigger("change");
+    $("#edit-namhoc").val(namhoc).trigger("change");
+    setTimeout(() => $("#edit-hocky").val(hocky).trigger("change"), 100);
+
     $("#modal-default-vcenter").modal("show");
   });
 
+  // Lưu chỉnh sửa
   $("#form-edit-assignment").submit(function (e) {
     e.preventDefault();
+
     const row = $("#listAssignment tr")
       .filter(function () {
-        return $(this).data("old_gv") != undefined;
+        return $(this).data("old_gv") !== undefined;
       })
       .first();
+
     const old_mh = row.data("old_mh");
     const old_gv = row.data("old_gv");
+    const old_nh = row.data("old_nh");
+    const old_hk = row.data("old_hk");
 
     const newGv = $("#edit-giang-vien").val();
     const newMh = $("#edit-mon-hoc").val();
+    const newNh = $("#edit-namhoc").val();
+    const newHk = $("#edit-hocky").val();
 
-    // Kiểm tra trùng môn trước khi update
     $.post(
       "./assignment/checkDuplicateForUpdate",
       {
         magiangvien: newGv,
         listSubject: [newMh],
         old_mamonhoc: old_mh,
+        namhoc: newNh,
+        hocky: newHk,
       },
       function (res) {
-        const duplicates = res.duplicates || [];
-        if (duplicates.length > 0) {
+        if (res.duplicates && res.duplicates.length > 0) {
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            message: "Giảng viên đã có môn này: " + duplicates.join(", "),
+            message: "Môn học đã được phân công trong học kỳ này!",
           });
           return;
         }
 
-        // Nếu không trùng mới update
         $.post(
           "./assignment/update",
           {
             old_mamonhoc: old_mh,
             old_manguoidung: old_gv,
+            old_namhoc: old_nh,
+            old_hocky: old_hk,
             mamonhoc: newMh,
             magiangvien: newGv,
+            namhoc: newNh,
+            hocky: newHk,
           },
           function (res) {
             if (res.success) {
               Dashmix.helpers("jq-notify", {
                 type: "success",
-                message: res.message || "Cập nhật phân công thành công!",
+                message: res.message,
               });
               $("#modal-default-vcenter").modal("hide");
               mainPagePagination.getPagination(
@@ -330,7 +409,7 @@ $(document).ready(function () {
             } else {
               Dashmix.helpers("jq-notify", {
                 type: "danger",
-                message: res.message || "Cập nhật thất bại!",
+                message: res.message,
               });
             }
           },
@@ -343,8 +422,12 @@ $(document).ready(function () {
 
   // Xóa phân công
   $(document).on("click", ".btn-delete-assignment", function () {
-    const id = $(this).data("id");
-    const mamon = $(this).data("mamon");
+    const $btn = $(this);
+    const id = $btn.data("id");
+    const mamon = $btn.data("mamon");
+    const namhoc = $btn.data("namhoc");
+    const hocky = $btn.data("hocky");
+
     Swal.fire({
       title: "Xóa phân công?",
       text: "Không thể hoàn tác!",
@@ -353,25 +436,31 @@ $(document).ready(function () {
       confirmButtonText: "Xóa",
     }).then((r) => {
       if (r.isConfirmed) {
-        $.post("./assignment/delete", { id: id, mamon: mamon }, function (res) {
-          const success = res.success || res == 1;
-          Swal.fire(
-            success ? "Thành công!" : "Lỗi!",
-            success ? "Đã xóa!" : "Xóa thất bại!",
-            success ? "success" : "error"
-          );
-          if (success)
-            mainPagePagination.getPagination(
-              mainPagePagination.option,
-              mainPagePagination.valuePage.curPage
+        $.post(
+          "./assignment/delete",
+          { id, mamon, namhoc, hocky },
+          function (res) {
+            const success = res.success ?? true;
+            Swal.fire(
+              success ? "Thành công!" : "Lỗi!",
+              success ? "Đã xóa!" : "Xóa thất bại!",
+              success ? "success" : "error"
             );
-        });
+            if (success) {
+              mainPagePagination.getPagination(
+                mainPagePagination.option,
+                mainPagePagination.valuePage.curPage
+              );
+            }
+          },
+          "json"
+        );
       }
     });
   });
 });
 
-// Pagination
+// === PHÂN TRANG ===
 const paginationContainer = document.querySelectorAll(".pagination-container");
 paginationContainer[0].classList.add(paginationClassName[0]);
 paginationContainer[1].classList.add(paginationClassName[1]);
@@ -391,10 +480,7 @@ const mainPagePagination = new Pagination(
 mainPagePagination.option.controller = "assignment";
 mainPagePagination.option.model = "PhanCongModel";
 mainPagePagination.option.limit = 10;
-mainPagePagination.getPagination(
-  mainPagePagination.option,
-  mainPagePagination.valuePage.curPage
-);
+mainPagePagination.getPagination(mainPagePagination.option, 1);
 
 const modalAddAssignmentPagination = new Pagination(
   modalAssignmentNav,

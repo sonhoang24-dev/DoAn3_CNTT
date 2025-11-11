@@ -1,4 +1,5 @@
 <?php
+
 class NamHoc extends Controller
 {
     public $NamHocModel;
@@ -28,14 +29,16 @@ class NamHoc extends Controller
             $this->view("single_layout", ["Page" => "error/page_403", "Title" => "Lỗi !"]);
         }
     }
-    public function getNamHoc() {
-    AuthCore::checkAuthentication();
-    $q = trim($_POST['q'] ?? '');
-    echo json_encode($this->NamHocModel->getNamHoc($q));
-}
+    public function getNamHoc()
+    {
+        AuthCore::checkAuthentication();
+        $q = trim($_POST['q'] ?? '');
+        echo json_encode($this->NamHocModel->getNamHoc($q));
+    }
 
 
-    public function addNamHoc() {
+    public function addNamHoc()
+    {
         AuthCore::checkAuthentication();
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $ten = trim($_POST['tennamhoc'] ?? '');
@@ -52,26 +55,28 @@ class NamHoc extends Controller
         }
     }
 
-    public function updateNamHoc() {
-    AuthCore::checkAuthentication();
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $id = (int)($_POST['manamhoc'] ?? 0);
-        $ten = trim($_POST['tennamhoc'] ?? '');
-        $tt = (int)($_POST['trangthai'] ?? 1);
-        $sohocky = isset($_POST['sohocky']) ? (int)$_POST['sohocky'] : null;
+    public function updateNamHoc()
+    {
+        AuthCore::checkAuthentication();
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            $id = (int)($_POST['manamhoc'] ?? 0);
+            $ten = trim($_POST['tennamhoc'] ?? '');
+            $tt = (int)($_POST['trangthai'] ?? 1);
+            $sohocky = isset($_POST['sohocky']) ? (int)$_POST['sohocky'] : null;
 
-        $result = $this->NamHocModel->updateNamHoc($id, $ten, $tt, $sohocky);
+            $result = $this->NamHocModel->updateNamHoc($id, $ten, $tt, $sohocky);
 
-        if (is_array($result)) {
-            echo json_encode($result);
-        } else {
-            echo json_encode(["success" => $result]);
+            if (is_array($result)) {
+                echo json_encode($result);
+            } else {
+                echo json_encode(["success" => $result]);
+            }
         }
     }
-}
 
 
-    public function deleteNamHoc() {
+    public function deleteNamHoc()
+    {
         AuthCore::checkAuthentication();
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $id = (int)($_POST['manamhoc'] ?? 0);
@@ -80,7 +85,8 @@ class NamHoc extends Controller
         }
     }
 
-    public function getHocKy() {
+    public function getHocKy()
+    {
         AuthCore::checkAuthentication();
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $id = (int)($_POST['manamhoc'] ?? 0);
@@ -88,7 +94,8 @@ class NamHoc extends Controller
         }
     }
 
-    public function getQuery($filter, $input, $args) {
+    public function getQuery($filter, $input, $args)
+    {
         AuthCore::checkAuthentication();
         return $this->NamHocModel->getQuery($filter, $input, $args);
     }

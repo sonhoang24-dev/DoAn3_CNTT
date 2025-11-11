@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 10, 2025 lúc 08:38 AM
+-- Thời gian đã tạo: Th10 11, 2025 lúc 08:03 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.0.30
 
@@ -2802,7 +2802,10 @@ INSERT INTO `hocky` (`mahocky`, `tenhocky`, `manamhoc`, `ngaytao`, `sohocky`) VA
 (5, 'Học kỳ 2', 2, '2025-11-09 12:09:24', 2),
 (6, 'Học kỳ 1', 3, '2025-11-09 12:09:24', 1),
 (7, 'Học kỳ 2', 3, '2025-11-09 12:09:24', 2),
-(8, 'Học kỳ 3', 3, '2025-11-09 12:09:24', 3);
+(8, 'Học kỳ 3', 3, '2025-11-09 12:09:24', 3),
+(13, 'Học kỳ 1', 15, '2025-11-10 13:10:20', 1),
+(14, 'Học kỳ 2', 15, '2025-11-10 13:10:20', 2),
+(15, 'Học kỳ 3', 15, '2025-11-10 13:10:20', 3);
 
 -- --------------------------------------------------------
 
@@ -2909,7 +2912,7 @@ INSERT INTO `namhoc` (`manamhoc`, `tennamhoc`, `trangthai`, `ngaytao`) VALUES
 (12, '2020-2021', 1, '2025-11-09 14:38:10'),
 (13, '2021-2022', 1, '2025-11-09 14:38:10'),
 (14, '2022-2023', 1, '2025-11-09 14:38:10'),
-(15, '2022-2024', 1, '2025-11-09 14:38:10');
+(15, '2022-2025', 1, '2025-11-09 14:38:10');
 
 -- --------------------------------------------------------
 
@@ -2940,7 +2943,7 @@ CREATE TABLE `nguoidung` (
 
 INSERT INTO `nguoidung` (`email`, `id`, `googleid`, `hoten`, `gioitinh`, `ngaysinh`, `avatar`, `ngaythamgia`, `matkhau`, `trangthai`, `sodienthoai`, `token`, `otp`, `manhomquyen`) VALUES
 ('hp672341@gmail.com', 'CNTT2211001', NULL, 'Nguyễn Văn An', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1762603119$2y$10$ZeWWZPjC9GFv4FaFEZgGg.X10sYvj7h6fAYv0yHFxljYgkXkWP6FW', NULL, 2),
-('ttbichcntt2211002@dht.edu.vn', 'CNTT2211002', NULL, 'Trần Thị Bích', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1762757887$2y$10$lhHdB6Ebxm3Ps72uvjEUkuVdGJ51MuxBTZRnvGY/7R3N8JdKyol/K', NULL, 3),
+('ttbichcntt2211002@dht.edu.vn', 'CNTT2211002', NULL, 'Trần Thị Bích', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1762831827$2y$10$IJZnNtdhwH9OPpCOxDEcb.YkioyKXSn3DRB7L.5wNz900LDR70dAO', NULL, 3),
 ('lmchaucntt2211003@dht.edu.vn', 'CNTT2211003', NULL, 'Lê Minh Châu', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1754968235$2y$10$BHp7hW7QtnhYLw4BLBQoxeSwWqG/CNDCrK8Fznakqrd9ZyaSV4mh2', NULL, 2),
 ('hp672341@dht.edu.vn', 'CNTT22110032', NULL, 'Hoàng', 0, '2004-02-04', 'ANHSV.png', '2025-08-03', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, 333440700, NULL, '515355', 2),
 ('pqdcntt2211004@dht.edu.vn', 'CNTT2211004', NULL, 'Phạm Quốc Dũng', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1754968258$2y$10$3l3pqujDE3g5Or4pc/xEruO.3Lb6YdnudBBG5EyA13WQzmGrmdMQy', NULL, 2),
@@ -2978,7 +2981,7 @@ INSERT INTO `nguoidung` (`email`, `id`, `googleid`, `hoten`, `gioitinh`, `ngaysi
 ('', 'CNTT2211045', NULL, 'Nguyễn Văn A', NULL, '2004-01-01', 'ANHSV.png', '2025-08-12', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, NULL, NULL, 2),
 ('hp842@dht.edu.vn', 'CNTT2211048', NULL, 'Phạm Sơn Hoàng', NULL, '2004-01-01', 'ANHSV.png', '2025-08-12', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1755010450$2y$10$/Kecb2jMhXICr2dbGkQiNuyg013YCXqR5P15B/hjEXsIwJTqJmjGO', NULL, 2),
 ('hp672340@dht.edu.vn', 'CNTT2211050', NULL, 'Nguyễn Văn A', 0, '2004-02-01', 'ANHSV.png', '2025-08-12', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, 333440700, '1754988182$2y$10$2IsPbZZWbXCVflrYFh.az.dKAiTabiPvND/lmGU/G/bHww7pw691i', NULL, 2),
-('gvbm001@dht.edu.vn', 'GVBM001', NULL, 'Phạm Sơn Hoàng', 1, '1990-01-01', 'ảnh nội thất 14-689b63ec30386.jpg', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1762760003$2y$10$WMVB.jKaSK096kkNtIyN6evuXyNSnLzHesGCcmqxROj3WZowsr5Zu', NULL, 1),
+('gvbm001@dht.edu.vn', 'GVBM001', NULL, 'Phạm Sơn Hoàng', 1, '1990-01-01', 'ảnh nội thất 14-689b63ec30386.jpg', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1762831785$2y$10$bLFNLI.FDLdv8Vip/zTYju65m7Me0OPGkobVS8Jk0EB6TG2FNKQBm', NULL, 1),
 ('gvbm002@dht.edu.vn', 'GVBM002', NULL, 'Liên Hòa Thuận', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1762609467$2y$10$I0JFaxcJPT9Pyu/rTNmP/OVy2hVNcuNnp8kbkv60IFZYlz4FNEMoS', NULL, 1),
 ('nvbhttt2211001@dht.edu.vn', 'HTTT2211001', NULL, 'Nguyễn Văn Bình', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, '1762610311$2y$10$M8sj4kbnNbX5ztI15UO6A.MvAwn2eaPSfSIXQU2fLChCayBZNmeda', NULL, 2),
 ('tthcntt2211002@dht.edu.vn', 'HTTT2211002', NULL, 'Trần Thị Hồng', NULL, '1990-01-01', 'ANHSV.png', '2025-08-01', '$2y$10$/3/xzyka/Om6VqWww224Dut6fuaIypgFlDRIY2Wj8VD0CYpimBGSy', 1, NULL, NULL, NULL, 2),
@@ -3207,18 +3210,31 @@ CREATE TABLE `phancong` (
   `mamonhoc` varchar(20) NOT NULL,
   `manguoidung` varchar(50) NOT NULL DEFAULT '',
   `namhoc` int(11) DEFAULT NULL,
-  `hocky` int(11) DEFAULT NULL
+  `hocky` int(11) DEFAULT NULL,
+  `trangthai` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Đang đổ dữ liệu cho bảng `phancong`
 --
 
-INSERT INTO `phancong` (`mamonhoc`, `manguoidung`, `namhoc`, `hocky`) VALUES
-('LTW001', 'GVBM001', NULL, NULL),
-('MMT001', 'GVBM001', NULL, NULL),
-('TEST2025', 'GVBM001', NULL, NULL),
-('TMDT001', 'GVBM001', NULL, NULL);
+INSERT INTO `phancong` (`mamonhoc`, `manguoidung`, `namhoc`, `hocky`, `trangthai`) VALUES
+('CSDL001', 'GVBM001', 3, 7, 1),
+('GUI0267', 'GVBM001', 3, 6, 0),
+('GUI0267', 'GVBM002', NULL, NULL, 0),
+('LTDD001', 'GVBM001', NULL, NULL, 1),
+('LTDD001', 'GVBM002', NULL, NULL, 1),
+('LTW001', 'GVBM001', 3, 6, 1),
+('LTW001', 'GVBM002', NULL, NULL, 0),
+('MMT001', 'GVBM001', NULL, NULL, 1),
+('MMT001', 'GVBM002', 3, 8, 1),
+('TEST2025', 'GVBM001', NULL, NULL, 1),
+('TEST2025', 'GVBM002', NULL, NULL, 1),
+('TMDT001', 'GVBM001', 3, 6, 0),
+('TMDT001', 'GVBM002', NULL, NULL, 0),
+('TTNT001', 'GVBM001', NULL, NULL, 0),
+('TTNT001', 'GVBM002', NULL, NULL, 0),
+('TTNT008', 'GVBM001', NULL, NULL, 0);
 
 -- --------------------------------------------------------
 
@@ -3763,7 +3779,7 @@ ALTER TABLE `dethi`
 -- AUTO_INCREMENT cho bảng `hocky`
 --
 ALTER TABLE `hocky`
-  MODIFY `mahocky` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `mahocky` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT cho bảng `ketqua`
