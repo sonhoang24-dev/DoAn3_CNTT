@@ -29,12 +29,19 @@ class NamHoc extends Controller
             $this->view("single_layout", ["Page" => "error/page_403", "Title" => "Lỗi !"]);
         }
     }
-    public function getNamHoc()
-    {
-        AuthCore::checkAuthentication();
-        $q = trim($_POST['q'] ?? '');
-        echo json_encode($this->NamHocModel->getNamHoc($q));
-    }
+    // Ví dụ trong controller
+public function getNamHoc() {
+    $page = $_POST['page'] ?? 1;
+    $limit = $_POST['limit'] ?? 10;
+    $q = $_POST['q'] ?? '';
+
+    $model = new NamHocModel();
+    $result = $model->getNamHoc($page, $limit, $q);
+
+    header('Content-Type: application/json');
+    echo json_encode($result);
+    exit;
+}
 
 
     public function addNamHoc()

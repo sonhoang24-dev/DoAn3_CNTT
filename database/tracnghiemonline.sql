@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 11, 2025 lúc 08:03 AM
+-- Thời gian đã tạo: Th10 11, 2025 lúc 02:18 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.0.30
 
@@ -2795,17 +2795,23 @@ CREATE TABLE `hocky` (
 --
 
 INSERT INTO `hocky` (`mahocky`, `tenhocky`, `manamhoc`, `ngaytao`, `sohocky`) VALUES
-(1, 'Học kỳ 1', 1, '2025-11-09 12:09:24', 1),
-(2, 'Học kỳ 2', 1, '2025-11-09 12:09:24', 2),
-(3, 'Học kỳ 3', 1, '2025-11-09 12:09:24', 3),
-(4, 'Học kỳ 1', 2, '2025-11-09 12:09:24', 1),
-(5, 'Học kỳ 2', 2, '2025-11-09 12:09:24', 2),
-(6, 'Học kỳ 1', 3, '2025-11-09 12:09:24', 1),
-(7, 'Học kỳ 2', 3, '2025-11-09 12:09:24', 2),
-(8, 'Học kỳ 3', 3, '2025-11-09 12:09:24', 3),
 (13, 'Học kỳ 1', 15, '2025-11-10 13:10:20', 1),
 (14, 'Học kỳ 2', 15, '2025-11-10 13:10:20', 2),
-(15, 'Học kỳ 3', 15, '2025-11-10 13:10:20', 3);
+(15, 'Học kỳ 3', 15, '2025-11-10 13:10:20', 3),
+(16, 'Học kỳ 1', 7, '2025-11-11 09:35:42', 1),
+(17, 'Học kỳ 2', 7, '2025-11-11 09:35:42', 2),
+(18, 'Học kỳ 3', 7, '2025-11-11 09:35:42', 3),
+(19, 'Học kỳ 1', 12, '2025-11-11 09:35:48', 1),
+(20, 'Học kỳ 2', 12, '2025-11-11 09:35:48', 2),
+(21, 'Học kỳ 1', 14, '2025-11-11 11:32:20', 1),
+(22, 'Học kỳ 2', 14, '2025-11-11 11:32:20', 2),
+(23, 'Học kỳ 3', 14, '2025-11-11 11:32:20', 3),
+(24, 'Học kỳ 1', 17, '2025-11-11 12:11:58', 1),
+(25, 'Học kỳ 2', 17, '2025-11-11 12:11:58', 2),
+(26, 'Học kỳ 3', 17, '2025-11-11 12:11:58', 3),
+(27, 'Học kỳ 1', 18, '2025-11-11 12:39:34', 1),
+(28, 'Học kỳ 2', 18, '2025-11-11 12:39:34', 2),
+(29, 'Học kỳ 3', 18, '2025-11-11 12:39:34', 3);
 
 -- --------------------------------------------------------
 
@@ -2898,21 +2904,16 @@ CREATE TABLE `namhoc` (
 --
 
 INSERT INTO `namhoc` (`manamhoc`, `tennamhoc`, `trangthai`, `ngaytao`) VALUES
-(1, '2023-2024', 1, '2025-11-09 12:09:24'),
-(2, '2024-2025', 1, '2025-11-09 12:09:24'),
-(3, '2025-2026', 1, '2025-11-09 12:09:24'),
-(4, '2012-2013', 1, '2025-11-09 14:38:10'),
-(5, '2013-2014', 1, '2025-11-09 14:38:10'),
-(6, '2014-2015', 1, '2025-11-09 14:38:10'),
 (7, '2015-2016', 1, '2025-11-09 14:38:10'),
-(8, '2016-2017', 1, '2025-11-09 14:38:10'),
 (9, '2017-2018', 1, '2025-11-09 14:38:10'),
 (10, '2018-2019', 1, '2025-11-09 14:38:10'),
 (11, '2019-2020', 1, '2025-11-09 14:38:10'),
 (12, '2020-2021', 1, '2025-11-09 14:38:10'),
 (13, '2021-2022', 1, '2025-11-09 14:38:10'),
 (14, '2022-2023', 1, '2025-11-09 14:38:10'),
-(15, '2022-2025', 1, '2025-11-09 14:38:10');
+(15, '2022-2025', 1, '2025-11-09 14:38:10'),
+(17, '2027-2028', 1, '2025-11-11 12:11:58'),
+(18, '2029-2031', 1, '2025-11-11 12:39:34');
 
 -- --------------------------------------------------------
 
@@ -3208,33 +3209,32 @@ INSERT INTO `nhomquyen` (`manhomquyen`, `tennhomquyen`, `trangthai`) VALUES
 
 CREATE TABLE `phancong` (
   `mamonhoc` varchar(20) NOT NULL,
-  `manguoidung` varchar(50) NOT NULL DEFAULT '',
-  `namhoc` int(11) DEFAULT NULL,
-  `hocky` int(11) DEFAULT NULL,
-  `trangthai` tinyint(1) NOT NULL DEFAULT 1
+  `manguoidung` varchar(20) NOT NULL,
+  `namhoc` int(11) NOT NULL,
+  `hocky` int(11) NOT NULL,
+  `trangthai` tinyint(1) NOT NULL DEFAULT 1,
+  `ngaytao` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Đang đổ dữ liệu cho bảng `phancong`
 --
 
-INSERT INTO `phancong` (`mamonhoc`, `manguoidung`, `namhoc`, `hocky`, `trangthai`) VALUES
-('CSDL001', 'GVBM001', 3, 7, 1),
-('GUI0267', 'GVBM001', 3, 6, 0),
-('GUI0267', 'GVBM002', NULL, NULL, 0),
-('LTDD001', 'GVBM001', NULL, NULL, 1),
-('LTDD001', 'GVBM002', NULL, NULL, 1),
-('LTW001', 'GVBM001', 3, 6, 1),
-('LTW001', 'GVBM002', NULL, NULL, 0),
-('MMT001', 'GVBM001', NULL, NULL, 1),
-('MMT001', 'GVBM002', 3, 8, 1),
-('TEST2025', 'GVBM001', NULL, NULL, 1),
-('TEST2025', 'GVBM002', NULL, NULL, 1),
-('TMDT001', 'GVBM001', 3, 6, 0),
-('TMDT001', 'GVBM002', NULL, NULL, 0),
-('TTNT001', 'GVBM001', NULL, NULL, 0),
-('TTNT001', 'GVBM002', NULL, NULL, 0),
-('TTNT008', 'GVBM001', NULL, NULL, 0);
+INSERT INTO `phancong` (`mamonhoc`, `manguoidung`, `namhoc`, `hocky`, `trangthai`, `ngaytao`) VALUES
+('CSDL001', 'GVBM002', 14, 21, 0, '2025-11-11 12:16:01'),
+('CSDL001', 'GVBM002', 15, 13, 1, '2025-11-11 12:14:40'),
+('GUI0267', 'GVBM002', 14, 21, 1, '2025-11-11 12:16:01'),
+('LTDD001', 'GVBM001', 15, 13, 1, '2025-11-11 12:15:39'),
+('LTW001', 'GVBM001', 17, 24, 1, '2025-11-11 12:16:48'),
+('LTW001', 'GVBM002', 14, 21, 1, '2025-11-11 12:16:01'),
+('MMT001', 'GVBM001', 15, 13, 1, '2025-11-11 12:15:39'),
+('TEST2025', 'GVBM001', 17, 24, 1, '2025-11-11 12:16:48'),
+('TEST2025', 'GVBM002', 14, 21, 1, '2025-11-11 12:16:01'),
+('TMDT001', 'GVBM001', 15, 13, 1, '2025-11-11 12:15:39'),
+('TMDT001', 'GVBM001', 17, 24, 1, '2025-11-11 12:16:48'),
+('TTNT001', 'GVBM002', 14, 21, 1, '2025-11-11 12:16:01'),
+('TTNT008', 'GVBM001', 15, 13, 1, '2025-11-11 12:15:39'),
+('TTNT008', 'GVBM001', 17, 24, 1, '2025-11-11 12:16:48');
 
 -- --------------------------------------------------------
 
@@ -3728,8 +3728,7 @@ ALTER TABLE `nhomquyen`
 -- Chỉ mục cho bảng `phancong`
 --
 ALTER TABLE `phancong`
-  ADD PRIMARY KEY (`mamonhoc`,`manguoidung`),
-  ADD KEY `FK_giangday_nguoidung` (`manguoidung`),
+  ADD PRIMARY KEY (`mamonhoc`,`manguoidung`,`namhoc`,`hocky`),
   ADD KEY `fk_phancong_namhoc` (`namhoc`),
   ADD KEY `fk_phancong_hocky` (`hocky`);
 
@@ -3779,7 +3778,7 @@ ALTER TABLE `dethi`
 -- AUTO_INCREMENT cho bảng `hocky`
 --
 ALTER TABLE `hocky`
-  MODIFY `mahocky` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `mahocky` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT cho bảng `ketqua`
@@ -3791,7 +3790,7 @@ ALTER TABLE `ketqua`
 -- AUTO_INCREMENT cho bảng `namhoc`
 --
 ALTER TABLE `namhoc`
-  MODIFY `manamhoc` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `manamhoc` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT cho bảng `nhom`
@@ -3920,10 +3919,8 @@ ALTER TABLE `nhom`
 -- Các ràng buộc cho bảng `phancong`
 --
 ALTER TABLE `phancong`
-  ADD CONSTRAINT `FK_giangday_monhoc` FOREIGN KEY (`mamonhoc`) REFERENCES `monhoc` (`mamonhoc`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  ADD CONSTRAINT `FK_phancong_nguoidung` FOREIGN KEY (`manguoidung`) REFERENCES `nguoidung` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  ADD CONSTRAINT `fk_phancong_hocky` FOREIGN KEY (`hocky`) REFERENCES `hocky` (`mahocky`) ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_phancong_namhoc` FOREIGN KEY (`namhoc`) REFERENCES `namhoc` (`manamhoc`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `fk_phancong_hocky` FOREIGN KEY (`hocky`) REFERENCES `hocky` (`mahocky`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_phancong_namhoc` FOREIGN KEY (`namhoc`) REFERENCES `namhoc` (`manamhoc`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `trangthaithongbao`

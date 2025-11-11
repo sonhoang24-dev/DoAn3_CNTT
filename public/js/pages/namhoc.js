@@ -99,15 +99,18 @@ $(document).ready(function () {
       "/Quanlythitracnghiem/namhoc/getNamHoc",
       { page, limit, q: curQuery },
       function (res) {
-        if (!res || typeof res !== "object") {
+        if (!res || typeof res !== "object" || !res.data) {
           renderRows([]);
           renderPagination(0, 1);
           return;
         }
-        const data = Array.isArray(res) ? res : [];
-        const total = data.length;
+
+        const data = res.data;
+        const total = res.total || 0;
+
         renderRows(data, page);
-        renderPagination(total, page);
+        renderPagination(total, page); // Dùng total từ server
+        lastTotal = total;
       },
       "json"
     ).fail(function (xhr) {

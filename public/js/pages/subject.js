@@ -84,21 +84,6 @@ function showData(subjects) {
         <td class="text-center col-action">
           <a
             href="javascript:void(0)"
-            class="btn btn-sm btn-alt-secondary subject-info"
-            data-role="chuong"
-            data-action="view"
-            data-id="${subject.mamonhoc}"
-            data-bs-toggle="modal"
-            data-bs-target="#modal-chapter"
-            data-bs-toggle="tooltip"
-            data-bs-original-title="Chi tiết chương"
-            aria-label="Chi tiết chương"
-          >
-            <i class="fa fa-book-open me-1 text-primary"></i> Chương
-          </a>
-
-          <a
-            href="javascript:void(0)"
             class="btn btn-sm btn-alt-warning btn-edit"
             data-role="monhoc"
             data-action="update"
@@ -265,7 +250,7 @@ $(document).ready(function () {
     }
   });
 
-  $(document).on("click", ".btn-edit-subject", function () {
+  $(document).on("click", ".btn-edit", function () {
     $(".update-subject-element").show();
     $(".add-subject-element").hide();
     let mamon = $(this).data("id");
@@ -340,7 +325,7 @@ $(document).ready(function () {
     }
   });
 
-  $(document).on("click", ".btn-delete-subject", function () {
+  $(document).on("click", ".btn-delete", function () {
     let trid = $(this).data("id");
     let e = Swal.mixin({
       buttonsStyling: false,

@@ -2,45 +2,65 @@
 
 class NamHocModel extends DB
 {
-    // Lấy danh sách năm học + đếm số học kỳ
     // Lấy danh sách năm học, có hỗ trợ tìm kiếm
-    public function getNamHoc($q = "")
-    {
-        $sql = "SELECT nh.*, 
-                   (SELECT COUNT(*) FROM hocky hk WHERE hk.manamhoc = nh.manamhoc) as tonghocky
-            FROM namhoc nh
-            WHERE 1=1";
+    public function getNamHoc($page = 1, $limit = 10, $q = "")
+{
+    $page = (int)$page;
+    $limit = (int)$limit;
+    $offset = ($page - 1) * $limit;
 
-        $params = [];
-        $types = "";
+    // Đếm tổng trước
+    $countSql = "SELECT COUNT(*) as total FROM namhoc WHERE 1=1";
+    $dataSql = "SELECT nh.*,
+                       (SELECT COUNT(*) FROM hocky hk WHERE hk.manamhoc = nh.manamhoc) as tonghocky
+                FROM namhoc nh
+                WHERE 1=1";
 
-        if ($q) {
-            $sql .= " AND nh.tennamhoc LIKE ?";
-            $qParam = "%$q%";
-            $params[] = &$qParam;
-            $types .= "s";
-        }
+    $params = [];
+    $types = "";
 
-        $sql .= " ORDER BY nh.manamhoc DESC";
-
-        $stmt = mysqli_prepare($this->con, $sql);
-
-        if ($params) {
-            mysqli_stmt_bind_param($stmt, $types, ...$params);
-        }
-
-        mysqli_stmt_execute($stmt);
-        $res = mysqli_stmt_get_result($stmt);
-
-        $rows = [];
-        while ($row = mysqli_fetch_assoc($res)) {
-            $rows[] = $row;
-        }
-
-        mysqli_stmt_close($stmt);
-        return $rows;
+    if ($q) {
+        $qParam = "%$q%";
+        $countSql .= " AND nh.tennamhoc LIKE ?";
+        $dataSql .= " AND nh.tennamhoc LIKE ?";
+        $params[] = &$qParam;
+        $types .= "s";
     }
 
+    // Đếm tổng
+    $stmt = mysqli_prepare($this->con, $countSql);
+    if ($params) mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $countRes = mysqli_stmt_get_result($stmt);
+    $totalRow = mysqli_fetch_assoc($countRes);
+    $total = (int)$totalRow['total'];
+    mysqli_stmt_close($stmt);
+
+    // Lấy dữ liệu phân trang
+    $dataSql .= " ORDER BY nh.manamhoc DESC LIMIT ? OFFSET ?";
+    $stmt = mysqli_prepare($this->con, $dataSql);
+    $params[] = &$limit;
+    $params[] = &$offset;
+    $types .= "ii";
+
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $rows[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+
+    // Trả về cả data + total
+    return [
+        'data' => $rows,
+        'total' => $total,
+        'page' => $page,
+        'limit' => $limit
+    ];
+}
+    
     // Kiểm tra tên năm học đã tồn tại chưa
     public function existsNamHoc($tennamhoc, $excludeId = null)
     {
@@ -60,6 +80,7 @@ class NamHocModel extends DB
         mysqli_stmt_close($stmt);
         return $row['cnt'] > 0;
     }
+    
 
     // THÊM NĂM HỌC + TỰ TẠO HỌC KỲ
     public function addNamHoc($tennamhoc, $sohocky = 3)

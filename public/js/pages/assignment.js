@@ -36,12 +36,32 @@ function showAssignment(data) {
     return;
   }
 
+  // Lấy giá trị lọc từ dropdown
+  const selectedNamHoc = $("#filter-namhoc").val();
+  const selectedHocKy = $("#filter-hocky").val();
+
+  // Lọc dữ liệu client-side tạm thời
+  const filteredData =
+    selectedNamHoc && selectedHocKy
+      ? data.filter(
+          (item) => item.namhoc == selectedNamHoc && item.hocky == selectedHocKy
+        )
+      : data;
+
+  if (filteredData.length === 0) {
+    $("#listAssignment").html(
+      '<tr><td colspan="7" class="text-center text-muted py-4">Không tìm thấy phân công nào cho năm học và học kỳ đã chọn</td></tr>'
+    );
+    $('[data-bs-toggle="tooltip"]').tooltip("dispose");
+    return;
+  }
+
   let html = "";
   let limit = this.option?.limit || 10;
   let curPage = this.valuePage?.curPage || 1;
   let offset = (curPage - 1) * limit;
 
-  data.forEach((element, idx) => {
+  filteredData.forEach((element, idx) => {
     const stt = offset + idx + 1;
     const giangvien_id = element["manguoidung"] || "";
     const monhoc_code = element["mamonhoc"] || "";
@@ -51,13 +71,17 @@ function showAssignment(data) {
     const tenmonhoc = element["tenmonhoc"]
       ? $("<div>").text(element["tenmonhoc"]).html()
       : "";
-
     const namhoc = element["tennamhoc"] || "-";
     const hocky = element["tenhocky"] || "-";
-    console.log(`Môn: ${tenmonhoc}, Năm học: ${namhoc}, Học kỳ: ${hocky}`);
 
+    // ✅ Gán old_* trực tiếp lên <tr> để edit không bị thiếu dữ liệu
     html += `
-      <tr>
+      <tr
+        data-old-gv="${giangvien_id}"
+        data-old-mh="${monhoc_code}"
+        data-old-nh="${element["namhoc"] || ""}"
+        data-old-hk="${element["hocky"] || ""}"
+      >
         <td class="text-center"><strong>${stt}</strong></td>
         <td class="fw-semibold">${hoten}</td>
         <td class="text-center">${$("<div>").text(monhoc_code).html()}</td>
@@ -131,6 +155,29 @@ $(document).ready(function () {
     });
   });
 
+  // === LỌC NĂM HỌC + HỌC KỲ TRỰC TIẾP ===
+  $("#filter-namhoc, #filter-hocky").on("change", function () {
+    console.log("Filter changed:", {
+      namhoc: $("#filter-namhoc").val(),
+      hocky: $("#filter-hocky").val(),
+    });
+    mainPagePagination.getPagination(
+      mainPagePagination.option,
+      1 // reset về trang 1 khi filter
+    );
+  });
+
+  // Bổ sung filter vào data trước khi gọi API
+  const originalGetFormData = mainPagePagination.getFormData;
+  mainPagePagination.getFormData = function () {
+    const data = originalGetFormData.call(this) || {};
+    data.filter = data.filter || {};
+    data.filter.namhoc = $("#filter-namhoc").val();
+    data.filter.hocky = $("#filter-hocky").val();
+    console.log("Filter values sent to API:", data.filter); // Debug
+    return data;
+  };
+
   // Tải dữ liệu giảng viên
   $.get(
     "./assignment/getGiangVien",
@@ -142,7 +189,12 @@ $(document).ready(function () {
       $("#giang-vien, #edit-giang-vien").html(html);
     },
     "json"
-  );
+  ).fail(function () {
+    Dashmix.helpers("jq-notify", {
+      type: "danger",
+      message: "Lỗi khi tải danh sách giảng viên!",
+    });
+  });
 
   // Tải dữ liệu môn học
   $.get(
@@ -155,24 +207,44 @@ $(document).ready(function () {
       $("#edit-mon-hoc").html(html);
     },
     "json"
-  );
+  ).fail(function () {
+    Dashmix.helpers("jq-notify", {
+      type: "danger",
+      message: "Lỗi khi tải danh sách môn học!",
+    });
+  });
 
-  // Tải năm học
+  // Tải năm học (thêm)
   $.get(
     "./assignment/getNamHoc",
     function (data) {
       let html = '<option value="">Chọn năm học</option>';
+      if (!data || !Array.isArray(data)) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Không thể tải danh sách năm học!",
+        });
+        return;
+      }
       data.forEach((el) => {
         html += `<option value="${el.manamhoc}">${el.tennamhoc}</option>`;
       });
       $("#namhoc").html(html);
     },
     "json"
-  );
+  ).fail(function () {
+    Dashmix.helpers("jq-notify", {
+      type: "danger",
+      message: "Lỗi khi tải danh sách năm học!",
+    });
+  });
 
   // Khi chọn năm học → tải học kỳ
   $("#namhoc").on("change", function () {
     const manamhoc = $(this).val();
+    $("#hocky")
+      .prop("disabled", !manamhoc)
+      .html('<option value="">Đang tải...</option>');
     if (!manamhoc) {
       $("#hocky").html('<option value="">Chọn học kỳ</option>');
       return;
@@ -182,13 +254,90 @@ $(document).ready(function () {
       { manamhoc },
       function (data) {
         let html = '<option value="">Chọn học kỳ</option>';
+        if (!data || !Array.isArray(data)) {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: "Không thể tải danh sách học kỳ!",
+          });
+          $("#hocky").html('<option value="">Chọn học kỳ</option>');
+          return;
+        }
         data.forEach((el) => {
           html += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
         });
         $("#hocky").html(html);
       },
       "json"
-    );
+    ).fail(function () {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: "Lỗi khi tải danh sách học kỳ!",
+      });
+      $("#hocky").html('<option value="">Chọn học kỳ</option>');
+    });
+  });
+
+  // Tải năm học (chính)
+  $.get(
+    "./assignment/getNamHoc",
+    function (data) {
+      let html = '<option value="">Chọn năm học</option>';
+      if (!data || !Array.isArray(data)) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Không thể tải danh sách năm học!",
+        });
+        return;
+      }
+      data.forEach((el) => {
+        html += `<option value="${el.manamhoc}">${el.tennamhoc}</option>`;
+      });
+      $("#filter-namhoc").html(html);
+    },
+    "json"
+  ).fail(function () {
+    Dashmix.helpers("jq-notify", {
+      type: "danger",
+      message: "Lỗi khi tải danh sách năm học!",
+    });
+  });
+
+  // Khi chọn năm học → load học kỳ tương ứng
+  $("#filter-namhoc").on("change", function () {
+    const manamhoc = $(this).val();
+    $("#filter-hocky")
+      .prop("disabled", !manamhoc)
+      .html('<option value="">Đang tải...</option>');
+    if (!manamhoc) {
+      $("#filter-hocky").html('<option value="">Chọn học kỳ</option>');
+      return;
+    }
+    $.post(
+      "./assignment/getHocKy",
+      { manamhoc },
+      function (data) {
+        let html = '<option value="">Chọn học kỳ</option>';
+        if (!data || !Array.isArray(data)) {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: "Không thể tải danh sách học kỳ!",
+          });
+          $("#filter-hocky").html('<option value="">Chọn học kỳ</option>');
+          return;
+        }
+        data.forEach((el) => {
+          html += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
+        });
+        $("#filter-hocky").html(html);
+      },
+      "json"
+    ).fail(function () {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: "Lỗi khi tải danh sách học kỳ!",
+      });
+      $("#filter-hocky").html('<option value="">Chọn học kỳ</option>');
+    });
   });
 
   // Mở modal thêm phân công
@@ -209,33 +358,11 @@ $(document).ready(function () {
 
   // Khi chọn giảng viên → tải môn đã phân công
   $(document).on("change", "#giang-vien", function () {
-    const giangvien = $(this).val();
-    if (!giangvien) {
-      subject.clear();
-      modalAddAssignmentPagination.getPagination(
-        modalAddAssignmentPagination.option,
-        1
-      );
-      return;
-    }
-
-    const namhoc = $("#namhoc").val();
-    const hocky = $("#hocky").val();
-
-    if (namhoc && hocky) {
-      $.post(
-        "./assignment/getAssignmentByUser",
-        { id: giangvien, namhoc, hocky },
-        function (res) {
-          subject = new Set(res.map((el) => el.mamonhoc));
-          modalAddAssignmentPagination.getPagination(
-            modalAddAssignmentPagination.option,
-            1
-          );
-        },
-        "json"
-      );
-    }
+    subject.clear();
+    modalAddAssignmentPagination.getPagination(
+      modalAddAssignmentPagination.option,
+      1
+    );
   });
 
   // Chọn môn học
@@ -287,9 +414,7 @@ $(document).ready(function () {
         if (duplicates.length > 0) {
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            message:
-              "Các môn sau đã được phân công trong học kỳ này: " +
-              duplicates.join(", "),
+            message: "Đã bị trùng phân công cho môn: " + duplicates.join(", "),
           });
         }
 
@@ -321,11 +446,21 @@ $(document).ready(function () {
               }
             },
             "json"
-          );
+          ).fail(function () {
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: "Lỗi khi lưu phân công!",
+            });
+          });
         }
       },
       "json"
-    );
+    ).fail(function () {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: "Lỗi khi kiểm tra trùng phân công!",
+      });
+    });
   });
 
   // Chỉnh sửa phân công
@@ -336,6 +471,7 @@ $(document).ready(function () {
     const namhoc = $btn.data("namhoc");
     const hocky = $btn.data("hocky");
 
+    // Lưu dữ liệu cũ vào row
     $btn.closest("tr").data({
       old_gv: giangvien_id,
       old_mh: monhoc_code,
@@ -343,49 +479,31 @@ $(document).ready(function () {
       old_hk: hocky,
     });
 
+    // Chỉ chỉnh sửa giảng viên
     $("#edit-giang-vien").val(giangvien_id).trigger("change");
-    $("#edit-mon-hoc").val(monhoc_code).trigger("change");
 
-    // ✅ KHÓA 3 TRƯỜNG KHÔNG CHO SỬA
-    $("#edit-mon-hoc").prop("disabled", true);
-    $("#edit-namhoc").prop("disabled", true);
-    $("#edit-hocky").prop("disabled", true);
+    // Khóa môn học, năm học, học kỳ (không thể chọn)
+    $("#edit-mon-hoc, #edit-namhoc, #edit-hocky").prop("disabled", true);
 
-    // Nạp dữ liệu năm học, học kỳ như cũ (chỉ để hiển thị)
-    $.get(
-      "./assignment/getNamHoc",
-      function (data) {
-        let html = '<option value="">Chọn năm học</option>';
-        data.forEach((el) => {
-          html += `<option value="${el.manamhoc}">${el.tennamhoc}</option>`;
-        });
-        $("#edit-namhoc").html(html);
-        $("#edit-namhoc").val(namhoc).trigger("change");
+    // Tạo hidden input để gửi lên server
+    $("#edit-namhoc-hidden").remove();
+    $("#edit-hocky-hidden").remove();
+    $("#edit-mon-hoc-hidden").remove();
 
-        if (namhoc) {
-          $.post(
-            "./assignment/getHocKy",
-            { manamhoc: namhoc },
-            function (res) {
-              let html = '<option value="">Chọn học kỳ</option>';
-              res.forEach((el) => {
-                html += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
-              });
-              $("#edit-hocky").html(html);
-              $("#edit-hocky").val(hocky).trigger("change");
-            },
-            "json"
-          );
-        } else {
-          $("#edit-hocky").html('<option value="">Chọn học kỳ</option>');
-        }
-      },
-      "json"
-    );
+    $('<input type="hidden" id="edit-namhoc-hidden" name="namhoc">')
+      .val(namhoc)
+      .appendTo("#form-edit-assignment");
+    $('<input type="hidden" id="edit-hocky-hidden" name="hocky">')
+      .val(hocky)
+      .appendTo("#form-edit-assignment");
+    $('<input type="hidden" id="edit-mon-hoc-hidden" name="mamonhoc">')
+      .val(monhoc_code)
+      .appendTo("#form-edit-assignment");
 
     $("#modal-default-vcenter").modal("show");
   });
 
+  // Submit form cập nhật
   $("#form-edit-assignment").submit(function (e) {
     e.preventDefault();
 
@@ -401,9 +519,9 @@ $(document).ready(function () {
     const old_hk = row.data("old_hk");
 
     const newGv = $("#edit-giang-vien").val();
-    const newMh = $("#edit-mon-hoc").val();
-    const newNh = $("#edit-namhoc").val();
-    const newHk = $("#edit-hocky").val();
+    const newNh = $("#edit-namhoc-hidden").val();
+    const newHk = $("#edit-hocky-hidden").val();
+    const newMh = $("#edit-mon-hoc-hidden").val(); // Lấy từ hidden
 
     $.post(
       "./assignment/checkDuplicateForUpdate",
@@ -494,7 +612,9 @@ $(document).ready(function () {
             }
           },
           "json"
-        );
+        ).fail(function () {
+          Swal.fire("Lỗi!", "Xóa thất bại do lỗi kết nối!", "error");
+        });
       }
     });
   });
