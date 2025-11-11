@@ -1,5 +1,4 @@
 <?php
-
 require_once "./mvc/models/NguoiDungModel.php";
 class AuthCore
 {
@@ -16,7 +15,7 @@ class AuthCore
 
     public static function checkAuthentication()
     {
-        $token = $_COOKIE['token'];
+        $token = $_COOKIE['token'] ?? null;
         $nguoidung = new NguoiDungModel();
         if (!isset($_COOKIE['token']) || $nguoidung->validateToken($token) == false) {
             setcookie("token", "", time() - 3600);

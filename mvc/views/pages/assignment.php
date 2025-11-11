@@ -1,170 +1,122 @@
-<!-- Main Content -->
-<div class="content py-5 bg-light">
-    <div class="block block-rounded shadow-lg border-start border-5 border-teal">
-        <div class="block-header bg-gradient-teal text-white p-4 d-flex justify-content-between align-items-center">
-            <h3 class="block-title mb-0"><i class="fa fa-chalkboard-teacher me-2"></i> Tất cả phân công</h3>
-            <button data-role="phancong" data-action="create" type="button" 
-                    class="btn btn-hero-sm btn-light shadow-sm" 
-                    data-bs-toggle="modal" data-bs-target="#modal-add-assignment" 
-                    id="add_assignment">
-                <i class="fa fa-plus-circle me-1 text-teal"></i> Thêm phân công mới
-            </button>
-        </div>
 
-        <div class="block-content p-4">
-            <!-- Search Form -->
-            <form id="main-page-search-form" onsubmit="return false;" class="mb-4">
-                <div class="input-group input-group-lg shadow-sm">
-                    <span class="input-group-text bg-white border-2 border-teal">
-                        <i class="fa fa-search text-muted"></i>
-                    </span>
-                    <input type="text" class="form-control border-2 border-teal" 
-                           id="search-input" name="search-input" 
-                           placeholder="Tìm kiếm giảng viên, môn học...">
-                    <button type="button" class="btn btn-outline-teal btn-search" 
-                            data-bs-toggle="tooltip" title="Tìm kiếm">
-                        <i class="fa fa-search"></i> Tìm
-                    </button>
+<div class="content">
+    <div class="block block-rounded">
+        <div class="block-header block-header-default">
+            <h3 class="block-title">Tất cả phân công</h3>
+            <div class="block-options">
+                <button data-role="phancong" data-action="create" type="button" class="btn btn-hero btn-primary" data-bs-toggle="modal"
+                    data-bs-target="#modal-add-assignment" id="add_assignment"><i class="fa-regular fa-plus"></i> Thêm
+                    phân công mới</button>
+            </div>
+        </div>
+        <div class="block-content">
+            <form action="#" id="main-page-search-form" onsubmit="return false;">
+                <div class="mb-4">
+                    <div class="input-group">
+                        <input type="text" class="form-control form-control-alt" id="search-input" name="search-input"
+                            placeholder="Tìm kiếm giảng viên, môn học...">
+                        <button class="input-group-text bg-body border-0 btn-search">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
                 </div>
             </form>
-
-            <!-- Assignment Table -->
-            <div class="table-responsive rounded shadow-sm">
-                <table class="table table-hover table-vcenter table-striped align-middle mb-0">
-                    <thead class="bg-teal-light text-dark">
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead>
                         <tr>
-                            <th class="text-center fw-semibold" style="width: 80px;"><i class="fa fa-list-ol me-1"></i> ID</th>
-                            <th class="fw-semibold"><i class="fa fa-user me-1"></i> Tên giảng viên</th>
-                            <th class="text-center fw-semibold" style="width: 120px;"><i class="fa fa-book me-1"></i> Mã môn</th>
-                            <th class="fw-semibold"><i class="fa fa-book-open me-1"></i> Môn học</th>
-                            <th class="text-center fw-semibold" style="width: 120px;"><i class="fa fa-cogs me-1"></i> Thao tác</th>
+                            <th class="text-center" style="width: 100px;">ID</th>
+                            <th>Tên giảng viên</th>
+                            <th class="text-center">Mã môn</th>
+                            <th>Môn học</th>
+                            <th class="text-center col-header-action">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="listAssignment" class="fs-sm">
-    <?php if(!empty($assignments)) : ?>
-        <?php foreach($assignments as $index => $a) : ?>
-            <tr>
-                <td class="text-center"><?= $index + 1 ?></td>
-                <td><?= htmlspecialchars($a['giangvien_name']) ?></td>
-                <td class="text-center"><?= htmlspecialchars($a['monhoc_code']) ?></td>
-                <td><?= htmlspecialchars($a['monhoc_name']) ?></td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-outline-teal me-1 btn-edit" 
-                            data-id="<?= $a['assignment_id'] ?>" 
-                            title="Chỉnh sửa">
-                        <i class="fa fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger btn-delete" 
-                            data-id="<?= $a['assignment_id'] ?>" 
-                            title="Xóa">
-                        <i class="fa fa-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <tr>
-            <td colspan="5" class="text-center text-muted">Chưa có phân công nào</td>
-        </tr>
-    <?php endif; ?>
-</tbody>
+                    <tbody id="listAssignment">
+
+                    </tbody>
                 </table>
             </div>
-
-            <!-- Pagination -->
-            <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"; ?>
+            <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"?>
         </div>
     </div>
 </div>
-
-<!-- Modal: Thêm phân công mới -->
-<div class="modal fade" id="modal-add-assignment" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content shadow-lg border-0">
-            <ul class="nav nav-tabs nav-tabs-alt bg-light border-0" role="tablist">
+<div class="modal fade" id="modal-add-assignment" tabindex="-1" role="dialog" aria-labelledby="modal-add-assignment"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-xl" role="document">
+        <div class="modal-content">
+            <ul class="nav nav-tabs nav-tabs-alt mb-1" role="tablist">
                 <li class="nav-item">
-                    <button class="nav-link active fw-semibold" data-bs-toggle="tab" 
-                            data-bs-target="#btabs-alt-static-home">
-                        <i class="fa fa-user-plus me-2"></i> Thêm thủ công
+                    <button class="nav-link active" id="btabs-alt-static-home-tab" data-bs-toggle="tab"
+                        data-bs-target="#btabs-alt-static-home" role="tab" aria-controls="btabs-alt-static-home"
+                        aria-selected="true">
+                        Thêm thủ công
                     </button>
                 </li>
                 <li class="nav-item ms-auto">
-                    <button type="button" class="btn-close p-3" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn btn-close p-3" data-bs-dismiss="modal" aria-label="Close"></button>
                 </li>
             </ul>
-
-            <div class="modal-body p-0">
-                <div class="block block-rounded block-transparent mb-0 bg-white">
-                    <div class="block-content tab-content p-4">
-                        <div class="tab-pane fade show active" id="btabs-alt-static-home">
-                            <!-- THÊM FORM VÀ CLASS form-phancong -->
-                            <form class="form-phancong" onsubmit="return false;">
-                                <!-- Lecturer Selection -->
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <label for="giang-vien" class="form-label fw-semibold text-teal">
-                                            <i class="fa fa-chalkboard-teacher me-2"></i> Giảng viên
+            <div class="modal-body block block-transparent bg-white mb-0 block-rounded">
+                <div class="block-content tab-content">
+                    <div class="tab-pane active" id="btabs-alt-static-home" role="tabpanel"
+                        aria-labelledby="btabs-static-home-tab" tabindex="0">
+                        <form class="mb-4 form-phancong">
+                            <div class="row">
+                                <div class="col-6 d-flex flex-row w-100">
+                                    <div class="d-flex align-items-center">
+                                        <label for="giang-vien" class="form-label" style="width: 100px">
+                                            Giảng viên
                                         </label>
-                                        <select class="js-select2 form-select form-select-lg shadow-sm border-teal" 
-                                                data-tab="1" id="giang-vien" name="giang-vien" 
-                                                style="width: 100%;" data-placeholder="Chọn giảng viên cần phân công" required>
-                                            <option value=""></option>
-                                        </select>
                                     </div>
+                                    <select class="js-select2 form-select data-monhoc" data-tab="1" id="giang-vien"
+                                        name="giang-vien" style="width: 100%;" data-placeholder="Chọn giảng viên cần phân công"
+                                        required>
+                                        <option value=""></option>
+                                    </select>
                                 </div>
+                            </div>
+                        </form>
 
-                                <!-- Subject Search -->
-                                <form id="modal-add-assignment-search-form" onsubmit="return false;" class="mb-4">
-                                    <div class="input-group input-group-lg shadow-sm">
-                                        <span class="input-group-text bg-white border-2 border-teal">
-                                            <i class="fa fa-search text-muted"></i>
-                                        </span>
-                                        <input type="text" class="form-control border-2 border-teal" 
-                                               id="search-input" name="search-input" 
-                                               placeholder="Tìm kiếm môn học theo tên hoặc mã...">
-                                        <button type="button" class="btn btn-outline-teal btn-search" 
-                                                data-bs-toggle="tooltip" title="Tìm kiếm">
-                                            <i class="fa fa-search"></i> Tìm
-                                        </button>
-                                    </div>
-                                </form>
-
-                                <!-- Subject Table -->
-                                <div class="table-responsive rounded shadow-sm mb-4">
-                                    <table class="table table-hover table-vcenter align-middle mb-0">
-                                        <thead class="bg-teal-light text-dark">
-                                            <tr>
-                                                <th class="text-center" style="width: 80px;">
-                                                    <i class="fa fa-check-square me-1"></i>
-                                                </th>
-                                                <th class="text-center fw-semibold"><i class="fa fa-book me-1"></i> Mã môn</th>
-                                                <th class="fw-semibold"><i class="fa fa-book-open me-1"></i> Tên môn học</th>
-                                                <th class="text-center fw-semibold"><i class="fa fa-graduation-cap me-1"></i> Tín chỉ</th>
-                                                <th class="text-center fw-semibold"><i class="fa fa-chalkboard me-1"></i> LT</th>
-                                                <th class="text-center fw-semibold"><i class="fa fa-laptop-code me-1"></i> TH</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="list-subject" class="fs-sm">
-                                            <!-- Load by JS -->
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <!-- Pagination in Modal -->
-                                <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"; ?>
-
-                                <!-- Action Buttons -->
-                                <div class="d-flex justify-content-end gap-2 mt-4">
-                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                                        <i class="fa fa-times me-1"></i> Hủy
-                                    </button>
-                                    <button type="button" class="btn btn-teal shadow-sm px-4" id="btn_assignment">
-                                        <i class="fa fa-save me-2"></i> Lưu phân công
+                        <form action="#" id="modal-add-assignment-search-form" onsubmit="return false;">
+                            <div class="mb-4">
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-alt" id="search-input" name="search-input"
+                                        placeholder="Tìm kiếm môn học...">
+                                    <button class="input-group-text bg-body border-0 btn-search">
+                                        <i class="fa fa-search"></i>
                                     </button>
                                 </div>
-                                <input type="hidden" value="" id="question_id">
-                            </form>
+                            </div>
+                        </form>
+                        <div class="mb-4 row">
+                            <div class="table-responsive">
+                                <table class="table table-vcenter">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width: 100px;">Chọn</th>
+                                            <th class="text-center">Mã môn học</th>
+                                            <th>Tên môn học</th>
+                                            <th class="text-center">Số tín chỉ</th>
+                                            <th class="text-center">Số tiết lý thuyết</th>
+                                            <th class="text-center">Số tiết thực hành</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="list-subject">
+
+                                    </tbody>
+                                </table>
+                            </div>
+                            <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"?>
                         </div>
+                        <div class="mb-4 d-flex flex-row-reverse">
+                            <button type="submit" class="btn btn-alt-primary" id="btn_assignment"><i
+                                    class="fa fa-fw fa-plus me-1"></i> Lưu phân công</button>
+                            <!-- <button class="btn btn-alt-primary" id="edit_assignment"><i class="fa fa-fw fa-plus me-1"></i> Sửa phân công</button> -->
+                            <input type="hidden" value="" id="question_id">
+                        </div>
+                        <!-- <form method="POST" onsubmit="return false;">
+                        </form> -->
                     </div>
                 </div>
             </div>
@@ -192,7 +144,7 @@
                             </label>
                             <select class="js-select2 form-select form-select-lg shadow-sm border-teal" 
                                     id="edit-giang-vien" name="edit-giang-vien" 
-                                    style="width: 100%;" data-placeholder="Chọn giảng viên" required>
+                                    style="width: 100%;" data-placeholder="Chọn giảng viên" required disabled>
                                 <option value=""></option>
                             </select>
                         </div>

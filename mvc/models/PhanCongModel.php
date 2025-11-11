@@ -31,23 +31,45 @@ class PhanCongModel extends DB{
         }
         return $rows;
     }
+    public function isAssignmentExist($giangvien, $mamonhoc) {
+        $sql = "SELECT COUNT(*) as count FROM phancong WHERE mamonhoc = ? AND manguoidung = ?";
+        $stmt = mysqli_prepare($this->con, $sql);
+        mysqli_stmt_bind_param($stmt, "ss", $mamonhoc, $giangvien);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_bind_result($stmt, $count);
+        mysqli_stmt_fetch($stmt);
+        mysqli_stmt_close($stmt);
 
-    public function addAssignment($giangvien,$listSubject){
+        return $count > 0;
+    }
+    public function addAssignment($giangvien, $listSubject) {
+        if (is_string($listSubject)) {
+            $listSubject = json_decode($listSubject, true);
+        }
+
         $check = true;
-        $sql = "INSERT INTO `phancong`(`mamonhoc`, `manguoidung`) VALUES ";
-        foreach($listSubject as $key => $mamonhoc){
-            $sql .= "('$mamonhoc','$giangvien')";
-            if ($key != count($listSubject) - 1) {
-                $sql .= ", ";
+
+        foreach ($listSubject as $mamonhoc) {
+            if ($this->isAssignmentExist($giangvien, $mamonhoc)) {
+                // Bỏ qua nếu đã tồn tại
+                $check = false;
+                continue;
+            }
+
+            $insertSql = "INSERT INTO phancong (mamonhoc, manguoidung) VALUES (?, ?)";
+            $stmt2 = mysqli_prepare($this->con, $insertSql);
+            mysqli_stmt_bind_param($stmt2, "ss", $mamonhoc, $giangvien);
+            $insertResult = mysqli_stmt_execute($stmt2);
+            mysqli_stmt_close($stmt2);
+
+            if (!$insertResult) {
+                $check = false;
             }
         }
-        $result = mysqli_query($this->con,$sql);
-        if($result){
-        } else {
-            $check = false;
-        }
+
         return $check;
     }
+
 
     public function getAssignment(){
         $sql = "SELECT pc.mamonhoc, pc.manguoidung, ng.hoten, mh.tenmonhoc FROM phancong as pc JOIN monhoc as mh on pc.mamonhoc=mh.mamonhoc JOIN nguoidung as ng on pc.manguoidung=ng.id";

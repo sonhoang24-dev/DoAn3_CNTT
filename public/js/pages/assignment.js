@@ -4,17 +4,12 @@ Dashmix.onLoad(() =>
   class {
     static initValidation() {
       Dashmix.helpers("jq-validation");
-      // ĐÃ SỬA: dùng đúng class form-phancong
       jQuery(".form-phancong").validate({
         rules: {
-          "giang-vien": {
-            required: true,
-          },
+          "giang-vien": { required: true },
         },
         messages: {
-          "giang-vien": {
-            required: "Vui lòng chọn giảng viên",
-          },
+          "giang-vien": { required: "Vui lòng chọn giảng viên" },
         },
       });
     }
@@ -102,10 +97,6 @@ function showSubject(data) {
     </tr>`;
   });
   $("#list-subject").html(html);
-
-  if ($("#giang-vien").val() !== "") {
-    updateCheckmarkSubject(subject);
-  }
 }
 
 function updateCheckmarkSubject(checkedSubjects) {
@@ -116,9 +107,7 @@ function updateCheckmarkSubject(checkedSubjects) {
 }
 
 $(document).ready(function () {
-  $(".js-select2").select2({
-    dropdownParent: $("#modal-add-assignment"),
-  });
+  $(".js-select2").select2({ dropdownParent: $("#modal-add-assignment") });
 
   $("#modal-default-vcenter").on("shown.bs.modal", function () {
     $("#edit-giang-vien, #edit-mon-hoc").select2({
@@ -133,8 +122,7 @@ $(document).ready(function () {
       data.forEach((el) => {
         html += `<option value="${el["id"]}">${el["hoten"]}</option>`;
       });
-      $("#giang-vien").html(html);
-      $("#edit-giang-vien").html(html);
+      $("#giang-vien, #edit-giang-vien").html(html);
     },
     "json"
   );
@@ -164,23 +152,65 @@ $(document).ready(function () {
     subject.clear();
   });
 
-  // ĐÃ SỬA: dùng đúng class form-phancong
+  // Thêm môn mới, kiểm tra trùng
   $("#btn_assignment").click(function () {
     if ($(".form-phancong").valid()) {
       let giangvien = $("#giang-vien").val();
-      if (subject.size === 0) {
-        deleteAssignmentUser(giangvien);
-        $("#modal-add-assignment").modal("hide");
+      let listSubject = [...subject];
+
+      if (listSubject.length === 0) {
         Dashmix.helpers("jq-notify", {
-          type: "success",
-          message: "Phân công thành công! :)",
+          type: "info",
+          message: "Chưa chọn môn nào để phân công.",
         });
-      } else {
-        clearAllAndAddAssignmentUser(giangvien, [...subject]);
+        return;
       }
-      mainPagePagination.getPagination(
-        mainPagePagination.option,
-        mainPagePagination.valuePage.curPage
+
+      $.post(
+        "./assignment/checkDuplicate",
+        { magiangvien: giangvien, listSubject: listSubject },
+        function (res) {
+          const duplicates = res.duplicates || [];
+          const newSubjects = listSubject.filter(
+            (mh) => !duplicates.includes(mh)
+          );
+
+          // Thông báo các môn trùng
+          if (duplicates.length > 0) {
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message:
+                "Các môn sau đã phân công cho giảng viên này: " +
+                duplicates.join(", "),
+            });
+          }
+
+          // Thêm các môn mới
+          if (newSubjects.length > 0) {
+            $.post(
+              "./assignment/addAssignment",
+              { magiangvien: giangvien, listSubject: newSubjects },
+              function (res) {
+                Dashmix.helpers("jq-notify", {
+                  type: "info",
+                  message:
+                    "Phân công thành công môn: " + newSubjects.join(", "),
+                });
+
+                // Nếu có môn mới, đóng form
+                $("#modal-add-assignment").modal("hide");
+
+                // Cập nhật lại danh sách
+                mainPagePagination.getPagination(
+                  mainPagePagination.option,
+                  mainPagePagination.valuePage.curPage
+                );
+              },
+              "json"
+            );
+          }
+        },
+        "json"
       );
     }
   });
@@ -214,8 +244,10 @@ $(document).ready(function () {
       function (res) {
         $("#modal-add-assignment").modal("hide");
         Dashmix.helpers("jq-notify", {
-          type: res ? "success" : "danger",
-          message: res ? "Phân công thành công!" : "Lỗi!",
+          type: res.success ? "success" : "danger",
+          message:
+            res.message ||
+            (res.success ? "Phân công thành công!" : "Lỗi thêm môn mới!"),
         });
         mainPagePagination.getPagination(
           mainPagePagination.option,
@@ -230,12 +262,7 @@ $(document).ready(function () {
     $.post("./assignment/deleteAll", { id: giangvien });
   }
 
-  function clearAllAndAddAssignmentUser(giangvien, listSubject) {
-    deleteAssignmentUser(giangvien);
-    addAssignment(giangvien, listSubject);
-  }
-
-  // SỬA
+  // Chỉnh sửa phân công
   $(document).on("click", ".btn-edit-assignment", function () {
     const row = $(this).closest("tr");
     const giangvien_id = $(this).data("giangvien");
@@ -256,41 +283,65 @@ $(document).ready(function () {
         return $(this).data("old_gv") != undefined;
       })
       .first();
-
     const old_mh = row.data("old_mh");
     const old_gv = row.data("old_gv");
 
+    const newGv = $("#edit-giang-vien").val();
+    const newMh = $("#edit-mon-hoc").val();
+
+    // Kiểm tra trùng môn trước khi update
     $.post(
-      "./assignment/update",
+      "./assignment/checkDuplicateForUpdate",
       {
+        magiangvien: newGv,
+        listSubject: [newMh],
         old_mamonhoc: old_mh,
-        old_manguoidung: old_gv,
-        mamonhoc: $("#edit-mon-hoc").val(),
-        magiangvien: $("#edit-giang-vien").val(),
       },
       function (res) {
-        if (res.success) {
-          Dashmix.helpers("jq-notify", {
-            type: "success",
-            message: "Cập nhật phân công thành công!",
-          });
-          $("#modal-default-vcenter").modal("hide");
-          mainPagePagination.getPagination(
-            mainPagePagination.option,
-            mainPagePagination.valuePage.curPage
-          );
-        } else {
+        const duplicates = res.duplicates || [];
+        if (duplicates.length > 0) {
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            message: "Cập nhật thất bại!",
+            message: "Giảng viên đã có môn này: " + duplicates.join(", "),
           });
+          return;
         }
+
+        // Nếu không trùng mới update
+        $.post(
+          "./assignment/update",
+          {
+            old_mamonhoc: old_mh,
+            old_manguoidung: old_gv,
+            mamonhoc: newMh,
+            magiangvien: newGv,
+          },
+          function (res) {
+            if (res.success) {
+              Dashmix.helpers("jq-notify", {
+                type: "success",
+                message: res.message || "Cập nhật phân công thành công!",
+              });
+              $("#modal-default-vcenter").modal("hide");
+              mainPagePagination.getPagination(
+                mainPagePagination.option,
+                mainPagePagination.valuePage.curPage
+              );
+            } else {
+              Dashmix.helpers("jq-notify", {
+                type: "danger",
+                message: res.message || "Cập nhật thất bại!",
+              });
+            }
+          },
+          "json"
+        );
       },
       "json"
     );
   });
 
-  // XÓA
+  // Xóa phân công
   $(document).on("click", ".btn-delete-assignment", function () {
     const id = $(this).data("id");
     const mamon = $(this).data("mamon");
