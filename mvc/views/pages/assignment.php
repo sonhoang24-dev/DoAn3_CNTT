@@ -141,7 +141,7 @@
                             <label class="form-label fw-semibold text-teal">
                                 <i class="fa fa-chalkboard-teacher me-2"></i> Giảng viên
                             </label>
-                            <select class="js-select2 form-select" id="edit-giang-vien" required disabled>
+                            <select class="js-select2 form-select" id="edit-giang-vien" required>
                                 <option value="">Chọn giảng viên</option>
                             </select>
                         </div>
@@ -149,7 +149,7 @@
                             <label class="form-label fw-semibold text-teal">
                                 <i class="fa fa-book-open me-2"></i> Môn học
                             </label>
-                            <select class="js-select2 form-select" id="edit-mon-hoc" required>
+                            <select class="js-select2 form-select" id="edit-mon-hoc" required disabled>
                                 <option value="">Chọn môn học</option>
                             </select>
                         </div>
@@ -157,7 +157,7 @@
                             <label class="form-label fw-semibold text-teal">
                                 <i class="fa fa-calendar me-2"></i> Năm học
                             </label>
-                            <select class="js-select2 form-select" id="edit-namhoc" required>
+                            <select class="js-select2 form-select" id="edit-namhoc" required disabled>
                                 <option value="">Chọn năm học</option>
                             </select>
                         </div>

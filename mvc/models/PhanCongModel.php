@@ -83,7 +83,7 @@ class PhanCongModel extends DB
         return $count > 0;
     }
 
-    // Cập nhật addAssignment để hỗ trợ namhoc, hocky
+    // Cập nhật addAssignment 
     public function addAssignment($giangvien, $listSubject, $namhoc = null, $hocky = null)
     {
         if (is_string($listSubject)) {
@@ -136,40 +136,43 @@ class PhanCongModel extends DB
         }
         return $rows;
     }
-
-    public function update(
-        $old_mamonhoc,
-        $old_manguoidung,
-        $old_namhoc,
-        $old_hocky,
-        $new_mamonhoc,
-        $new_manguoidung,
-        $new_namhoc,
-        $new_hocky
-    ) {
+    public function update($old_mamonhoc, $old_manguoidung, $old_namhoc, $old_hocky, $new_manguoidung)
+    {
         $sql = "UPDATE phancong 
-            SET mamonhoc = ?, manguoidung = ?, namhoc = ?, hocky = ?
+            SET manguoidung = ?
             WHERE mamonhoc = ? AND manguoidung = ? AND namhoc = ? AND hocky = ?";
 
         $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            return ['success' => false, 'error' => 'Prepare failed: ' . mysqli_error($this->con)];
+        }
+
         mysqli_stmt_bind_param(
             $stmt,
-            "ssii ssii",
-            $new_mamonhoc,
+            "ssiii",
             $new_manguoidung,
-            $new_namhoc,
-            $new_hocky,
             $old_mamonhoc,
             $old_manguoidung,
             $old_namhoc,
             $old_hocky
         );
-        $result = mysqli_stmt_execute($stmt);
+
+        $exec = mysqli_stmt_execute($stmt);
+        if (!$exec) {
+            $error = mysqli_stmt_error($stmt);
+            mysqli_stmt_close($stmt);
+            return ['success' => false, 'error' => $error];
+        }
+
+        $affected = mysqli_stmt_affected_rows($stmt);
         mysqli_stmt_close($stmt);
 
-        return $result;
-    }
+        if ($affected === 0) {
+            return ['success' => false, 'error' => 'Không tìm thấy bản ghi để cập nhật hoặc dữ liệu giống hiện tại'];
+        }
 
+        return ['success' => true, 'error' => null];
+    }
     public function delete($mamon, $id, $namhoc = null, $hocky = null)
     {
         $sql = "UPDATE phancong SET trangthai = 0 WHERE mamonhoc = ? AND manguoidung = ?";
@@ -225,9 +228,9 @@ class PhanCongModel extends DB
         }
         return $rows;
     }
-
     public function getQuery($filter, $input, $args)
     {
+        // Trường hợp gọi custom function, ví dụ: lấy danh sách môn học trong modal
         if (isset($args["custom"]["function"])) {
             $func = $args["custom"]["function"];
             switch ($func) {
@@ -237,14 +240,37 @@ class PhanCongModel extends DB
                         $query .= " AND (monhoc.tenmonhoc LIKE N'%${input}%' OR monhoc.mamonhoc LIKE '%${input}%')";
                     }
                     return $query;
-                    break;
                 default:
+                    break;
             }
         }
-        $query = "SELECT pc.mamonhoc, pc.manguoidung, ng.hoten, mh.tenmonhoc FROM phancong as pc JOIN monhoc as mh on pc.mamonhoc=mh.mamonhoc JOIN nguoidung as ng on pc.manguoidung=ng.id  WHERE pc.trangthai = 1";
+
+        // Truy vấn mặc định: danh sách phân công (hiển thị ở bảng chính)
+        $query = "SELECT 
+                pc.mamonhoc, 
+                pc.manguoidung, 
+                pc.namhoc, 
+                pc.hocky,
+                ng.hoten, 
+                mh.tenmonhoc, 
+                nh.tennamhoc, 
+                hk.tenhocky
+            FROM phancong AS pc
+            JOIN monhoc AS mh ON pc.mamonhoc = mh.mamonhoc
+            JOIN nguoidung AS ng ON pc.manguoidung = ng.id
+            LEFT JOIN namhoc AS nh ON pc.namhoc = nh.manamhoc
+            LEFT JOIN hocky AS hk ON pc.hocky = hk.mahocky
+            WHERE pc.trangthai = 1";
+
+        // Tìm kiếm theo tên giảng viên hoặc tên môn học
         if ($input) {
-            $query .= " AND (mh.tenmonhoc LIKE N'%${input}%' OR ng.hoten LIKE '%${input}%')";
+            $query .= " AND (mh.tenmonhoc LIKE N'%${input}%' OR ng.hoten LIKE N'%${input}%')";
         }
+
+        // Có thể bổ sung sắp xếp nếu cần (không bắt buộc)
+        $query .= " ORDER BY nh.tennamhoc DESC, hk.tenhocky ASC";
+
         return $query;
     }
+
 }

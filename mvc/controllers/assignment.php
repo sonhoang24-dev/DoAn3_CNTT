@@ -16,7 +16,7 @@ class Assignment extends Controller
         if (AuthCore::checkPermission("phancong", "view")) {
             $this->view("main_layout", [
                 "Page" => "assignment",
-                "Title" => "Phân quyền",
+                "Title" => "Phân Công Giảng Dạy",
                 "Plugin" => [
                     "ckeditor" => 1,
                     "select" => 1,
@@ -57,10 +57,6 @@ class Assignment extends Controller
             echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
     }
-
-
-
-
     public function getNamHoc()
     {
         AuthCore::checkAuthentication();
@@ -119,64 +115,56 @@ class Assignment extends Controller
     public function checkDuplicateForUpdate()
     {
         $giangvien = $_POST['magiangvien'] ?? '';
-        $listSubject = $_POST['listSubject'] ?? [];
         $old_mamonhoc = $_POST['old_mamonhoc'] ?? '';
-
-        if (is_string($listSubject)) {
-            $listSubject = json_decode($listSubject, true);
-        }
+        $old_namhoc = $_POST['namhoc'] ?? '';
+        $old_hocky = $_POST['hocky'] ?? '';
 
         $model = new PhanCongModel();
         $duplicates = [];
 
-        foreach ($listSubject as $mh) {
-            if ($model->isAssignmentExist($giangvien, $mh) && $mh != $old_mamonhoc) {
-                $duplicates[] = $mh;
-            }
+        if ($model->isAssignmentExist($giangvien, $old_mamonhoc, $old_namhoc, $old_hocky)) {
+            $duplicates[] = $old_mamonhoc;
         }
 
         echo json_encode(["duplicates" => $duplicates]);
     }
     public function update()
     {
-        $old_mamonhoc = $_POST['old_mamonhoc'] ?? '';
+        $old_mamonhoc    = $_POST['old_mamonhoc'] ?? '';
         $old_manguoidung = $_POST['old_manguoidung'] ?? '';
-        $old_namhoc = $_POST['old_namhoc'] ?? '';
-        $old_hocky = $_POST['old_hocky'] ?? '';
-        $new_mamonhoc = $_POST['mamonhoc'] ?? '';
+        $old_namhoc      = (int)($_POST['old_namhoc'] ?? 0);
+        $old_hocky       = (int)($_POST['old_hocky'] ?? 0);
         $new_manguoidung = $_POST['magiangvien'] ?? '';
-        $new_namhoc = $_POST['namhoc'] ?? '';
-        $new_hocky = $_POST['hocky'] ?? '';
 
-        if (empty($new_mamonhoc) || empty($new_manguoidung) || empty($new_namhoc) || empty($new_hocky)) {
+        if (empty($old_mamonhoc) || empty($old_manguoidung) || empty($new_manguoidung) || !$old_namhoc || !$old_hocky) {
             echo json_encode(['success' => false, 'message' => 'Thiếu dữ liệu!']);
             return;
         }
-
         $model = new PhanCongModel();
-        if ($model->isAssignmentExist($new_manguoidung, $new_mamonhoc, $new_namhoc, $new_hocky)) {
-            echo json_encode(['success' => false, 'message' => 'Môn học đã được phân công trong học kỳ này!']);
+        if ($model->isAssignmentExist($new_manguoidung, $old_mamonhoc, $old_namhoc, $old_hocky)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Giảng viên này đã được phân công môn này trong học kỳ này!'
+            ]);
             return;
         }
 
+        // Cập nhật giảng viên
         $result = $model->update(
             $old_mamonhoc,
             $old_manguoidung,
             $old_namhoc,
             $old_hocky,
-            $new_mamonhoc,
-            $new_manguoidung,
-            $new_namhoc,
-            $new_hocky
+            $new_manguoidung
         );
 
         echo json_encode([
-            'success' => $result,
-            'message' => $result ? 'Cập nhật thành công!' : 'Cập nhật thất bại!'
+            'success' => $result['success'],
+            'message' => $result['success']
+                ? 'Cập nhật phân công thành công!'
+                : 'Học phần này đã được phân công cho giảng viên này!!'
         ]);
     }
-
-
 
     public function delete()
     {

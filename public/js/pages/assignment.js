@@ -124,6 +124,12 @@ $(document).ready(function () {
       dropdownParent: $("#modal-default-vcenter"),
     });
   });
+  $("#edit-mon-hoc, #edit-namhoc, #edit-hocky").on("click", function () {
+    Dashmix.helpers("jq-notify", {
+      type: "info",
+      message: "Không thể chỉnh sửa môn học, năm học hoặc học kỳ.",
+    });
+  });
 
   // Tải dữ liệu giảng viên
   $.get(
@@ -339,13 +345,47 @@ $(document).ready(function () {
 
     $("#edit-giang-vien").val(giangvien_id).trigger("change");
     $("#edit-mon-hoc").val(monhoc_code).trigger("change");
-    $("#edit-namhoc").val(namhoc).trigger("change");
-    setTimeout(() => $("#edit-hocky").val(hocky).trigger("change"), 100);
+
+    // ✅ KHÓA 3 TRƯỜNG KHÔNG CHO SỬA
+    $("#edit-mon-hoc").prop("disabled", true);
+    $("#edit-namhoc").prop("disabled", true);
+    $("#edit-hocky").prop("disabled", true);
+
+    // Nạp dữ liệu năm học, học kỳ như cũ (chỉ để hiển thị)
+    $.get(
+      "./assignment/getNamHoc",
+      function (data) {
+        let html = '<option value="">Chọn năm học</option>';
+        data.forEach((el) => {
+          html += `<option value="${el.manamhoc}">${el.tennamhoc}</option>`;
+        });
+        $("#edit-namhoc").html(html);
+        $("#edit-namhoc").val(namhoc).trigger("change");
+
+        if (namhoc) {
+          $.post(
+            "./assignment/getHocKy",
+            { manamhoc: namhoc },
+            function (res) {
+              let html = '<option value="">Chọn học kỳ</option>';
+              res.forEach((el) => {
+                html += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
+              });
+              $("#edit-hocky").html(html);
+              $("#edit-hocky").val(hocky).trigger("change");
+            },
+            "json"
+          );
+        } else {
+          $("#edit-hocky").html('<option value="">Chọn học kỳ</option>');
+        }
+      },
+      "json"
+    );
 
     $("#modal-default-vcenter").modal("show");
   });
 
-  // Lưu chỉnh sửa
   $("#form-edit-assignment").submit(function (e) {
     e.preventDefault();
 
@@ -378,7 +418,7 @@ $(document).ready(function () {
         if (res.duplicates && res.duplicates.length > 0) {
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            message: "Môn học đã được phân công trong học kỳ này!",
+            message: "Chọn giảng viên khác phân cho học phần này!",
           });
           return;
         }
