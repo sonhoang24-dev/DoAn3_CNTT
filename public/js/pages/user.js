@@ -211,7 +211,7 @@ $(document).ready(function () {
     }
   });
 
-  $(document).on("click", ".user-edit", function () {
+  $(document).on("click", ".btn-edit", function () {
     let id = $(this).data("id");
     $(".add-user-element").hide();
     $(".update-user-element").show();
@@ -267,7 +267,7 @@ $(document).ready(function () {
     }
   });
 
-  $(document).on("click", ".user-delete", function () {
+  $(document).on("click", ".btn-delete", function () {
     var trid = $(this).data("id");
     let e = Swal.mixin({
       buttonsStyling: !1,

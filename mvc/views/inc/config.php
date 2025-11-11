@@ -3,7 +3,7 @@
 $GLOBALS['navbar'] = [
     [
         'name' => 'Dashboard',
-        'icon' => 'fas fa-tachometer-alt', // icon dashboard
+        'icon' => 'fas fa-tachometer-alt', 
         'url'  => 'dashboard'
     ],
     [
@@ -12,13 +12,13 @@ $GLOBALS['navbar'] = [
         'navbarItem' => [
             [
                 'name' => 'Học phần',
-                'icon' => 'fas fa-chalkboard-teacher', // rõ nghĩa học phần
+                'icon' => 'fas fa-chalkboard-teacher', 
                 'url'  => 'client/group',
                 'role' => 'tghocphan'
             ],
             [
                 'name' => 'Đề thi',
-                'icon' => 'fas fa-file-alt', // đề thi rõ hơn
+                'icon' => 'fas fa-file-alt', 
                 'url'  => 'client/test',
                 'role' => 'tgthi'
             ],
@@ -30,25 +30,25 @@ $GLOBALS['navbar'] = [
         'navbarItem' => [
             [
                 'name' => 'Môn học',
-                'icon' => 'fas fa-book-open', // môn học
+                'icon' => 'fas fa-book-open', 
                 'url'  => 'view_subject',
                 'role' => 'xem_monhoc'
             ],
             [
                 'name' => 'Câu hỏi',
-                'icon' => 'fas fa-question-circle', // câu hỏi
+                'icon' => 'fas fa-question-circle', 
                 'url'  => 'question',
                 'role' => 'cauhoi'
             ],
             [
                 'name' => 'Nhóm học phần',
-                'icon' => 'fas fa-layer-group', // nhóm học phần
+                'icon' => 'fas fa-layer-group', 
                 'url'  => 'module',
                 'role' => 'hocphan'
             ],
             [
                 'name' => 'Đề kiểm tra',
-                'icon' => 'fas fa-file-lines', // bài kiểm tra
+                'icon' => 'fas fa-file-lines',
                 'url'  => 'test',
                 'role' => 'dethi'
             ],
@@ -75,27 +75,33 @@ $GLOBALS['navbar'] = [
         'navbarItem' => [
             [
                 'name' => 'Quản lý người dùng',
-                'icon' => 'fas fa-users-cog', // biểu tượng user management
+                'icon' => 'fas fa-users-cog', 
                 'url'  => 'user',
                 'role' => 'nguoidung'
             ],
             [
             'name' => 'Năm học',
-            'icon' => 'fas fa-calendar-alt', // biểu tượng phân công
+            'icon' => 'fas fa-calendar-alt', 
             'url'  => 'namhoc',
             'role' => 'phancong'
             ],
             [
                 'name' => 'Tạo môn học',
-                'icon' => 'fas fa-plus-circle', // biểu tượng thêm môn
+                'icon' => 'fas fa-plus-circle', 
                 'url'  => 'subject',
                 'role' => 'monhoc'
             ],
             [
                 'name' => 'Phân công môn học',
-                'icon' => 'fas fa-tasks', // biểu tượng phân công
+                'icon' => 'fas fa-tasks', 
                 'url'  => 'assignment',
                 'role' => 'phancong'
+            ],
+            [
+                'name' => 'Phân Quyền',
+                'icon' => 'fas fa-users', 
+                'url'  => 'roles',
+                'role' => 'nhomquyen'
             ],
         ]
     ],
@@ -123,7 +129,7 @@ function build_navbar()
             foreach ($nav['navbarItem'] as $key1 => $navItem) {
                 $role = $navItem['role'];
                 // Nếu role là admin, chỉ show với admin
-                if ($role == 'nguoidung' || $role == 'monhoc_admin' || $role == 'phancong') {
+                if ($role == 'nguoidung' || $role == 'monhoc_admin' || $role == 'phancong'|| $role == 'nhomquyen') {
                     if (empty($_SESSION['is_admin'])) {
                         unset($GLOBALS['navbar'][$key]['navbarItem'][$key1]);
                     }

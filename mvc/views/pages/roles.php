@@ -129,6 +129,21 @@
                                 </td>
                             </tr>
                             <tr>
+                                <td>Xem Môn Học</td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="xem_monhoc" value="view">
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="xem_monhoc" value="create" disabled>
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="xem_monhoc" value="update" disabled>
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="xem_monhoc" value="delete" disabled>
+                                </td>
+                            </tr>
+                            <tr>
                                 <td>Chương</td>
                                 <td class="text-center">
                                     <input class="form-check-input" type="checkbox" name="chuong" value="view">
