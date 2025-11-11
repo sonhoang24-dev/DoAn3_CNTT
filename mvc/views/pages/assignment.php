@@ -1,6 +1,6 @@
 <div class="content">
     <div class="block block-rounded">
-        <div class="block-header block-header-default bg-teal text-white p-3 d-flex justify-content-between align-items-center">
+        <div class="block-header block-header-default bg-olive text-white p-3 d-flex justify-content-between align-items-center">
             <h3 class="block-title mb-0 fs-5 fw-bold">
                 <i class="fa fa-tasks me-2"></i> Tất cả phân công
             </h3>
@@ -26,12 +26,12 @@
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <select class="form-select border-teal" id="filter-namhoc" name="filter-namhoc">
+                        <select class="form-select border-olive" id="filter-namhoc" name="filter-namhoc">
                             <option value="">Chọn năm học</option>
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <select class="form-select border-teal" id="filter-hocky" name="filter-hocky">
+                        <select class="form-select border-olive" id="filter-hocky" name="filter-hocky">
                             <option value="">Chọn học kỳ</option>
                         </select>
                     </div>
@@ -40,7 +40,7 @@
 
             <div class="table-responsive">
                 <table class="table table-vcenter table-hover">
-                    <thead class="bg-teal-light text-dark">
+                    <thead class="bg-olive-light text-dark">
                         <tr>
                             <th class="text-center" style="width: 60px;">STT</th>
                             <th><i class="fa fa-user me-1"></i> Tên giảng viên</th>
@@ -52,10 +52,9 @@
                         </tr>
                     </thead>
                     <tbody id="listAssignment">
-                        <!-- Dữ liệu mẫu giống hình -->
                         <tr>
                             <td class="text-center">1</td>
-                            <td class="fw-semibold text-teal">Nguyễn Văn A</td>
+                            <td class="fw-semibold text-olive">Nguyễn Văn A</td>
                             <td class="text-center">CS101</td>
                             <td class="fw-medium">Lập trình C</td>
                             <td class="text-center">2023-2024</td>
@@ -85,7 +84,7 @@
         <div class="modal-content">
             <ul class="nav nav-tabs nav-tabs-alt mb-1 bg-light" role="tablist">
                 <li class="nav-item">
-                    <button class="nav-link active fw-semibold text-teal" data-bs-toggle="tab" data-bs-target="#btabs-alt-static-home">
+                    <button class="nav-link active fw-semibold text-olive" data-bs-toggle="tab" data-bs-target="#btabs-alt-static-home">
                         <i class="fa fa-hand-pointer me-1"></i> Thêm thủ công
                     </button>
                 </li>
@@ -100,19 +99,19 @@
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Giảng viên <span class="text-danger">*</span></label>
-                                    <select class="js-select2 form-select border-teal" id="giang-vien" name="giang-vien" required>
+                                    <select class="js-select2 form-select border-olive" id="giang-vien" name="giang-vien" required>
                                         <option value="">Chọn giảng viên</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Năm học <span class="text-danger">*</span></label>
-                                    <select class="js-select2 form-select border-teal" id="namhoc" name="namhoc" required>
+                                    <select class="js-select2 form-select border-olive" id="namhoc" name="namhoc" required>
                                         <option value="">Chọn năm học</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Học kỳ <span class="text-danger">*</span></label>
-                                    <select class="js-select2 form-select border-teal" id="hocky" name="hocky" required>
+                                    <select class="js-select2 form-select border-olive" id="hocky" name="hocky" required>
                                         <option value="">Chọn học kỳ</option>
                                     </select>
                                 </div>
@@ -133,7 +132,7 @@
                         <div class="mb-4 row">
                             <div class="table-responsive">
                                 <table class="table table-vcenter">
-                                    <thead class="bg-teal-light text-dark">
+                                    <thead class="bg-olive-light text-dark">
                                         <tr>
                                             <th class="text-center" style="width: 100px;">Chọn</th>
                                             <th class="text-center"><i class="fa fa-barcode me-1"></i> Mã môn học</th>
@@ -144,7 +143,6 @@
                                         </tr>
                                     </thead>
                                     <tbody id="list-subject">
-                                        <!-- Dữ liệu mẫu -->
                                         <tr>
                                             <td class="text-center">
                                                 <div class="form-check">
@@ -163,7 +161,7 @@
                             <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"?>
                         </div>
                         <div class="mb-4 d-flex flex-row-reverse">
-                            <button type="submit" class="btn btn-teal rounded-pill px-4 fw-semibold" id="btn_assignment">
+                            <button type="submit" class="btn btn-olive rounded-pill px-4 fw-semibold" id="btn_assignment">
                                 <i class="fa fa-fw fa-plus me-1"></i> Lưu phân công
                             </button>
                             <input type="hidden" value="" id="question_id">
@@ -179,7 +177,7 @@
 <div class="modal fade" id="modal-default-vcenter" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content shadow-lg border-0">
-            <div class="modal-header bg-teal text-white">
+            <div class="modal-header bg-olive text-white">
                 <h5 class="modal-title fw-bold">
                     <i class="fa fa-edit me-2"></i> Chỉnh sửa phân công
                 </h5>
@@ -189,34 +187,34 @@
                 <div class="modal-body p-4">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-teal">
+                            <label class="form-label fw-semibold text-olive">
                                 <i class="fa fa-chalkboard-teacher me-2"></i> Giảng viên
                             </label>
-                            <select class="js-select2 form-select border-teal" id="edit-giang-vien" required>
+                            <select class="js-select2 form-select border-olive" id="edit-giang-vien" required>
                                 <option value="">Chọn giảng viên</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-teal">
+                            <label class="form-label fw-semibold text-olive">
                                 <i class="fa fa-book-open me-2"></i> Môn học
                             </label>
-                            <select class="js-select2 form-select border-teal" id="edit-mon-hoc" required>
+                            <select class="js-select2 form-select border-olive" id="edit-mon-hoc" required>
                                 <option value="">Chọn môn học</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-teal">
+                            <label class="form-label fw-semibold text-olive">
                                 <i class="fa fa-calendar me-2"></i> Năm học
                             </label>
-                            <select class="js-select2 form-select border-teal" id="edit-namhoc" required disabled>
+                            <select class="js-select2 form-select border-olive" id="edit-namhoc" required disabled>
                                 <option value="">Chọn năm học</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-teal">
+                            <label class="form-label fw-semibold text-olive">
                                 <i class="fa fa-clock me-2"></i> Học kỳ
                             </label>
-                            <select class="js-select2 form-select border-teal" id="edit-hocky" required disabled>
+                            <select class="js-select2 form-select border-olive" id="edit-hocky" required disabled>
                                 <option value="">Chọn học kỳ</option>
                             </select>
                         </div>
@@ -226,7 +224,7 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                         <i class="fa fa-times me-1"></i> Hủy
                     </button>
-                    <button type="submit" class="btn btn-teal shadow-sm rounded-pill px-4">
+                    <button type="submit" class="btn btn-olive shadow-sm rounded-pill px-4">
                         <i class="fa fa-save me-1"></i> Lưu thay đổi
                     </button>
                 </div>
@@ -235,25 +233,24 @@
     </div>
 </div>
 
-<!-- Custom CSS - Giống hệt hình -->
+<!-- Custom CSS -->
 <style>
 /* Màu chủ đạo */
-.bg-teal { background-color: #0d9488 !important; }
-.bg-teal-light { background-color: #ccfbf1 !important; }
-.text-teal { color: #0d9488 !important; }
-.border-teal { border-color: #0d9488 !important; }
-.btn-teal {
-    background-color: #0d9488;
-    border-color: #0d9488;
+.bg-olive { background-color: #9A9F6E !important; }
+.bg-olive-light { background-color: #F5F6E9 !important; }
+.text-olive { color: #9A9F6E !important; }
+.border-olive { border-color: #9A9F6E !important; }
+.btn-olive {
+    background-color: #9A9F6E;
+    border-color: #9A9F6E;
     color: #fff;
     font-weight: 600;
 }
-.btn-teal:hover {
-    background-color: #0d7a70;
-    border-color: #0d7a70;
+.btn-olive:hover {
+    background-color: #7F8460;
+    border-color: #7F8460;
 }
 
-/* Input tìm kiếm */
 .input-group .form-control {
     border-radius: 999px 0 0 999px !important;
     padding: 0.75rem 1rem;
@@ -264,7 +261,6 @@
     background-color: #f8f9fa;
 }
 
-/* Table */
 .table thead th {
     font-weight: 600;
     font-size: 0.875rem;
@@ -274,10 +270,9 @@
     vertical-align: middle;
 }
 .table-hover tbody tr:hover {
-    background-color: #f8fdfc;
+    background-color: #F9FAF2;
 }
 
-/* Nút thao tác */
 .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem;
@@ -299,14 +294,12 @@
     background-color: #fecaca;
 }
 
-/* Tab */
 .nav-tabs-alt .nav-link.active {
-    color: #0d9488;
-    border-bottom: 3px solid #0d9488;
+    color: #9A9F6E;
+    border-bottom: 3px solid #9A9F6E;
     font-weight: 600;
 }
 
-/* Block */
 .block-rounded {
     border-radius: 1rem;
 }
@@ -314,7 +307,6 @@
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Responsive */
 @media (max-width: 576px) {
     .block-header h3 { font-size: 1.1rem; }
     .btn-sm { padding: 0.2rem 0.4rem; font-size: 0.8rem; }

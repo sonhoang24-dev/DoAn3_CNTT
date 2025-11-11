@@ -1,18 +1,11 @@
-<style>
-  #mamonhoc:disabled {
-    background-color: #e9ecef; 
-    cursor: not-allowed;      
-  }
-</style>
-
 <div class="content">
   <div class="block block-rounded shadow-sm">
-    <div class="block-header block-header-default bg-teal text-white p-3 d-flex justify-content-between align-items-center">
+    <div class="block-header block-header-default bg-indigo text-white p-3 d-flex justify-content-between align-items-center">
       <h3 class="block-title mb-0 fs-5 fw-bold">
         <i class="fa fa-book me-2"></i>Danh sách môn học
       </h3>
       <div class="block-options">
-        <button type="button" class="btn btn-sm btn-light rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modal-add-subject"
+        <button type="button" class="btn btn-sm btn-indigo rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modal-add-subject"
           data-role="monhoc" data-action="create">
           <i class="fa fa-plus me-1"></i> Thêm môn học
         </button>
@@ -25,7 +18,7 @@
         <div class="mb-4">
           <div class="input-group rounded-pill overflow-hidden shadow-sm">
             <span class="input-group-text bg-white border-0">
-              <i class="fa fa-search text-muted"></i>
+              <i class="fa fa-search text-indigo"></i>
             </span>
             <input type="text" class="form-control form-control-alt border-0" id="search-input" name="search-input"
               placeholder="Tìm kiếm môn học...">
@@ -36,7 +29,7 @@
       <!-- Bảng dữ liệu -->
       <div class="table-responsive">
         <table class="table table-bordered table-hover table-vcenter align-middle text-center">
-          <thead class="bg-teal-light text-dark">
+          <thead class="bg-indigo-light text-dark">
             <tr>
               <th><i class="fa fa-barcode me-1"></i> Mã môn</th>
               <th class="text-start"><i class="fa fa-book-open me-1"></i> Tên môn</th>
@@ -47,9 +40,8 @@
             </tr>
           </thead>
           <tbody id="list-subject">
-            <!-- Dữ liệu mẫu giống hình -->
             <tr>
-              <td class="fw-semibold text-teal">CS101</td>
+              <td class="fw-semibold text-indigo">CS101</td>
               <td class="text-start fw-medium">Lập trình C</td>
               <td class="d-none d-sm-table-cell">3</td>
               <td class="d-none d-sm-table-cell">30</td>
@@ -80,7 +72,7 @@
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="block block-rounded block-themed block-transparent mb-0">
-        <div class="block-header bg-teal text-white">
+        <div class="block-header bg-indigo text-white">
           <h3 class="block-title add-subject-element mb-0"><i class="fa fa-plus-circle me-2"></i> Thêm môn học</h3>
           <h3 class="block-title update-subject-element mb-0"><i class="fa fa-edit me-2"></i> Chỉnh sửa môn học</h3>
           <div class="block-options">
@@ -92,17 +84,17 @@
         <form class="block-content fs-sm form-add-subject p-4">
           <div class="mb-3">
             <label class="form-label fw-semibold">Mã môn học</label>
-            <input type="text" class="form-control form-control-alt border-teal" name="mamonhoc" id="mamonhoc"
+            <input type="text" class="form-control form-control-alt border-indigo" name="mamonhoc" id="mamonhoc"
               placeholder="Nhập mã môn học">
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Tên môn học</label>
-            <input type="text" class="form-control form-control-alt border-teal" name="tenmonhoc" id="tenmonhoc"
+            <input type="text" class="form-control form-control-alt border-indigo" name="tenmonhoc" id="tenmonhoc"
               placeholder="Nhập tên môn học">
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Hình thức</label>
-            <select class="form-select border-teal" name="loaimon" id="loaimon">
+            <select class="form-select border-indigo" name="loaimon" id="loaimon">
               <option value="lt">Lý thuyết</option>
               <option value="th">Thực hành</option>
               <option value="lt+th">Lý thuyết & Thực hành</option>
@@ -110,26 +102,26 @@
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Tổng số tín chỉ</label>
-            <input type="number" class="form-control form-control-alt border-teal" name="sotinchi" id="sotinchi"
+            <input type="number" class="form-control form-control-alt border-indigo" name="sotinchi" id="sotinchi"
               placeholder="Nhập số tín chỉ">
           </div>
           <div class="row">
             <div class="col-6 mb-3">
               <label class="form-label fw-semibold">Số tiết lý thuyết</label>
-              <input type="number" class="form-control form-control-alt border-teal" name="sotiet_lt" id="sotiet_lt"
+              <input type="number" class="form-control form-control-alt border-indigo" name="sotiet_lt" id="sotiet_lt"
                 placeholder="Nhập số tiết lý thuyết">
             </div>
             <div class="col-6 mb-3">
               <label class="form-label fw-semibold">Số tiết thực hành</label>
-              <input type="number" class="form-control form-control-alt border-teal" name="sotiet_th" id="sotiet_th"
+              <input type="number" class="form-control form-control-alt border-indigo" name="sotiet_th" id="sotiet_th"
                 placeholder="Nhập số tiết thực hành">
             </div>
           </div>
         </form>
         <div class="block-content block-content-full text-end bg-light">
           <button type="button" class="btn btn-sm btn-outline-secondary me-2" data-bs-dismiss="modal">Đóng</button>
-          <button type="button" class="btn btn-sm btn-teal rounded-pill px-4 add-subject-element" id="add_subject">Lưu</button>
-          <button type="button" class="btn btn-sm btn-teal rounded-pill px-4 update-subject-element" id="update_subject"
+          <button type="button" class="btn btn-sm btn-indigo rounded-pill px-4 add-subject-element" id="add_subject">Lưu</button>
+          <button type="button" class="btn btn-sm btn-indigo rounded-pill px-4 update-subject-element" id="update_subject"
             data-id="">Cập nhật</button>
         </div>
       </div>
@@ -142,7 +134,7 @@
   aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
     <div class="modal-content">
-      <div class="modal-header bg-teal text-white">
+      <div class="modal-header bg-indigo text-white">
         <h5 class="modal-title"><i class="fa fa-list me-2"></i>Danh sách chương</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
@@ -150,7 +142,7 @@
       <div class="modal-body pb-1 p-4">
         <div class="table-responsive">
           <table class="table table-vcenter table-hover align-middle">
-            <thead class="bg-teal-light text-dark">
+            <thead class="bg-indigo-light text-dark">
               <tr>
                 <th class="text-center" style="width: 40px;">STT</th>
                 <th><i class="fa fa-bookmark me-1"></i> Tên chương</th>
@@ -158,7 +150,6 @@
               </tr>
             </thead>
             <tbody id="showChapper">
-              <!-- Dữ liệu mẫu -->
               <tr>
                 <td class="text-center">1</td>
                 <td>Chương 1: Giới thiệu</td>
@@ -177,7 +168,7 @@
 
         <div class="block block-rounded mt-3 bg-light">
           <div class="block-content pb-3">
-            <a class="fw-semibold text-teal" data-role="chuong" data-action="create" data-bs-toggle="collapse"
+            <a class="fw-semibold text-indigo" data-role="chuong" data-action="create" data-bs-toggle="collapse"
               href="#collapseChapter" role="button" aria-expanded="false" aria-controls="collapseChapter"
               id="btn-add-chapter">
               <i class="fa fa-plus me-1"></i> Thêm chương
@@ -187,13 +178,13 @@
               <form method="post" class="form-chapter">
                 <div class="row g-2">
                   <div class="col-8">
-                    <input type="text" class="form-control border-teal" name="name_chapter" id="name_chapter"
+                    <input type="text" class="form-control border-indigo" name="name_chapter" id="name_chapter"
                       placeholder="Nhập tên chương">
                   </div>
                   <div class="col-4 d-flex flex-wrap gap-1">
                     <input type="hidden" name="mamon_chuong" id="mamon_chuong">
                     <input type="hidden" name="machuong" id="machuong">
-                    <button id="add-chapter" type="submit" class="btn btn-teal btn-sm rounded-pill px-3">Tạo chương</button>
+                    <button id="add-chapter" type="submit" class="btn btn-indigo btn-sm rounded-pill px-3">Tạo chương</button>
                     <button id="edit-chapter" type="submit" class="btn btn-warning btn-sm rounded-pill px-3">Đổi tên</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm close-chapter">Huỷ</button>
                   </div>
@@ -210,88 +201,98 @@
     </div>
   </div>
 </div>
-
 <style>
-/* Màu chủ đạo */
-.bg-teal { background-color: #0d9488 !important; }
-.bg-teal-light { background-color: #ccfbf1 !important; }
-.text-teal { color: #0d9488 !important; }
-.border-teal { border-color: #0d9488 !important; }
-.btn-teal {
-    background-color: #0d9488;
-    border-color: #0d9488;
+  #mamonhoc:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .bg-indigo { background-color: #4f46e5 !important; }
+  .bg-indigo-light { background-color: #e0e7ff !important; }
+  .text-indigo { color: #4f46e5 !important; }
+  .border-indigo { border-color: #4f46e5 !important; }
+  .btn-indigo {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
     color: #fff;
     font-weight: 600;
-}
-.btn-teal:hover {
-    background-color: #0d7a70;
-    border-color: #0d7a70;
-}
+    transition: all 0.2s ease;
+  }
+  .btn-indigo:hover {
+    background-color: #4338ca;
+    border-color: #4338ca;
+    transform: translateY(-1px);
+  }
 
-/* Input tìm kiếm */
-.input-group .form-control {
+  .input-group .form-control {
     border-radius: 999px 0 0 999px !important;
     padding: 0.75rem 1rem;
     font-size: 1rem;
-}
-.input-group .input-group-text {
+    border: 1px solid #d1d5db;
+  }
+  .input-group .input-group-text {
     border-radius: 0 999px 999px 0 !important;
     background-color: #f8f9fa;
-}
+    border: 1px solid #d1d5db;
+    color: #4f46e5;
+  }
 
-/* Table */
-.table thead th {
+  .table thead th {
     font-weight: 600;
     font-size: 0.875rem;
-}
-.table td {
+    background-color: #e0e7ff;
+    color: #1f2937;
+  }
+  .table td {
     font-size: 0.95rem;
     vertical-align: middle;
-}
-.table-hover tbody tr:hover {
-    background-color: #f8fdfc;
-}
+  }
+  .table-hover tbody tr:hover {
+    background-color: #f5f7ff;
+    transition: background-color 0.2s ease;
+  }
 
-/* Nút thao tác */
-.btn-sm {
+  .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem;
-}
-.btn-warning {
-    background-color: #fde68a;
-    border-color: #fde68a;
-    color: #92400e;
-}
-.btn-warning:hover {
-    background-color: #fde068;
-}
-.btn-danger-subtle {
+  }
+  .btn-warning {
+    background-color: #fcd34d;
+    border-color: #fcd34d;
+    color: #78350f;
+    transition: all 0.2s ease;
+  }
+  .btn-warning:hover {
+    background-color: #fbbf24;
+    border-color: #fbbf24;
+  }
+  .btn-danger-subtle {
     background-color: #fee2e2;
     border-color: #fee2e2;
     color: #991b1b;
-}
-.btn-danger-subtle:hover {
+    transition: all 0.2s ease;
+  }
+  .btn-danger-subtle:hover {
     background-color: #fecaca;
-}
+    border-color: #fecaca;
+  }
 
-/* Block */
-.block-rounded {
+  .block-rounded {
     border-radius: 1rem;
-}
-.shadow-sm {
+  }
+  .shadow-sm {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
-}
+  }
 
-/* Modal form */
-.form-control:focus, .form-select:focus {
-    border-color: #0d9488;
-    box-shadow: 0 0 0 0.2rem rgba(13, 148, 136, 0.25);
-}
+  .form-control:focus, .form-select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+  }
 
-/* Responsive */
-@media (max-width: 576px) {
+  @media (max-width: 576px) {
     .block-header h3 { font-size: 1.1rem; }
     .btn-sm { padding: 0.2rem 0.4rem; font-size: 0.8rem; }
     .input-group .form-control { font-size: 0.9rem; padding: 0.5rem 0.75rem; }
-}
+  }
 </style>
