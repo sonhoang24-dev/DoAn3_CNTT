@@ -57,72 +57,72 @@ class PhanCongModel extends DB
 
     // Kiểm tra trùng phân công (bao gồm năm + kỳ)
     public function isAssignmentExist($giangvien, $mamonhoc, $namhoc, $hocky)
-{
-    $sql = "SELECT COUNT(*) as count FROM phancong 
+    {
+        $sql = "SELECT COUNT(*) as count FROM phancong 
             WHERE manguoidung = ? AND mamonhoc = ? AND namhoc = ? AND hocky = ? AND trangthai = 1";
 
-    $stmt = mysqli_prepare($this->con, $sql);
-    if (!$stmt) {
-        error_log("Prepare failed: " . mysqli_error($this->con));
-        return true; // tránh insert nhầm
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            error_log("Prepare failed: " . mysqli_error($this->con));
+            return true; // tránh insert nhầm
+        }
+
+        // Bind param: ssii -> gv, mh, nam, hk
+        mysqli_stmt_bind_param($stmt, "ssii", $giangvien, $mamonhoc, $namhoc, $hocky);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_bind_result($stmt, $count);
+        mysqli_stmt_fetch($stmt);
+        mysqli_stmt_close($stmt);
+
+        return $count > 0;
     }
-
-    // Bind param: ssii -> gv, mh, nam, hk
-    mysqli_stmt_bind_param($stmt, "ssii", $giangvien, $mamonhoc, $namhoc, $hocky);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_bind_result($stmt, $count);
-    mysqli_stmt_fetch($stmt);
-    mysqli_stmt_close($stmt);
-
-    return $count > 0;
-}
 
 
     // Cập nhật addAssignment
     public function addAssignment($giangvien, $listSubject, $namhoc, $hocky)
-{
-    if (is_string($listSubject)) {
-        $listSubject = json_decode($listSubject, true);
+    {
+        if (is_string($listSubject)) {
+            $listSubject = json_decode($listSubject, true);
+        }
+
+        $success = true;
+        $added = [];
+        $errors = []; // lưu lỗi từng môn
+
+        foreach ($listSubject as $mamonhoc) {
+
+            // Kiểm tra trùng
+            if ($this->isAssignmentExist($giangvien, $mamonhoc, $namhoc, $hocky)) {
+                $errors[$mamonhoc] = "Đã tồn tại phân công";
+                continue;
+            }
+
+            $sql = "INSERT INTO phancong (mamonhoc, manguoidung, namhoc, hocky) VALUES (?, ?, ?, ?)";
+            $stmt = mysqli_prepare($this->con, $sql);
+            if (!$stmt) {
+                $errors[$mamonhoc] = "Prepare failed: " . mysqli_error($this->con);
+                $success = false;
+                continue;
+            }
+
+            mysqli_stmt_bind_param($stmt, "ssii", $mamonhoc, $giangvien, $namhoc, $hocky);
+            $exec = mysqli_stmt_execute($stmt);
+            if (!$exec) {
+                $errors[$mamonhoc] = "Execute failed: " . mysqli_stmt_error($stmt);
+                $success = false;
+            } else {
+                $added[] = $mamonhoc;
+            }
+            mysqli_stmt_close($stmt);
+        }
+
+        return [
+            'success' => $success && count($added) > 0,
+            'added' => $added,
+            'message' => count($added) > 0 ? 'Thêm thành công ' . count($added) . ' môn!' : 'Không có môn nào được thêm!',
+            'errors' => $errors // in ra chi tiết lý do thất bại
+        ];
     }
-
-    $success = true;
-    $added = [];
-    $errors = []; // lưu lỗi từng môn
-
-    foreach ($listSubject as $mamonhoc) {
-
-        // Kiểm tra trùng
-        if ($this->isAssignmentExist($giangvien, $mamonhoc, $namhoc, $hocky)) {
-            $errors[$mamonhoc] = "Đã tồn tại phân công";
-            continue;
-        }
-
-        $sql = "INSERT INTO phancong (mamonhoc, manguoidung, namhoc, hocky) VALUES (?, ?, ?, ?)";
-        $stmt = mysqli_prepare($this->con, $sql);
-        if (!$stmt) {
-            $errors[$mamonhoc] = "Prepare failed: " . mysqli_error($this->con);
-            $success = false;
-            continue;
-        }
-
-        mysqli_stmt_bind_param($stmt, "ssii", $mamonhoc, $giangvien, $namhoc, $hocky);
-        $exec = mysqli_stmt_execute($stmt);
-        if (!$exec) {
-            $errors[$mamonhoc] = "Execute failed: " . mysqli_stmt_error($stmt);
-            $success = false;
-        } else {
-            $added[] = $mamonhoc;
-        }
-        mysqli_stmt_close($stmt);
-    }
-
-    return [
-        'success' => $success && count($added) > 0,
-        'added' => $added,
-        'message' => count($added) > 0 ? 'Thêm thành công ' . count($added) . ' môn!' : 'Không có môn nào được thêm!',
-        'errors' => $errors // in ra chi tiết lý do thất bại
-    ];
-}
 
 
 
@@ -237,25 +237,25 @@ class PhanCongModel extends DB
         }
         return $rows;
     }
-     public function getQuery($filter, $input, $args)
-{
-    // Xử lý custom function (ví dụ: danh sách môn học cho modal)
-    if (isset($args["custom"]["function"])) {
-        $func = $args["custom"]["function"];
-        switch ($func) {
-            case "monhoc":
-                $query = "SELECT * FROM `monhoc` WHERE trangthai = 1";
-                if ($input) {
-                    $query .= " AND (monhoc.tenmonhoc LIKE N'%${input}%' OR monhoc.mamonhoc LIKE '%${input}%')";
-                }
-                return $query;
-            default:
-                break;
+    public function getQuery($filter, $input, $args)
+    {
+        // Xử lý custom function (ví dụ: danh sách môn học cho modal)
+        if (isset($args["custom"]["function"])) {
+            $func = $args["custom"]["function"];
+            switch ($func) {
+                case "monhoc":
+                    $query = "SELECT * FROM `monhoc` WHERE trangthai = 1";
+                    if ($input) {
+                        $query .= " AND (monhoc.tenmonhoc LIKE N'%${input}%' OR monhoc.mamonhoc LIKE '%${input}%')";
+                    }
+                    return $query;
+                default:
+                    break;
+            }
         }
-    }
 
-    // Truy vấn chính
-    $query = "SELECT DISTINCT
+        // Truy vấn chính
+        $query = "SELECT DISTINCT
         pc.mamonhoc, 
         pc.manguoidung, 
         pc.namhoc, 
@@ -271,25 +271,25 @@ class PhanCongModel extends DB
     LEFT JOIN hocky AS hk ON pc.hocky = hk.mahocky
     WHERE pc.trangthai = 1";
 
-    // Lọc theo năm học
-    if (!empty($filter["namhoc"])) {
-        $namhoc = intval($filter["namhoc"]);
-        $query .= " AND pc.namhoc = {$namhoc}";
+        // Lọc theo năm học
+        if (!empty($filter["namhoc"])) {
+            $namhoc = intval($filter["namhoc"]);
+            $query .= " AND pc.namhoc = {$namhoc}";
+        }
+
+        // Lọc theo học kỳ
+        if (!empty($filter["hocky"])) {
+            $hocky = intval($filter["hocky"]);
+            $query .= " AND pc.hocky = {$hocky}";
+        }
+
+        // Tìm kiếm theo tên môn hoặc tên giảng viên
+        if ($input) {
+            $query .= " AND (mh.tenmonhoc LIKE N'%${input}%' OR ng.hoten LIKE N'%${input}%')";
+        }
+
+        return $query;
     }
 
-    // Lọc theo học kỳ
-    if (!empty($filter["hocky"])) {
-        $hocky = intval($filter["hocky"]);
-        $query .= " AND pc.hocky = {$hocky}";
-    }
 
-    // Tìm kiếm theo tên môn hoặc tên giảng viên
-    if ($input) {
-        $query .= " AND (mh.tenmonhoc LIKE N'%${input}%' OR ng.hoten LIKE N'%${input}%')";
-    }
-
-    return $query;
-}
-
-    
 }

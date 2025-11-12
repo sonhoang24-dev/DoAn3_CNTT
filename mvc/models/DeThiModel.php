@@ -15,10 +15,8 @@ class DeThiModel extends DB
         return mysqli_insert_id($this->con);
     }
 
-    // Hàm kiểm tra số lượng câu hỏi đủ điều kiện
     private function checkQuestionAvailability($monhoc, $chuong, $socaude, $socautb, $socaukho)
     {
-        // Bọc $monhoc trong dấu nháy nếu nó là chuỗi
         $monhoc = mysqli_real_escape_string($this->con, $monhoc); // chống SQL injection
 
         $sql_caude = "SELECT COUNT(*) as count FROM cauhoi ch 
@@ -30,8 +28,6 @@ class DeThiModel extends DB
         $sql_caukho = "SELECT COUNT(*) as count FROM cauhoi ch 
                    JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc 
                    WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 3 AND ch.trangthai != 0 AND ";
-
-        // Ghép điều kiện chương
         $countChuong = count($chuong) - 1;
         $detailChuong = "(";
         for ($i = 0; $i < $countChuong; $i++) {
@@ -45,12 +41,9 @@ class DeThiModel extends DB
         $sql_caude .= $detailChuong;
         $sql_cautb .= $detailChuong;
         $sql_caukho .= $detailChuong;
-
-        // Thực thi và kiểm tra lỗi
         $result_cd = mysqli_query($this->con, $sql_caude);
         $result_tb = mysqli_query($this->con, $sql_cautb);
         $result_ck = mysqli_query($this->con, $sql_caukho);
-
         if (!$result_cd || !$result_tb || !$result_ck) {
             die("Lỗi truy vấn SQL: " . mysqli_error($this->con));
         }

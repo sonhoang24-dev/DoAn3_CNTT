@@ -2,80 +2,79 @@
 
 class NamHocModel extends DB
 {
-    
-public function getNamHoc($page = 1, $limit = 10, $q = "")
-{
-    $page = (int)$page;
-    $limit = (int)$limit;
-    $offset = ($page - 1) * $limit;
-    $countSql = "SELECT COUNT(*) as total FROM namhoc WHERE 1=1";
-    $params = [];
-    $types = "";
+    public function getNamHoc($page = 1, $limit = 10, $q = "")
+    {
+        $page = (int)$page;
+        $limit = (int)$limit;
+        $offset = ($page - 1) * $limit;
+        $countSql = "SELECT COUNT(*) as total FROM namhoc WHERE 1=1";
+        $params = [];
+        $types = "";
 
-    if ($q) {
-        $countSql .= " AND tennamhoc LIKE ?";
-        $qParam = "%$q%";
-        $params[] = &$qParam;
-        $types .= "s";
-    }
+        if ($q) {
+            $countSql .= " AND tennamhoc LIKE ?";
+            $qParam = "%$q%";
+            $params[] = &$qParam;
+            $types .= "s";
+        }
 
-    $stmt = mysqli_prepare($this->con, $countSql);
-    if (!$stmt) {
-        throw new Exception("Prepare failed: " . mysqli_error($this->con));
-    }
+        $stmt = mysqli_prepare($this->con, $countSql);
+        if (!$stmt) {
+            throw new Exception("Prepare failed: " . mysqli_error($this->con));
+        }
 
-    if ($params) {
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
-    }
+        if ($params) {
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+        }
 
-    mysqli_stmt_execute($stmt);
-    $countRes = mysqli_stmt_get_result($stmt);
-    $totalRow = mysqli_fetch_assoc($countRes);
-    $total = (int)$totalRow['total'];
-    mysqli_stmt_close($stmt);
-    $dataSql = "SELECT nh.*, 
+        mysqli_stmt_execute($stmt);
+        $countRes = mysqli_stmt_get_result($stmt);
+        $totalRow = mysqli_fetch_assoc($countRes);
+        $total = (int)$totalRow['total'];
+        mysqli_stmt_close($stmt);
+        $dataSql = "SELECT nh.*, 
                        (SELECT COUNT(*) FROM hocky hk WHERE hk.manamhoc = nh.manamhoc) as tonghocky
                 FROM namhoc nh
                 WHERE 1=1";
 
-    $params = [];
-    $types = "";
-    if ($q) {
-        $dataSql .= " AND nh.tennamhoc LIKE ?";
-        $qParam = "%$q%";
-        $params[] = &$qParam;
-        $types .= "s";
+        $params = [];
+        $types = "";
+        if ($q) {
+            $dataSql .= " AND nh.tennamhoc LIKE ?";
+            $qParam = "%$q%";
+            $params[] = &$qParam;
+            $types .= "s";
+        }
+
+        // Không dùng bind param cho LIMIT/OFFSET, gán trực tiếp
+        $dataSql .= " ORDER BY nh.manamhoc DESC LIMIT $limit OFFSET $offset";
+
+        $stmt = mysqli_prepare($this->con, $dataSql);
+        if (!$stmt) {
+            throw new Exception("Prepare failed: " . mysqli_error($this->con));
+        }
+
+        if ($params) {
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
+        }
+
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+
+        $rows = [];
+        while ($row = mysqli_fetch_assoc($res)) {
+            $rows[] = $row;
+        }
+        mysqli_stmt_close($stmt);
+
+        return [
+            'data' => $rows,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit
+        ];
     }
 
-    // Không dùng bind param cho LIMIT/OFFSET, gán trực tiếp
-    $dataSql .= " ORDER BY nh.manamhoc DESC LIMIT $limit OFFSET $offset";
-
-    $stmt = mysqli_prepare($this->con, $dataSql);
-    if (!$stmt) {
-        throw new Exception("Prepare failed: " . mysqli_error($this->con));
-    }
-
-    if ($params) {
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
-    }
-
-    mysqli_stmt_execute($stmt);
-    $res = mysqli_stmt_get_result($stmt);
-
-    $rows = [];
-    while ($row = mysqli_fetch_assoc($res)) {
-        $rows[] = $row;
-    }
-    mysqli_stmt_close($stmt);
-
-    return [
-        'data' => $rows,
-        'total' => $total,
-        'page' => $page,
-        'limit' => $limit
-    ];
-}
-      
     public function existsNamHoc($tennamhoc, $excludeId = null)
     {
         $sql = "SELECT COUNT(*) as cnt FROM namhoc WHERE tennamhoc = ?";
@@ -94,7 +93,7 @@ public function getNamHoc($page = 1, $limit = 10, $q = "")
         mysqli_stmt_close($stmt);
         return $row['cnt'] > 0;
     }
-    
+
 
     // THÊM NĂM HỌC + TỰ TẠO HỌC KỲ
     public function addNamHoc($tennamhoc, $sohocky = 3)

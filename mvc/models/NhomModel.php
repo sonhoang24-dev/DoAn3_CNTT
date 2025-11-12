@@ -241,7 +241,6 @@ class NhomModel extends DB
     public function sv_hide($manhom, $masv, $giatri)
     {
         try {
-            // Kiểm tra giá trị hợp lệ của giatri (0 hoặc 1)
             if (!in_array($giatri, ['0', '1'])) {
                 return [
                     'success' => false,
@@ -294,6 +293,85 @@ class NhomModel extends DB
         mysqli_stmt_close($stmt);
         return $row ? $row : [];
     }
+    public function getNamHoc($manguoidung)
+    {
+        $rows = [];
+        $sql = "
+        SELECT DISTINCT nh.manamhoc, nh.tennamhoc
+        FROM phancong pc
+        INNER JOIN namhoc nh ON pc.namhoc = nh.manamhoc
+        WHERE pc.manguoidung = ? and pc.trangthai = 1
+        ORDER BY nh.tennamhoc DESC
+    ";
+
+        $stmt = $this->con->prepare($sql);
+        if (!$stmt) {
+            error_log("getNamHoc prepare failed: " . $this->con->error . " | SQL: $sql");
+            return $rows;
+        }
+
+        $stmt->bind_param("s", $manguoidung);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        if ($result) {
+            while ($r = $result->fetch_assoc()) {
+                $rows[] = $r;
+            }
+        } else {
+            $stmt->bind_result($manamhoc, $tennamhoc);
+            while ($stmt->fetch()) {
+                $rows[] = [
+                    'manamhoc' => $manamhoc,
+                    'tennamhoc' => $tennamhoc
+                ];
+            }
+        }
+
+        $stmt->close();
+        return $rows;
+    }
+
+    public function getHocKy($manguoidung, $manamhoc)
+    {
+        $rows = [];
+
+        $sql = "
+        SELECT DISTINCT hk.mahocky, hk.tenhocky
+        FROM phancong pc
+        INNER JOIN hocky hk ON pc.hocky = hk.mahocky
+        WHERE pc.manguoidung = ? AND pc.namhoc = ? AND pc.trangthai = 1
+        ORDER BY hk.tenhocky ASC
+    ";
+
+        $stmt = $this->con->prepare($sql);
+        if (!$stmt) {
+            error_log("getHocKy prepare failed: " . $this->con->error . " | SQL: $sql");
+            return $rows;
+        }
+
+        $stmt->bind_param("ss", $manguoidung, $manamhoc);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+        if ($result) {
+            while ($r = $result->fetch_assoc()) {
+                $rows[] = $r;
+            }
+        } else {
+            $stmt->bind_result($mahocky, $tenhocky);
+            while ($stmt->fetch()) {
+                $rows[] = [
+                    'mahocky' => $mahocky,
+                    'tenhocky' => $tenhocky
+                ];
+            }
+        }
+
+        $stmt->close();
+        return $rows;
+    }
+
 
     public function getBySubject($nguoitao, $hienthi)
     {
@@ -337,7 +415,6 @@ class NhomModel extends DB
         return $newArray;
     }
 
-    // Cập nhật mã mời
     public function updateInvitedCode($manhom)
     {
         $valid = true;
@@ -353,7 +430,6 @@ class NhomModel extends DB
         return $valid;
     }
 
-    // Lấy mã mời
     public function getInvitedCode($manhom)
     {
         $sql = "SELECT mamoi FROM nhom WHERE manhom = '$manhom'";
@@ -361,7 +437,6 @@ class NhomModel extends DB
         return mysqli_fetch_assoc($result);
     }
 
-    // Lấy mã nhóm từ mã mời
     public function getIdFromInvitedCode($mamoi)
     {
         $sql = "SELECT `manhom` FROM `nhom` WHERE `mamoi` = '$mamoi'";
@@ -447,7 +522,6 @@ class NhomModel extends DB
         return $rows;
     }
 
-    // hàm update sỉ số sinh viên trong nhóm
     public function updateSiso($manhom)
     {
         $valid = true;
@@ -458,8 +532,6 @@ class NhomModel extends DB
         }
         return $valid;
     }
-
-    // Hàm cập nhật sỉ số khi sv tham gia bằng mã mời
     public function updateSiso1($mamoi)
     {
         $result = $this->getIdFromInvitedCode($mamoi);
@@ -468,7 +540,6 @@ class NhomModel extends DB
         return $valid;
     }
 
-    // Hàm lấy sinh viên ra từ nhóm
     public function getStudentByGroup($group)
     {
         $sql = "SELECT ng.id,ng.hoten,ng.email,ng.ngaythamgia,ng.ngaysinh,ng.gioitinh FROM chitietnhom ctn JOIN nguoidung ng ON ctn.manguoidung=ng.id WHERE ctn.manhom = $group";

@@ -158,7 +158,9 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <?php if(isset($data["Plugin"]["pagination"])) require "./mvc/views/inc/pagination.php"?>
+                            <?php if (isset($data["Plugin"]["pagination"])) {
+                                require "./mvc/views/inc/pagination.php";
+                            }?>
                         </div>
                         <div class="mb-4 d-flex flex-row-reverse">
                             <button type="submit" class="btn btn-olive rounded-pill px-4 fw-semibold" id="btn_assignment">

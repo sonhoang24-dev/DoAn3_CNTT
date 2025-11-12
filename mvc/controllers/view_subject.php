@@ -32,7 +32,7 @@ class view_subject extends Controller
             $this->view("single_layout", ["Page" => "error/page_403", "Title" => "Lỗi !"]);
         }
     }
-     public function getSubjectAssignment()
+    public function getSubjectAssignment()
     {
         $id = $_SESSION['user_id'];
         $data = $this->monHocModel->getAllSubjectAssignment($id);

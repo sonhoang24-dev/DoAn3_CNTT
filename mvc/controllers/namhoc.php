@@ -30,18 +30,19 @@ class NamHoc extends Controller
         }
     }
     // Ví dụ trong controller
-public function getNamHoc() {
-    $page = $_POST['page'] ?? 1;
-    $limit = $_POST['limit'] ?? 10;
-    $q = $_POST['q'] ?? '';
+    public function getNamHoc()
+    {
+        $page = $_POST['page'] ?? 1;
+        $limit = $_POST['limit'] ?? 10;
+        $q = $_POST['q'] ?? '';
 
-    $model = new NamHocModel();
-    $result = $model->getNamHoc($page, $limit, $q);
+        $model = new NamHocModel();
+        $result = $model->getNamHoc($page, $limit, $q);
 
-    header('Content-Type: application/json');
-    echo json_encode($result);
-    exit;
-}
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
 
 
     public function addNamHoc()

@@ -92,29 +92,29 @@ class Assignment extends Controller
             echo json_encode($result);
         }
     }
-   public function checkDuplicate()
-{
-    $giangvien = $_POST['magiangvien'] ?? '';
-    $listSubject = $_POST['listSubject'] ?? [];
-    $namhoc = $_POST['namhoc'] ?? null;
-    $hocky = $_POST['hocky'] ?? null;
+    public function checkDuplicate()
+    {
+        $giangvien = $_POST['magiangvien'] ?? '';
+        $listSubject = $_POST['listSubject'] ?? [];
+        $namhoc = $_POST['namhoc'] ?? null;
+        $hocky = $_POST['hocky'] ?? null;
 
-    if (is_string($listSubject)) {
-        $listSubject = json_decode($listSubject, true);
-    }
-
-    $model = new PhanCongModel();
-    $duplicates = [];
-
-    foreach ($listSubject as $mh) {
-        // Truyền đủ 4 trường để kiểm tra trùng
-        if ($model->isAssignmentExist($giangvien, $mh, (int)$namhoc, (int)$hocky)) {
-            $duplicates[] = $mh;
+        if (is_string($listSubject)) {
+            $listSubject = json_decode($listSubject, true);
         }
-    }
 
-    echo json_encode(["duplicates" => $duplicates]);
-}
+        $model = new PhanCongModel();
+        $duplicates = [];
+
+        foreach ($listSubject as $mh) {
+            // Truyền đủ 4 trường để kiểm tra trùng
+            if ($model->isAssignmentExist($giangvien, $mh, (int)$namhoc, (int)$hocky)) {
+                $duplicates[] = $mh;
+            }
+        }
+
+        echo json_encode(["duplicates" => $duplicates]);
+    }
 
     public function checkDuplicateForUpdate()
     {

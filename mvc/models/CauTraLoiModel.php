@@ -25,7 +25,6 @@ class CauTraLoiModel extends DB
         return $valid;
     }
 
-
     public function update($macautl, $macauhoi, $noidungtl, $ladapan)
     {
         $valid = true;
