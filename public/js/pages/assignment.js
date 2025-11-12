@@ -41,12 +41,11 @@ function showAssignment(data) {
   const selectedHocKy = $("#filter-hocky").val();
 
   // Lọc dữ liệu client-side tạm thời
-  const filteredData =
-    selectedNamHoc && selectedHocKy
-      ? data.filter(
-          (item) => item.namhoc == selectedNamHoc && item.hocky == selectedHocKy
-        )
-      : data;
+  const filteredData = data.filter((item) => {
+    const matchNamHoc = !selectedNamHoc || item.namhoc == selectedNamHoc;
+    const matchHocKy = !selectedHocKy || item.hocky == selectedHocKy;
+    return matchNamHoc && matchHocKy;
+  });
 
   if (filteredData.length === 0) {
     $("#listAssignment").html(
@@ -305,30 +304,32 @@ $(document).ready(function () {
   // Khi chọn năm học → load học kỳ tương ứng
   $("#filter-namhoc").on("change", function () {
     const manamhoc = $(this).val();
+
+    // Reset học kỳ
     $("#filter-hocky")
       .prop("disabled", !manamhoc)
       .html('<option value="">Đang tải...</option>');
+
     if (!manamhoc) {
       $("#filter-hocky").html('<option value="">Chọn học kỳ</option>');
+      mainPagePagination.getPagination(mainPagePagination.option, 1);
       return;
     }
+
+    // Tải danh sách học kỳ
     $.post(
       "./assignment/getHocKy",
       { manamhoc },
       function (data) {
         let html = '<option value="">Chọn học kỳ</option>';
-        if (!data || !Array.isArray(data)) {
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            message: "Không thể tải danh sách học kỳ!",
+        if (Array.isArray(data)) {
+          data.forEach((el) => {
+            html += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
           });
-          $("#filter-hocky").html('<option value="">Chọn học kỳ</option>');
-          return;
         }
-        data.forEach((el) => {
-          html += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
-        });
         $("#filter-hocky").html(html);
+
+        mainPagePagination.getPagination(mainPagePagination.option, 1);
       },
       "json"
     ).fail(function () {

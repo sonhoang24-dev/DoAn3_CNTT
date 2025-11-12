@@ -4,12 +4,12 @@ require_once "./mvc/core/AuthCore.php";
 
 class view_subject extends Controller
 {
-    public $monHocModel;
+    public $xemmonhocModel;
     public $chuongModel;
 
     public function __construct()
     {
-        $this->monHocModel = $this->model("MonHocModel");
+        $this->xemmonhocModel = $this->model("XemMonHocModel");
         $this->chuongModel = $this->model("ChuongModel");
         require_once "./mvc/core/Pagination.php";
     }
@@ -35,14 +35,14 @@ class view_subject extends Controller
     public function getSubjectAssignment()
     {
         $id = $_SESSION['user_id'];
-        $data = $this->monHocModel->getAllSubjectAssignment($id);
+        $data = $this->xemmonhocModel->getAllSubjectAssignment($id);
         echo json_encode($data);
     }
 
     public function getDetail()
     {
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            $data = $this->monHocModel->getById($_POST['mamon']);
+            $data = $this->xemmonhocModel->getById($_POST['mamon']);
             echo json_encode($data);
         }
         echo false;
@@ -82,15 +82,115 @@ class view_subject extends Controller
     public function search()
     {
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            $result = $this->monHocModel->search($_POST['input']);
+            $result = $this->xemmonhocModel->search($_POST['input']);
             echo json_encode($result);
         }
     }
+    public function getQuery()
+{
+    header('Content-Type: application/json; charset=utf-8');
+    AuthCore::checkAuthentication();
 
-    public function getQuery($filter, $input, $args)
+    if ($_SERVER["REQUEST_METHOD"] === "POST" && AuthCore::checkPermission("hocphan", "view")) {
+        $filter = $_POST['filter'] ?? [];
+        $input = $_POST['input'] ?? '';
+
+        $queryData = $this->xemmonhocModel->getQuery($filter, $input, []);
+
+        $stmt = $this->xemmonhocModel->con->prepare($queryData['query']);
+        if (!$stmt) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Lỗi chuẩn bị truy vấn.'
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if (!empty($queryData['params'])) {
+            $stmt->bind_param(...$queryData['params']);
+        }
+
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+
+        $stmt->close();
+
+        echo json_encode([
+            'success' => true,
+            'data' => $rows
+        ], JSON_UNESCAPED_UNICODE);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.'
+        ], JSON_UNESCAPED_UNICODE);
+    }
+}
+     public function getNamHoc()
     {
-        $result = $this->monHocModel->getQuery($filter, $input, $args);
-        return $result;
+        header('Content-Type: application/json; charset=utf-8');
+        AuthCore::checkAuthentication();
+
+        if ($_SERVER["REQUEST_METHOD"] === "POST" && AuthCore::checkPermission("hocphan", "view")) {
+            $manguoidung = $_SESSION['user_id'] ?? '';
+
+            if (empty($manguoidung)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Không xác định được người dùng.'
+                ]);
+                return;
+            }
+
+            $namhoc_list = $this->xemmonhocModel->getNamHoc($manguoidung);
+
+            echo json_encode([
+                'success' => true,
+                'data' => $namhoc_list
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+
+    public function getHocKy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        AuthCore::checkAuthentication();
+
+        if ($_SERVER["REQUEST_METHOD"] === "POST" && AuthCore::checkPermission("hocphan", "view")) {
+            $manguoidung = $_SESSION['user_id'] ?? '';
+            $manamhoc = $_POST['namhoc'] ?? '';
+
+            if (empty($manguoidung) || empty($manamhoc)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Thiếu thông tin người dùng hoặc năm học.'
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $hocky_list = $this->xemmonhocModel->getHocKy($manguoidung, $manamhoc);
+
+            echo json_encode([
+                'success' => true,
+                'data' => $hocky_list
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
     }
 
 

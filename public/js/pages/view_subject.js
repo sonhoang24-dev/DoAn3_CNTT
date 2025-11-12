@@ -1,13 +1,10 @@
 Dashmix.helpersOnLoad(["js-flatpickr", "jq-datepicker", "jq-select2"]);
 Dashmix.onLoad(() =>
   class {
-    static init() {
-      // Không cần validation cho môn học
-    }
+    static init() {}
   }.init()
 );
 
-// Hiển thị danh sách môn học (chỉ giữ cột cần thiết để mở modal chương)
 function showData(subjects) {
   let html = "";
   subjects.forEach((subject) => {
@@ -15,9 +12,17 @@ function showData(subjects) {
       <tr tid="${subject.mamonhoc}">
         <td class="text-center fs-sm"><strong>${subject.mamonhoc}</strong></td>
         <td>${subject.tenmonhoc}</td>
-        <td class="d-none d-sm-table-cell text-center fs-sm">${subject.sotinchi}</td>
-        <td class="d-none d-sm-table-cell text-center fs-sm">${subject.sotietlythuyet}</td>
-        <td class="d-none d-sm-table-cell text-center fs-sm">${subject.sotietthuchanh}</td>
+        <td class="d-none d-sm-table-cell text-center fs-sm">${
+          subject.sotinchi
+        }</td>
+        <td class="d-none d-sm-table-cell text-center fs-sm">${
+          subject.sotietlythuyet
+        }</td>
+        <td class="d-none d-sm-table-cell text-center fs-sm">${
+          subject.sotietthuchanh
+        }</td>
+        <td class="text-center fs-sm">${subject.tennamhoc || ""}</td>
+        <td class="text-center fs-sm">${subject.tenhocky || ""}</td>
         <td class="text-center col-action">
           <a href="javascript:void(0)"
              class="btn btn-sm btn-alt-primary btn-view-chapter me-1"
@@ -256,11 +261,124 @@ $(document).ready(function () {
       },
     });
   });
+  $(document).ready(function () {
+    // Biến lưu filter hiện tại
+    let currentFilters = {
+      namhoc: "",
+      hocky: "",
+      input: "",
+    };
+
+    // ==================== LOAD NĂM HỌC ====================
+    function loadNamHoc() {
+      $.post(
+        "./view_subject/getNamHoc",
+        {},
+        function (res) {
+          if (res.success) {
+            let html = '<option value="">Tất cả năm học</option>';
+            res.data.forEach((item) => {
+              html += `<option value="${item.manamhoc}">${item.tennamhoc}</option>`;
+            });
+            $("#filter-namhoc").html(html);
+
+            // Tự động load học kỳ của năm đầu tiên nếu có
+            const firstYear = $("#filter-namhoc").val();
+            if (firstYear) loadHocKy(firstYear);
+          }
+        },
+        "json"
+      ).fail(() => {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Lỗi tải năm học!",
+        });
+      });
+    }
+
+    function loadHocKy(manamhoc) {
+      $("#filter-hocky").prop("disabled", true);
+      $("#filter-hocky").html('<option value="">Đang tải...</option>');
+      if (!manamhoc) {
+        $("#filter-hocky").prop("disabled", false);
+        return;
+      }
+
+      $.post(
+        "./view_subject/getHocKy",
+        { namhoc: manamhoc },
+        function (res) {
+          if (res.success) {
+            let html = '<option value="">Tất cả học kỳ</option>';
+            res.data.forEach((item) => {
+              html += `<option value="${item.mahocky}">${item.tenhocky}</option>`;
+            });
+            $("#filter-hocky").html(html);
+          }
+          $("#filter-hocky").prop("disabled", false);
+        },
+        "json"
+      );
+    }
+
+    function debounce(func, delay) {
+      let timeoutId;
+      return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
+    const debouncedGetPagination = debounce(function (options, page) {
+      mainPagePagination.getPagination(options, page);
+    }, 300);
+
+    $("#filter-namhoc").on("change", function () {
+      const manamhoc = $(this).val();
+      currentFilters.namhoc = manamhoc;
+      currentFilters.hocky = "";
+      $("#filter-hocky").html('<option value="">Tất cả học kỳ</option>');
+
+      if (manamhoc) loadHocKy(manamhoc);
+      debouncedGetPagination(
+        {
+          ...mainPagePagination.option,
+          filter: currentFilters,
+        },
+        1
+      );
+    });
+
+    $("#filter-hocky").on("change", function () {
+      currentFilters.hocky = $(this).val();
+      debouncedGetPagination(
+        {
+          ...mainPagePagination.option,
+          filter: currentFilters,
+        },
+        1
+      );
+    });
+
+    $(".btn-search").on("click", function () {
+      currentFilters.input = $("#search-input").val().trim();
+      debouncedGetPagination(
+        {
+          ...mainPagePagination.option,
+          filter: currentFilters,
+        },
+        1
+      );
+    });
+
+    // ==================== KHỞI TẠO ====================
+    loadNamHoc();
+  });
 
   // ==================== PHÂN TRANG (GIỮ NGUYÊN) ====================
   const mainPagePagination = new Pagination();
   mainPagePagination.option.controller = "view_subject";
-  mainPagePagination.option.model = "MonHocModel";
+  mainPagePagination.option.model = "XemMonHocModel";
   mainPagePagination.option.limit = 10;
   mainPagePagination.getPagination(
     mainPagePagination.option,
