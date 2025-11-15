@@ -22,25 +22,33 @@
                                 <i class="fa fa-search text-muted"></i>
                             </span>
                             <input type="text" class="form-control form-control-alt border-start-0 ps-0" 
-                                   id="search-input" placeholder="Tìm kiếm theo MSSV, tên, email...">
+                                   id="search-input" placeholder="Tìm kiếm theo MSSV hoặc Tên">
                         </div>
                     </div>
                     <div class="col-lg-4">
-                        <div class="dropdown d-inline-block w-100">
-                            <button class="btn btn-alt-secondary dropdown-toggle w-100 text-start" 
-                                    type="button" data-bs-toggle="dropdown">
-                                <i class="fa fa-filter me-2"></i>
-                                <span class="filter-text">Tất cả vai trò</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item filtered-by-role active" href="javascript:void(0)" data-id="0">Tất cả vai trò</a></li>
-                                <?php foreach ($data["Roles"] as $role): ?>
-                                    <li><a class="dropdown-item filtered-by-role" href="javascript:void(0)" 
-                                           data-id="<?= $role['manhomquyen'] ?>"><?= htmlspecialchars($role['tennhomquyen']) ?></a></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    </div>
+    <div class="dropdown d-inline-block w-100">
+        <button class="btn btn-alt-secondary dropdown-toggle w-100 text-start" 
+                type="button" data-bs-toggle="dropdown">
+            <i class="fa fa-filter me-2"></i>
+            <span class="filter-text">Tất cả vai trò</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item filtered-by-role active" href="javascript:void(0)" data-id="0">Tất cả vai trò</a></li>
+            <?php foreach ($data["Roles"] as $role): ?>
+                <?php if ($role['manhomquyen'] != 3): // bỏ nhóm quyền 3 ?>
+                    <li>
+                        <a class="dropdown-item filtered-by-role" href="javascript:void(0)" 
+                           data-id="<?= $role['manhomquyen'] ?>">
+                           <?= htmlspecialchars($role['tennhomquyen']) ?>
+                        </a>
+                    </li>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+</div>
+
+                    
                 </div>
             </form>
         </div>
@@ -134,10 +142,7 @@
                                     <label class="form-label fw-semibold">Nhóm quyền</label>
                                     <select class="form-select js-select2 data-nhomquyen" name="user_nhomquyen" id="user_nhomquyen"></select>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Mật khẩu <span class="text-danger">*</span></label>
-                                    <input type="password" class="form-control" name="user_password" id="user_password">
-                                </div>
+                               
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Trạng thái</label>
                                     <div class="form-check form-switch mt-2">

@@ -7,13 +7,13 @@ class NguoiDungModel extends DB
         $id = mysqli_real_escape_string($this->con, $id);
         $email = mysqli_real_escape_string($this->con, $email);
         $hoten = mysqli_real_escape_string($this->con, $hoten);
-        $gioitinh = $gioitinh !== null ? (int)$gioitinh : 'NULL';
+        $gioitinh = $gioitinh !== null ? (int)$gioitinh : 0;
         $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '2004-01-01');
         $sodienthoai = $sodienthoai !== null ? (int)$sodienthoai : 'NULL';
         $password = password_hash($password, PASSWORD_DEFAULT);
-        $ngaythamgia = date('Y-m-d'); // Mặc định là ngày hiện tại
-        $trangthai = 1; // Mặc định là 1
-        $manhomquyen = 2; // Mặc định là người dùng thường
+        $ngaythamgia = date('Y-m-d'); 
+        $trangthai = 1; 
+        $manhomquyen = 2; 
 
         $sql = "INSERT INTO `nguoidung`(`id`, `email`, `hoten`, `gioitinh`, `ngaysinh`, `ngaythamgia`, `matkhau`, `trangthai`, `sodienthoai`, `manhomquyen`) 
                 VALUES ('$id', '$email', '$hoten', $gioitinh, '$ngaysinh', '$ngaythamgia', '$password', $trangthai, $sodienthoai, $manhomquyen)";
@@ -24,7 +24,7 @@ class NguoiDungModel extends DB
     public function delete($id)
     {
         $id = mysqli_real_escape_string($this->con, $id);
-        $sql = "DELETE FROM `nguoidung` WHERE `id`='$id'";
+        $sql = "UPDATE `nguoidung` SET `trangthai` = 0 WHERE `id` = '$id'";
         $result = mysqli_query($this->con, $sql);
         return $result !== false;
     }
@@ -34,7 +34,7 @@ class NguoiDungModel extends DB
         $id = mysqli_real_escape_string($this->con, $id);
         $email = mysqli_real_escape_string($this->con, $email);
         $hoten = mysqli_real_escape_string($this->con, $hoten);
-        $gioitinh = $gioitinh !== null ? (int)$gioitinh : 'NULL';
+        $gioitinh = $gioitinh !== null ? (int)$gioitinh : 0;
         $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '2004-01-01');
         $sodienthoai = $sodienthoai !== null ? (int)$sodienthoai : 'NULL';
         $trangthai = (int)$trangthai;
@@ -52,7 +52,7 @@ class NguoiDungModel extends DB
         $id = mysqli_real_escape_string($this->con, $id);
         $email = mysqli_real_escape_string($this->con, $email);
         $hoten = mysqli_real_escape_string($this->con, $hoten);
-        $gioitinh = $gioitinh !== null ? (int)$gioitinh : 'NULL';
+        $gioitinh = $gioitinh !== null ? (int)$gioitinh : 0;
         $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '2004-01-01');
 
         $sql = "UPDATE `nguoidung` SET `email`='$email', `hoten`='$hoten', `gioitinh`=$gioitinh, `ngaysinh`='$ngaysinh' WHERE `id`='$id'";
@@ -91,7 +91,7 @@ class NguoiDungModel extends DB
     {
         $sql = "SELECT * FROM nguoidung WHERE id = ?";
         $stmt = $this->con->prepare($sql);
-        $stmt->bind_param("s", $id); // dùng string thay vì integer
+        $stmt->bind_param("s", $id); 
         $stmt->execute();
         $result = $stmt->get_result();
         return $result ? $result->fetch_assoc() : false;
@@ -143,7 +143,6 @@ class NguoiDungModel extends DB
 
     public function checkLogin($id, $password)
     {
-        // Kiểm tra dữ liệu đầu vào
         if (empty($id) || empty($password)) {
             return [
                 'success' => false,
@@ -151,7 +150,6 @@ class NguoiDungModel extends DB
             ];
         }
 
-        // Lấy thông tin người dùng theo ID (masinhvien)
         $user = $this->getById($id);
         if (!$user) {
             return [
@@ -160,7 +158,6 @@ class NguoiDungModel extends DB
             ];
         }
 
-        // Kiểm tra trạng thái tài khoản
         if ($user['trangthai'] == 0) {
             return [
                 'success' => false,
@@ -168,7 +165,6 @@ class NguoiDungModel extends DB
             ];
         }
 
-        // Kiểm tra mật khẩu
         if (!password_verify($password, $user['matkhau'])) {
             return [
                 'success' => false,
@@ -176,10 +172,8 @@ class NguoiDungModel extends DB
             ];
         }
 
-        // Tạo và lưu token
         $token = time() . password_hash($id, PASSWORD_DEFAULT);
         if ($this->updateToken($id, $token)) {
-            // Lưu cookie và session
             setcookie("token", $token, time() + 7 * 24 * 3600, "/", "", false, true); // Thêm bảo mật cho cookie
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_email'] = $user['email'];
@@ -193,7 +187,6 @@ class NguoiDungModel extends DB
             ];
         }
 
-        // Trường hợp cập nhật token thất bại
         return [
             'success' => false,
             'message' => 'Lỗi hệ thống khi đăng nhập'
@@ -214,7 +207,6 @@ class NguoiDungModel extends DB
             return false;
         }
 
-        // Chuẩn hóa token để tránh SQL injection
         $token = mysqli_real_escape_string($this->con, $token);
         $sql = "SELECT * FROM `nguoidung` WHERE `token`='$token' LIMIT 1";
         $result = mysqli_query($this->con, $sql);
@@ -222,7 +214,6 @@ class NguoiDungModel extends DB
         if ($result && mysqli_num_rows($result) > 0) {
             $row = mysqli_fetch_assoc($result);
 
-            // Kiểm tra xem $row có dữ liệu hợp lệ
             if (!$row) {
                 return false;
             }
@@ -232,7 +223,6 @@ class NguoiDungModel extends DB
             $_SESSION['user_name'] = $row['hoten'] ?? null;
             $_SESSION['avatar'] = $row['avatar'] ?? null;
 
-            // Chỉ lấy role nếu manhomquyen tồn tại
             if (isset($row['manhomquyen'])) {
                 $_SESSION['user_permission_group'] = $row['manhomquyen'];
                 $_SESSION['user_role'] = $this->getRole($row['manhomquyen']);
@@ -328,18 +318,15 @@ class NguoiDungModel extends DB
                 continue;
             }
 
-            // Kiểm tra MSSV đã tồn tại trong hệ thống
             $sql_check = "SELECT id FROM nguoidung WHERE id = '$mssv'";
             $result = mysqli_query($this->con, $sql_check);
             if (mysqli_num_rows($result) > 0) {
-                // Kiểm tra xem sinh viên có trong nhóm chưa
                 $sql_check_group = "SELECT manguoidung FROM chitietnhom WHERE manguoidung = '$mssv' AND manhom = '$group'";
                 $result_group = mysqli_query($this->con, $sql_check_group);
                 if (mysqli_num_rows($result_group) > 0) {
                     $exists[] = $mssv;
                     continue;
                 }
-                // Thêm vào nhóm nếu chưa có
                 if ($this->join($group, $mssv)) {
                     $success[] = $mssv;
                 } else {
@@ -348,7 +335,6 @@ class NguoiDungModel extends DB
                 continue;
             }
 
-            // Kiểm tra email đã tồn tại
             $sql_check_email = "SELECT email FROM nguoidung WHERE email = '$email'";
             $result_email = mysqli_query($this->con, $sql_check_email);
             if (mysqli_num_rows($result_email) > 0) {
@@ -356,18 +342,15 @@ class NguoiDungModel extends DB
                 continue;
             }
 
-            // Thêm người dùng mới
             $password = password_hash($pass, PASSWORD_DEFAULT);
             $sql = "INSERT INTO `nguoidung`(`id`, `email`, `hoten`, `matkhau`, `trangthai`, `manhomquyen`, `ngaythamgia`) 
                 VALUES ('$mssv', '$email', '$fullname', '$password', $trangthai, $nhomquyen, '$ngaythamgia')";
 
             if (mysqli_query($this->con, $sql)) {
-                // Thêm vào nhóm
                 if ($this->join($group, $mssv)) {
                     $success[] = $mssv;
                 } else {
                     $errors[] = "Không thể thêm MSSV $mssv vào nhóm";
-                    // Xóa người dùng vừa thêm để đảm bảo tính nhất quán
                     $this->delete($mssv);
                 }
             } else {
@@ -415,7 +398,7 @@ class NguoiDungModel extends DB
     }
     public function getQuery($filter, $input, $args)
     {
-        $query = "SELECT ND.*, NQ.tennhomquyen FROM nguoidung ND, nhomquyen NQ WHERE ND.manhomquyen = NQ.manhomquyen";
+        $query = "SELECT ND.*, NQ.tennhomquyen FROM nguoidung ND, nhomquyen NQ WHERE ND.manhomquyen = NQ.manhomquyen AND ND.trangthai = 1  AND ND.manhomquyen != 3";
         if (isset($filter['role'])) {
             $query .= " AND ND.manhomquyen = " . $filter['role'];
         }

@@ -73,7 +73,6 @@ function showAssignment(data) {
     const namhoc = element["tennamhoc"] || "-";
     const hocky = element["tenhocky"] || "-";
 
-    // ✅ Gán old_* trực tiếp lên <tr> để edit không bị thiếu dữ liệu
     html += `
       <tr
         data-old-gv="${giangvien_id}"
