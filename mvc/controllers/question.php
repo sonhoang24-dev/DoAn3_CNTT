@@ -339,9 +339,10 @@ public function editQuesion()
                 foreach ($cautraloi as $x) {
                     $content = trim(strip_tags($x['content']));
                     if ($content !== '') {
+                        $isChecked = isset($x['check']) && ($x['check'] === 'true' || $x['check'] == 1 || $x['check'] === true);
                         $validAnswers[] = [
                             'content' => $content,
-                            'check' => $x['check'] === 'true' ? 1 : 0
+                            'check' => $isChecked ? 1 : 0
                         ];
                     }
                 }

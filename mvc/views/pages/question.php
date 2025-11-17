@@ -12,19 +12,19 @@
         <div class="block-content">
             <form action="#" method="POST" id="search-form" onsubmit="return false;">
                 <div class="row mb-4">
-                    <div class="col-xl-4 col-md-6 mb-2">
+                    <div class="col-xl-3 col-md-6 mb-2">
                         <select class="js-select2 form-select" id="main-page-monhoc" name="main-page-monhoc"
                             data-placeholder="Chọn môn học" data-tab="1">
                             <option value=""></option>
                         </select>
                     </div>
-                    <div class="col-xl-4 col-md-6 mb-2">
+                    <div class="col-xl-3 col-md-6 mb-2">
                         <select class="js-select2 form-select" id="main-page-chuong" name="main-page-chuong"
                             data-placeholder="Chọn chương" data-tab="1">
                             <option value=""></option>
                         </select>
                     </div>
-                    <div class="col-xl-4 col-md-6 mb-2 d-flex align-items-center">
+                    <div class="col-xl-3 col-md-6 mb-2 d-flex align-items-center">
                         <label for="main-page-dokho" class="form-label me-2">Độ khó:</label>
                         <select class="js-select2 form-select" id="main-page-dokho" name="main-page-dokho"
                             style="width: 150px;" data-placeholder="Chọn mức độ">
@@ -32,6 +32,16 @@
                             <option value="1">Cơ bản</option>
                             <option value="2">Trung bình</option>
                             <option value="3">Nâng cao</option>
+                        </select>
+                    </div>
+                    <div class="col-xl-3 col-md-6 mb-2 d-flex align-items-center">
+                        <label for="main-page-loai" class="form-label me-2">Loại:</label>
+                        <select class="js-select2 form-select" id="main-page-loai" name="main-page-loai"
+                            style="width: 180px;" data-placeholder="Chọn loại">
+                            <option value="0">Tất cả</option>
+                            <option value="mcq">Trắc nghiệm</option>
+                            <option value="essay">Tự luận</option>
+                            <option value="reading">Đọc hiểu</option>
                         </select>
                     </div>
                 </div>

@@ -166,6 +166,7 @@ $(document).ready(function () {
 
   // Initialize Select2
   $(".js-select2").select2();
+  $("#main-page-loai").select2();
   $("#loai-cau-hoi").select2({
     dropdownParent: $("#modal-add-question"),
   });
@@ -574,6 +575,17 @@ $(document).ready(function () {
   $("#main-page-dokho").on("change", function () {
     const dokho = +$(this).val();
     mainPagePagination.option.filter.dokho = dokho;
+    mainPagePagination.getPagination(
+      mainPagePagination.option,
+      mainPagePagination.valuePage.curPage
+    );
+  });
+
+  // Filter by question type
+  $("#main-page-loai").on("change", function () {
+    const loai = $(this).val();
+    // store as 0/'0' or empty means all
+    mainPagePagination.option.filter.loai = loai && loai !== '0' ? loai : '';
     mainPagePagination.getPagination(
       mainPagePagination.option,
       mainPagePagination.valuePage.curPage

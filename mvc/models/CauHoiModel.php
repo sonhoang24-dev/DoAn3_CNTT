@@ -291,7 +291,7 @@ public function getQuery($filter, $input, $args)
     }
 
     $query = "
-        SELECT 
+        SELECT DISTINCT
             combined.macauhoi,
             combined.noidung,
             combined.dokho,
@@ -363,6 +363,19 @@ public function getQuery($filter, $input, $args)
         $params[] = $filter['dokho'];
     }
 
+    // Filter by question type (loai) for input/search path
+    if (!empty($filter['loai']) && $filter['loai'] != '0') {
+        $query .= " AND combined.loai = ?";
+        $params[0] .= 's';
+        $params[] = $filter['loai'];
+    }
+    // Filter by question type (loai) if provided and not '0' / empty
+    if (!empty($filter['loai']) && $filter['loai'] != '0') {
+        $query .= " AND combined.loai = ?";
+        $params[0] .= 's';
+        $params[] = $filter['loai'];
+    }
+
     $query .= " ORDER BY combined.macauhoi ASC";
 
     return ['query' => $query, 'params' => $params];
@@ -371,7 +384,7 @@ public function getQuery($filter, $input, $args)
 public function getQueryWithInput($filter, $input, $args)
 {
     $query = "
-        SELECT 
+        SELECT DISTINCT
             combined.macauhoi,
             combined.noidung,
             combined.dokho,
@@ -406,7 +419,7 @@ public function getQueryWithInput($filter, $input, $args)
             -- 2. Reading - bắt buộc GROUP BY để không trùng
             SELECT
                 MIN(c.macauhoi) AS macauhoi,
-                CONCAT(LEFT(d.noidung, 150), CASE WHEN CHAR_LENGTH(d.noidung) > 150 THEN '...' ELSE '' END) AS noidung,,
+                CONCAT(LEFT(d.noidung, 150), CASE WHEN CHAR_LENGTH(d.noidung) > 150 THEN '...' ELSE '' END) AS noidung,
                 c.dokho,
                 d.mamonhoc,
                 d.machuong,

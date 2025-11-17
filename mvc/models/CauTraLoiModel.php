@@ -39,6 +39,10 @@ class CauTraLoiModel extends DB
     public function delete($macautl)
     {
         $valid = true;
+        // Clear any references from chitietketqua.dapanchon to avoid FK constraint errors
+        $clearSql = "UPDATE `chitietketqua` SET `dapanchon` = NULL WHERE `dapanchon` = $macautl";
+        mysqli_query($this->con, $clearSql);
+
         $sql = "DELETE FROM `cautraloi` WHERE `macautl` = $macautl";
         $result = mysqli_query($this->con, $sql);
         if (!$result) {
@@ -79,6 +83,11 @@ class CauTraLoiModel extends DB
     public function deletebyanswer($macauhoi)
     {
         $valid = true;
+        // When deleting all answers for a question, clear any student selections
+        // referencing these answers to avoid foreign key constraint failures.
+        $clearSql = "UPDATE `chitietketqua` SET `dapanchon` = NULL WHERE `macauhoi` = $macauhoi";
+        mysqli_query($this->con, $clearSql);
+
         $sql = "DELETE FROM `cautraloi` WHERE `macauhoi` = $macauhoi";
         $result = mysqli_query($this->con, $sql);
         if (!$result) {
