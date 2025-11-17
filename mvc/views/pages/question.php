@@ -10,56 +10,59 @@
             </div>
         </div>
         <div class="block-content">
-            <form action="#" method="POST" id="search-form" onsubmit="return false;">
-                <div class="row mb-4">
-                    <div class="col-xl-3 col-md-6 mb-2">
+           <form id="search-form" onsubmit="return false;">
+                <!-- 4 ô lọc -->
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-xl-3 col-lg-3 col-md-6 col-12">
                         <select class="js-select2 form-select" id="main-page-monhoc" name="main-page-monhoc"
-                            data-placeholder="Chọn môn học" data-tab="1">
+                            data-placeholder="Chọn môn học">
                             <option value=""></option>
                         </select>
                     </div>
-                    <div class="col-xl-3 col-md-6 mb-2">
+                    <div class="col-xl-3 col-lg-3 col-md-6 col-12">
                         <select class="js-select2 form-select" id="main-page-chuong" name="main-page-chuong"
-                            data-placeholder="Chọn chương" data-tab="1">
+                            data-placeholder="Chọn chương">
                             <option value=""></option>
                         </select>
                     </div>
-                    <div class="col-xl-3 col-md-6 mb-2 d-flex align-items-center">
-                        <label for="main-page-dokho" class="form-label me-2">Độ khó:</label>
+                    <div class="col-xl-3 col-lg-3 col-md-6 col-12">
                         <select class="js-select2 form-select" id="main-page-dokho" name="main-page-dokho"
-                            style="width: 150px;" data-placeholder="Chọn mức độ">
-                            <option value="0">Tất cả</option>
+                            data-placeholder="Tất cả độ khó">
+                            <option value="0">Tất cả độ khó</option>
                             <option value="1">Cơ bản</option>
                             <option value="2">Trung bình</option>
                             <option value="3">Nâng cao</option>
                         </select>
                     </div>
-                    <div class="col-xl-3 col-md-6 mb-2 d-flex align-items-center">
-                        <label for="main-page-loai" class="form-label me-2">Loại:</label>
+                    <div class="col-xl-3 col-lg-3 col-md-6 col-12">
                         <select class="js-select2 form-select" id="main-page-loai" name="main-page-loai"
-                            style="width: 180px;" data-placeholder="Chọn loại">
-                            <option value="0">Tất cả</option>
+                            data-placeholder="Tất cả loại câu hỏi">
+                            <option value="0">Tất cả loại câu hỏi</option>
                             <option value="mcq">Trắc nghiệm</option>
                             <option value="essay">Tự luận</option>
                             <option value="reading">Đọc hiểu</option>
                         </select>
                     </div>
                 </div>
-                <div class="row mb-4">
+
+                <!-- Thanh tìm kiếm + khoảng cách đẹp -->
+                <div class="row mb-5">   <!-- Đây là dòng quan trọng nhất -->
                     <div class="col-12">
-                        <div class="input-group">
-                            <input type="text" class="form-control form-control-alt" id="search-input" name="search-input"
-                                placeholder="Tìm kiếm nội dung câu hỏi...">
-                            <button type="button" class="input-group-text bg-body border-0 btn-search">
+                        <div class="input-group input-group-lg shadow-sm">
+                            <input type="text" class="form-control form-control-alt rounded-start" 
+                                   id="search-input" name="search-input"
+                                   placeholder="Tìm kiếm nội dung câu hỏi...">
+                            <button type="button" class="btn btn-primary rounded-end border-0 btn-search">
                                 <i class="fa fa-search"></i>
                             </button>
                         </div>
                     </div>
                 </div>
             </form>
+
             <div class="table-responsive">
-                <table class="table table-vcenter table-hover">
-                    <thead>
+                <table class="table table-vcenter table-hover table-bordered align-middle">
+                    <thead class="table-light">
                         <tr>
                             <th class="text-center" style="width: 100px;">ID</th>
                             <th style="width: 700px;">Nội dung câu hỏi</th>
@@ -71,12 +74,14 @@
                     <tbody id="listQuestion"></tbody>
                 </table>
             </div>
+
             <?php if (isset($data["Plugin"]["pagination"])) {
                 require "./mvc/views/inc/pagination.php";
             } ?>
         </div>
     </div>
 </div>
+
 
 <div class="modal fade" id="modal-add-question" tabindex="-1" role="dialog" aria-labelledby="modal-add-question"
     aria-hidden="true">
@@ -201,17 +206,21 @@
                             <div class="mb-4" id="reading-questions-area" style="display: none;">
                                 <h6 class="mb-3">Danh sách câu hỏi đọc hiểu</h6>
                                 <div class="table-responsive">
-                                    <table class="table table-vcenter table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 400px;">Nội dung câu hỏi</th>
-                                                <th>Đáp án</th>
-                                                <th class="text-center" style="width: 150px;">Hành động</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="reading-questions-list"></tbody>
-                                    </table>
-                                </div>
+    <table class="table table-vcenter table-hover">
+        <thead>
+            <tr>
+                <th style="width: 60px;">STT</th>
+                <th style="width: 400px;">Câu hỏi</th>
+                <th>Phương án</th>
+                <th class="text-center" style="width: 100px;">Đáp án</th>
+                <th class="text-center" style="width: 150px;">Hành động</th>
+            </tr>
+        </thead>
+        <tbody id="reading-questions-list"></tbody>
+    </table>
+</div>
+
+                                
                                 <button class="btn btn-hero btn-primary mt-3" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#add_reading_question" aria-expanded="false" aria-controls="add_reading_question">
                                     <i class="fa fa-plus me-1"></i> Thêm câu hỏi đọc hiểu
@@ -257,40 +266,79 @@
                             </div>
                         </form>
                     </div>
+                    <!-- file -->
                     <div class="tab-pane" id="btabs-alt-static-profile" role="tabpanel"
                         aria-labelledby="btabs-static-profile-tab" tabindex="0">
-                        <form id="form-upload" method="POST" enctype="multipart/form-data">
-                            <div class="mb-4">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label" for="monhocfile">Môn học <span class="text-danger">*</span></label>
-                                        <select id="monhocfile" class="js-select2 form-select data-monhoc" data-tab="2"
-                                            data-placeholder="Chọn môn học" required>
-                                            <option value=""></option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label" for="chuongfile">Chương <span class="text-danger">*</span></label>
-                                        <select id="chuongfile" class="js-select2 form-select data-chuong" data-tab="2"
-                                            data-placeholder="Chọn chương" required>
-                                            <option value=""></option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-4">
-                                <label class="form-label" for="file-cau-hoi">Tệp câu hỏi <span class="text-danger">*</span></label>
-                                <input class="form-control" type="file" id="file-cau-hoi" accept=".docx" required>
-                            </div>
-                            <div class="mb-4">
-                                <em>Vui lòng soạn câu hỏi theo đúng định dạng. <a href="./public/filemau/mau_import_cau_hoi.docx" target="_blank">Tải về file mẫu Docx</a></em>
-                            </div>
-                            <div class="mb-4">
-                                <button type="submit" class="btn btn-hero btn-primary" id="nhap-file">
-                                    <i class="fa fa-cloud-arrow-up me-1"></i> Thêm vào hệ thống
-                                </button>
-                            </div>
-                        </form>
+                       <form id="form-upload" method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
+    <div class="block block-rounded">
+        <div class="block-content">
+
+            <!-- Môn học + Chương + Loại câu hỏi cùng 1 hàng -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <label class="form-label" for="monhocfile">Môn học <span class="text-danger">*</span></label>
+                    <select id="monhocfile" class="js-select2 form-select data-monhoc" 
+                            data-placeholder="Chọn môn học" required>
+                        <option value=""></option>
+                    </select>
+                    <div class="invalid-feedback">Vui lòng chọn môn học</div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label" for="chuongfile">Chương <span class="text-danger">*</span></label>
+                    <select id="chuongfile" class="js-select2 form-select data-chuong" 
+                            data-placeholder="Chọn chương" required>
+                        <option value=""></option>
+                    </select>
+                    <div class="invalid-feedback">Vui lòng chọn chương</div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label" for="loai-cau-hoi">Loại câu hỏi <span class="text-danger">*</span></label>
+                    <select id="loai-cau-hoi" class="js-select2 form-select" required>
+                        <option value="">Chọn loại câu hỏi</option>
+                        <option value="mcq">Trắc nghiệm</option>
+                        <option value="essay">Tự luận</option>
+                        <option value="reading">Đọc hiểu</option>
+                    </select>
+                    <div class="invalid-feedback">Vui lòng chọn loại câu hỏi</div>
+                </div>
+            </div>
+
+            <!-- File upload -->
+            <div class="mb-4">
+                <label class="form-label" for="file-cau-hoi">Tệp câu hỏi (.docx) <span class="text-danger">*</span></label>
+                <input class="form-control" type="file" id="file-cau-hoi" 
+                       accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+                       required>
+                <div class="invalid-feedback">Vui lòng chọn file Word (.docx)</div>
+            </div>
+
+            <!-- File mẫu -->
+            <div class="mb-4">
+                <div class="alert alert-info d-flex align-items-center" role="alert">
+                    <i class="fa fa-info-circle fa-2x me-3"></i>
+                    <div>
+                        Vui lòng soạn theo đúng định dạng trong file mẫu.<br>
+                        <a href="./public/filemau/mau_import_cau_hoi.docx" target="_blank" class="alert-link">
+                            <i class="fa fa-download me-1"></i> Tải file mẫu
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nút submit -->
+            <div class="text-end">
+                <button type="submit" class="btn btn-hero btn-primary" id="nhap-file">
+                    <i class="fa fa-cloud-arrow-up me-1"></i>
+                    Thêm vào hệ thống
+                </button>
+            </div>
+
+        </div>
+    </div>
+</form>
+
                         <div id="content-file" class="mt-4"></div>
                     </div>
                 </div>
@@ -299,11 +347,75 @@
     </div>
 </div>
 <style>
-   .reading-content {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px; /* Điều chỉnh theo thiết kế của bạn */
+.reading-content {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
 }
+.btn-search i {
+    color: white;
+}
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+}
+.shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+.js-select2 {
+    width: 100% !important;
+}
+
+.select2-container {
+    width: 100% !important;
+}
+.correct-radio {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #6c757d;
+  border-radius: 50%;
+  outline: none;
+  cursor: default;
+  position: relative;
+  margin: 0;
+}
+
+.correct-radio.correct-answer {
+  border-color: blue;
+}
+
+.correct-radio.correct-answer::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  background-color: blue;
+  border-radius: 50%;
+}
+
+.correct-radio:checked:not(.correct-answer) {
+  border-color: #6c757d;
+}
+
+.correct-radio:checked:not(.correct-answer)::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  background-color: #6c757d;
+  border-radius: 50%;
+}
+
+
+
 </style>

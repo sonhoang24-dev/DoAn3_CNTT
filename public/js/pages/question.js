@@ -258,29 +258,25 @@ $(document).ready(function () {
     let data = "";
     options.forEach((item, index) => {
       data += `<tr>
-              <th class="text-center" scope="row">${index + 1}</th>
-              <td>${item.content}</td>
-              <td class="text-center">
-                  <div class="btn-group">
-                      <div class="form-check me-2">
-                          <input class="form-check-input" type="radio" name="da-dung" data-id="${index}" id="da-${index}" ${
+        <th class="text-center" scope="row">${index + 1}</th>
+        <td>${item.content}</td>
+        <td class="text-center">
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="da-dung" data-id="${index}" id="da-${index}" ${
         item.check ? "checked" : ""
       }>
-                          <label class="form-check-label" for="da-${index}">
-                              Đáp án đúng
-                          </label>
-                      </div>
-                      <button type="button" class="btn btn-sm btn-alt-secondary btn-edit-option"
-                          data-bs-toggle="tooltip" title="Edit" data-id="${index}">
-                          <i class="fa fa-pencil-alt"></i>
-                      </button>
-                      <button type="button" class="btn btn-sm btn-alt-secondary btn-delete-option"
-                          data-bs-toggle="tooltip" title="Delete" data-id="${index}">
-                          <i class="fa fa-times"></i>
-                      </button>
-                  </div>
-              </td>
-          </tr>`;
+                <label class="form-check-label" for="da-${index}">Đáp án đúng</label>
+            </div>
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-alt-secondary btn-edit-option" data-bs-toggle="tooltip" title="Edit" data-id="${index}">
+                <i class="fa fa-pencil-alt"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-alt-secondary btn-delete-option" data-bs-toggle="tooltip" title="Delete" data-id="${index}">
+                <i class="fa fa-times"></i>
+            </button>
+        </td>
+    </tr>`;
     });
     $("#list-options").html(data);
   }
@@ -405,41 +401,62 @@ $(document).ready(function () {
   // Show Reading Questions List
   function showReadingQuestions() {
     let html = "";
+
     readingQuestions.forEach((question, index) => {
+      // --- Dòng câu hỏi ---
       html += `
-            <tr>
-                <td class="text-center">${index + 1}</td>
-                <td>${question.content}</td>
-                <td class="text-center">
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-alt-secondary btn-edit-reading-question"
-                            data-bs-toggle="tooltip" title="Chỉnh sửa" data-id="${index}">
-                            <i class="fa fa-pencil-alt"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-alt-secondary btn-delete-reading-question"
-                            data-bs-toggle="tooltip" title="Xóa" data-id="${index}">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-      // Hiển thị đáp án của câu hỏi con
-      question.options.forEach((opt, optIndex) => {
+      <tr class="question-row">
+        <td class="text-center align-top">${index + 1}</td>
+        <td class="align-top"><strong>${question.content}</strong></td>
+        <td></td>
+        <td></td>
+        <td class="text-center align-top">
+          <div class="btn-group">
+            <button class="btn btn-sm btn-alt-secondary btn-edit-reading-question"
+                    data-id="${index}" title="Chỉnh sửa">
+                <i class="fa fa-pencil-alt"></i>
+            </button>
+            <button class="btn btn-sm btn-alt-secondary btn-delete-reading-question"
+                    data-id="${index}" title="Xóa">
+                <i class="fa fa-times"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+
+      // --- Các phương án ---
+      let correctRendered = false; // Đảm bảo chỉ 1 đáp án đúng được tô
+      question.options.forEach((opt, i) => {
+        let isCorrect = "";
+        let checkedAttr = "";
+
+        if (opt.check && !correctRendered) {
+          isCorrect = "correct-answer";
+          checkedAttr = "checked";
+          correctRendered = true;
+        }
+
+        // Tạo chữ A, B, C,... cho từng option
+        const optionLetter = String.fromCharCode(65 + i);
+
         html += `
-                <tr>
-                    <td></td>
-                    <td>${opt.content}</td>
-                    <td class="text-center">
-                        <input type="radio" name="reading-da-${index}" 
-                               ${opt.check ? "checked" : ""} disabled>
-                    </td>
-                </tr>
-            `;
+        <tr class="option-row">
+          <td></td>
+          <td></td>
+          <td class="ps-4">${optionLetter}. ${opt.content}</td>
+          <td class="text-center">
+            <input type="radio" name="reading-da-${index}"
+                   class="correct-radio ${isCorrect}"
+                   ${checkedAttr} disabled>
+          </td>
+          <td></td>
+        </tr>
+      `;
       });
     });
+
     $("#reading-questions-list").html(html);
-    $('[data-bs-toggle="tooltip"]').tooltip();
   }
 
   // Reset Reading Question Form
@@ -585,7 +602,7 @@ $(document).ready(function () {
   $("#main-page-loai").on("change", function () {
     const loai = $(this).val();
     // store as 0/'0' or empty means all
-    mainPagePagination.option.filter.loai = loai && loai !== '0' ? loai : '';
+    mainPagePagination.option.filter.loai = loai && loai !== "0" ? loai : "";
     mainPagePagination.getPagination(
       mainPagePagination.option,
       mainPagePagination.valuePage.curPage
