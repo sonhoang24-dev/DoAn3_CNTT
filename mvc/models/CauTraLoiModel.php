@@ -13,7 +13,7 @@ class CauTraLoiModel extends DB
 
         $sql = "INSERT INTO `cautraloi`(`macautl`, `macauhoi`, `noidungtl`, `ladapan`) 
             VALUES (NULL, $macauhoi, '$noidungtl', '$ladapan')";
-        echo $sql;
+        //echo $sql;
 
         $result = mysqli_query($this->con, $sql);
 

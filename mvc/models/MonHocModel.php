@@ -185,7 +185,12 @@ class MonHocModel extends DB
 
     public function getAllSubjectAssignment($userid)
     {
-        $sql = "SELECT monhoc.* FROM phancong, monhoc WHERE manguoidung = '$userid' AND monhoc.mamonhoc = phancong.mamonhoc AND monhoc.trangthai = 1";
+        $sql = "SELECT DISTINCT monhoc.*
+        FROM phancong
+        JOIN monhoc ON monhoc.mamonhoc = phancong.mamonhoc
+        WHERE phancong.manguoidung = '$userid'
+          AND monhoc.trangthai = 1";
+
         $result = mysqli_query($this->con, $sql);
         $rows = array();
         while ($row = mysqli_fetch_assoc($result)) {

@@ -1,14 +1,34 @@
 Dashmix.helpersOnLoad(["jq-select2"]);
+
+// Destroy CKEditor instances if they exist
 if (CKEDITOR.instances["js-ckeditor"]) {
-  CKEDITOR.instances["js-ckeditor"].destroy(true); // hủy trước khi tạo mới
+  CKEDITOR.instances["js-ckeditor"].destroy(true);
+}
+if (CKEDITOR.instances["option-content"]) {
+  CKEDITOR.instances["option-content"].destroy(true);
+}
+if (CKEDITOR.instances["passage-content"]) {
+  CKEDITOR.instances["passage-content"].destroy(true);
+}
+if (CKEDITOR.instances["reading-question-content"]) {
+  CKEDITOR.instances["reading-question-content"].destroy(true);
 }
 
+// Initialize CKEditor
 CKEDITOR.replace("js-ckeditor", {
   entities: false,
   basicEntities: false,
   enterMode: CKEDITOR.ENTER_DIV,
 });
 CKEDITOR.replace("option-content", {
+  entities: false,
+  basicEntities: false,
+});
+CKEDITOR.replace("passage-content", {
+  entities: false,
+  basicEntities: false,
+});
+CKEDITOR.replace("reading-question-content", {
   entities: false,
   basicEntities: false,
 });
@@ -29,7 +49,14 @@ Dashmix.onLoad(() =>
               required: true,
             },
             "js-ckeditor": {
-              required: true,
+              required: function () {
+                return $("#loai-cau-hoi").val() !== "reading";
+              },
+            },
+            "passage-content": {
+              required: function () {
+                return $("#loai-cau-hoi").val() === "reading";
+              },
             },
           },
           messages: {
@@ -45,6 +72,9 @@ Dashmix.onLoad(() =>
             "js-ckeditor": {
               required: "Vui lòng không để trống câu hỏi.",
             },
+            "passage-content": {
+              required: "Vui lòng nhập đoạn ngữ liệu.",
+            },
           },
           errorClass: "is-invalid",
           validClass: "is-valid",
@@ -58,10 +88,7 @@ Dashmix.onLoad(() =>
 
 function showData(data) {
   let html = "";
-
   data.forEach((question) => {
-    console.log("Dữ liệu độ khó:", question["dokho"]);
-
     let dokho = "";
     switch (String(question["dokho"])) {
       case "1":
@@ -77,6 +104,23 @@ function showData(data) {
         dokho = "Không xác định";
     }
 
+    // Strip HTML và rút gọn nội dung hiển thị
+    let rawText = $("<div>").html(question["noidung"]).text();
+    rawText = rawText.replace(/\s+/g, " ").trim();
+    let shortText =
+      rawText.length > 180 ? rawText.substring(0, 180) + "......" : rawText;
+
+    // Badge loại câu hỏi + số câu con (nếu là reading)
+    let badge = "";
+    if (question["loai"] === "reading") {
+      let numSub = question["num_subquestions"] || 0;
+      badge = `<span class="badge bg-primary badge ms-2">Đoạn văn · ${numSub} câu</span>`;
+    } else if (question["loai"] === "essay") {
+      badge = `<span class="badge bg-warning ms-2">Tự luận</span>`;
+    } else {
+      badge = `<span class="badge bg-success ms-2">Trắc nghiệm</span>`;
+    }
+
     html += `
       <tr>
         <td class="text-center fs-sm">
@@ -84,7 +128,12 @@ function showData(data) {
             <strong>${question["macauhoi"] ?? ""}</strong>
           </a>
         </td>
-        <td>${question["noidung"] ?? ""}</td>
+        <td class="fs-sm">
+          <div class="d-flex align-items-start gap-2">
+            <div>${shortText}</div>
+            ${badge}
+          </div>
+        </td>
         <td class="d-none d-xl-table-cell fs-sm">
           <a class="fw-semibold">${question["tenmonhoc"] ?? ""}</a>
         </td>
@@ -94,17 +143,11 @@ function showData(data) {
         <td class="text-center col-action">
           <a data-role="cauhoi" data-action="update"
              class="btn btn-sm btn-alt-secondary btn-edit-question"
-             data-bs-toggle="tooltip"
-             aria-label="Chỉnh sửa"
-             data-bs-original-title="Chỉnh sửa"
              data-id="${question["macauhoi"]}">
             <i class="fa fa-fw fa-pencil"></i>
           </a>
           <a data-role="cauhoi" data-action="delete"
              class="btn btn-sm btn-alt-secondary btn-delete-question"
-             data-bs-toggle="tooltip"
-             aria-label="Xoá"
-             data-bs-original-title="Xoá"
              data-id="${question["macauhoi"]}">
             <i class="fa fa-fw fa-times"></i>
           </a>
@@ -118,56 +161,72 @@ function showData(data) {
 }
 
 $(document).ready(function () {
-  let options = [];
+  let options = []; // For MCQ and Reading question options
+  let readingQuestions = []; // For Reading type questions
+
+  // Initialize Select2
   $(".js-select2").select2();
-    $("#loai-cau-hoi").select2({
-      dropdownParent: $("#modal-add-question"),
-    });
+  $("#loai-cau-hoi").select2({
+    dropdownParent: $("#modal-add-question"),
+  });
   $("#mon-hoc").select2({
     dropdownParent: $("#modal-add-question"),
   });
-
   $("#chuong").select2({
     dropdownParent: $("#modal-add-question"),
   });
-
   $("#dokho").select2({
     dropdownParent: $("#modal-add-question"),
   });
-
   $("#monhocfile").select2({
     dropdownParent: $("#modal-add-question"),
   });
-
   $("#chuongfile").select2({
     dropdownParent: $("#modal-add-question"),
   });
 
+  // Toggle option form buttons
   $("[data-bs-target='#add_option']").on("click", function () {
     $("#update-option").hide();
     $("#save-option").show();
   });
 
-  // Toggle between MCQ and Essay
+  // Toggle form sections based on question type
   function toggleQuestionType(type) {
-    if (type === "essay") {
-      // hide options area
-      $("#list-options").closest('.mb-4.row').hide();
-      $("#add_option").collapse('hide');
+    // Ẩn tất cả trước
+    $("#mcq-options-area").hide();
+    $("#add_option").collapse("hide");
+
+    $("#essay-area").hide();
+    $("#passage-area").hide();
+    $("#reading-questions-area").hide();
+    $("#question-content-area").show();
+
+    if (type === "mcq") {
+      $("#mcq-options-area").show();
+    } else if (type === "essay") {
+      $("#mcq-options-area").hide();
       $("#essay-area").show();
-    } else {
-      $("#list-options").closest('.mb-4.row').show();
-      $("#essay-area").hide();
+    } else if (type === "reading") {
+      $("#mcq-options-area").hide();
+      $("#list-options").html("");
+      options = [];
+
+      $("#passage-area").show();
+      $("#reading-questions-area").show();
+      $("#question-content-area").hide();
     }
   }
 
-  // initial toggle based on default select
+  // Initial toggle
   toggleQuestionType($("#loai-cau-hoi").val());
 
-  $(document).on('change', '#loai-cau-hoi', function() {
+  // Handle question type change
+  $("#loai-cau-hoi").on("change", function () {
     toggleQuestionType($(this).val());
   });
 
+  // Save MCQ option
   $("#save-option").click(function (e) {
     e.preventDefault();
     let content_option = CKEDITOR.instances["option-content"].getData();
@@ -178,59 +237,60 @@ $(document).ready(function () {
     };
     options.push(option);
     $("#add_option").collapse("hide");
-    resetForm();
+    resetOptionForm();
     showOptions(options);
   });
 
+  // Update MCQ option
   $("#update-option").click(function (e) {
     e.preventDefault();
-    options[$(this).data("id")].content =
-      CKEDITOR.instances["option-content"].getData();
+    let index = $(this).data("id");
+    options[index].content = CKEDITOR.instances["option-content"].getData();
+    options[index].check = $("#true-option").prop("checked");
     showOptions(options);
-    resetForm();
+    resetOptionForm();
     $("#add_option").collapse("hide");
   });
 
+  // Show MCQ options
   function showOptions(options) {
     let data = "";
     options.forEach((item, index) => {
       data += `<tr>
-                    <th class="text-center" scope="row">${index + 1}</th>
-                    <td>
-                    ${item.content}
-                    </td>
-                    <td class="d-none d-sm-table-cell">
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="da-dung" data-id="${index}" id="da-${index}" ${
-        item.check == true ? `checked` : ``
+              <th class="text-center" scope="row">${index + 1}</th>
+              <td>${item.content}</td>
+              <td class="text-center">
+                  <div class="btn-group">
+                      <div class="form-check me-2">
+                          <input class="form-check-input" type="radio" name="da-dung" data-id="${index}" id="da-${index}" ${
+        item.check ? "checked" : ""
       }>
-                            <label class="form-check-label" for="da-${index}">
-                                Đáp án đúng
-                            </label>
-                        </div>
-                    </td>
-                    <td class="text-center">
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-alt-secondary btn-edit-option"
-                                data-bs-toggle="tooltip" title="Edit" data-id="${index}">
-                                <i class="fa fa-pencil-alt"></i>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-alt-secondary btn-delete-option"
-                                data-bs-toggle="tooltip" title="Delete" data-id="${index}">
-                                <i class="fa fa-times"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>`;
+                          <label class="form-check-label" for="da-${index}">
+                              Đáp án đúng
+                          </label>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-alt-secondary btn-edit-option"
+                          data-bs-toggle="tooltip" title="Edit" data-id="${index}">
+                          <i class="fa fa-pencil-alt"></i>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-alt-secondary btn-delete-option"
+                          data-bs-toggle="tooltip" title="Delete" data-id="${index}">
+                          <i class="fa fa-times"></i>
+                      </button>
+                  </div>
+              </td>
+          </tr>`;
     });
     $("#list-options").html(data);
   }
 
-  function resetForm() {
+  // Reset MCQ option form
+  function resetOptionForm() {
     CKEDITOR.instances["option-content"].setData("");
     $("#true-option").prop("checked", false);
   }
 
+  // Edit MCQ option
   $(document).on("click", ".btn-edit-option", function () {
     let index = $(this).data("id");
     $("#update-option").show();
@@ -238,15 +298,14 @@ $(document).ready(function () {
     $("#update-option").data("id", index);
     $("#add_option").collapse("show");
     CKEDITOR.instances["option-content"].setData(options[index].content);
-    if (options[index].check == true) {
-      $("#true-option").prop("checked", true);
-    }
+    $("#true-option").prop("checked", options[index].check);
   });
 
+  // Delete MCQ option
   $(document).on("click", ".btn-delete-option", function () {
     let index = $(this).data("id");
     let e = Swal.mixin({
-      buttonsStyling: !1,
+      buttonsStyling: false,
       target: "#page-container",
       customClass: {
         confirmButton: "btn btn-success m-1",
@@ -259,21 +318,21 @@ $(document).ready(function () {
       title: "Are you sure?",
       text: "Bạn có chắc chắn muốn xoá câu trả lời?",
       icon: "warning",
-      showCancelButton: !0,
+      showCancelButton: true,
       customClass: {
         confirmButton: "btn btn-danger m-1",
         cancelButton: "btn btn-secondary m-1",
       },
       confirmButtonText: "Vâng, tôi chắc chắn!",
-      html: !1,
-      preConfirm: (e) =>
-        new Promise((e) => {
+      html: false,
+      preConfirm: () =>
+        new Promise((resolve) => {
           setTimeout(() => {
-            e();
+            resolve();
           }, 50);
         }),
-    }).then((t) => {
-      if (t.value == true) {
+    }).then((result) => {
+      if (result.value) {
         e.fire("Deleted!", "Xóa câu trả lời thành công!", "success");
         options.splice(index, 1);
         showOptions(options);
@@ -281,15 +340,163 @@ $(document).ready(function () {
     });
   });
 
+  // Update correct answer for MCQ
   $(document).on("change", "[name='da-dung']", function () {
     let index = $(this).data("id");
     options.forEach((item) => {
       item.check = false;
     });
     options[index].check = true;
-    console.log(options);
   });
 
+  // Add Reading Option
+  $("#add-reading-option").on("click", function () {
+    let optionHtml = `
+<div class="mb-2 reading-option-item d-flex align-items-start gap-2">
+  <div class="form-check mt-2">
+      <input type="radio" name="reading-correct" class="form-check-input">
+      <label class="form-check-label">Đáp án đúng</label>
+  </div>
+  <textarea class="form-control reading-option-content" rows="2" placeholder="Nhập nội dung đáp án"></textarea>
+  <button type="button" class="btn btn-sm btn-danger btn-remove-reading-option">
+      <i class="fa fa-times"></i>
+  </button>
+</div>`;
+    $("#reading-question-options").append(optionHtml);
+  });
+
+  // Remove Reading Option
+  $(document).on("click", ".btn-remove-reading-option", function () {
+    $(this).closest(".reading-option-item").remove();
+  });
+
+  // Save Reading Question
+  $("#save-reading-question").on("click", function () {
+    let questionContent =
+      CKEDITOR.instances["reading-question-content"].getData();
+    let options = [];
+
+    $(".reading-option-item").each(function () {
+      let content = $(this).find(".reading-option-content").val();
+      let check = $(this).find("input[type=radio]").prop("checked");
+      if (content) options.push({ content: content, check: check });
+    });
+
+    if (!questionContent || options.length === 0) {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        icon: "fa fa-times me-1",
+        message: "Vui lòng nhập đoạn ngữ liệu và ít nhất một câu hỏi.",
+      });
+      return;
+    }
+
+    readingQuestions.push({
+      content: questionContent,
+      options: options,
+    });
+
+    showReadingQuestions();
+    resetReadingQuestionForm();
+    $("#add_reading_question").collapse("hide");
+  });
+
+  // Show Reading Questions List
+  function showReadingQuestions() {
+    let html = "";
+    readingQuestions.forEach((question, index) => {
+      html += `
+            <tr>
+                <td class="text-center">${index + 1}</td>
+                <td>${question.content}</td>
+                <td class="text-center">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-alt-secondary btn-edit-reading-question"
+                            data-bs-toggle="tooltip" title="Chỉnh sửa" data-id="${index}">
+                            <i class="fa fa-pencil-alt"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-alt-secondary btn-delete-reading-question"
+                            data-bs-toggle="tooltip" title="Xóa" data-id="${index}">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+      // Hiển thị đáp án của câu hỏi con
+      question.options.forEach((opt, optIndex) => {
+        html += `
+                <tr>
+                    <td></td>
+                    <td>${opt.content}</td>
+                    <td class="text-center">
+                        <input type="radio" name="reading-da-${index}" 
+                               ${opt.check ? "checked" : ""} disabled>
+                    </td>
+                </tr>
+            `;
+      });
+    });
+    $("#reading-questions-list").html(html);
+    $('[data-bs-toggle="tooltip"]').tooltip();
+  }
+
+  // Reset Reading Question Form
+  function resetReadingQuestionForm() {
+    CKEDITOR.instances["reading-question-content"].setData("");
+    $("#reading-question-options").empty();
+  }
+
+  // Edit Reading Question
+  $(document).on("click", ".btn-edit-reading-question", function () {
+    let index = $(this).data("id");
+    let q = readingQuestions[index];
+
+    CKEDITOR.instances["reading-question-content"].setData(q.content);
+    $("#reading-question-options").empty();
+
+    q.options.forEach((opt) => {
+      let optionHtml = `
+<div class="mb-2 reading-option-item d-flex align-items-start gap-2">
+  <div class="form-check mt-2">
+    <input type="radio" name="reading-correct" class="form-check-input" ${
+      opt.check ? "checked" : ""
+    }>
+    <label class="form-check-label">Đáp án đúng</label>
+  </div>
+  <textarea class="form-control reading-option-content" rows="2">${
+    opt.content
+  }</textarea>
+  <button type="button" class="btn btn-sm btn-danger btn-remove-reading-option mt-1">Xóa</button>
+</div>`;
+      $("#reading-question-options").append(optionHtml);
+    });
+
+    $("#add_reading_question").collapse("show");
+    readingQuestions.splice(index, 1); // Xóa cũ để update
+    showReadingQuestions();
+  });
+
+  // Delete Reading Question
+  $(document).on("click", ".btn-delete-reading-question", function () {
+    let index = $(this).data("id");
+    Swal.fire({
+      title: "Are you sure?",
+      text: "Bạn có chắc chắn muốn xoá câu hỏi này?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Vâng, tôi chắc chắn!",
+      cancelButtonText: "Huỷ",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        readingQuestions.splice(index, 1);
+        showReadingQuestions();
+        Swal.fire("Deleted!", "Xóa câu hỏi thành công!", "success");
+      }
+    });
+  });
+
+  // Load subjects
   $.get(
     "./subject/getSubjectAssignment",
     function (data) {
@@ -303,6 +510,7 @@ $(document).ready(function () {
     "json"
   );
 
+  // Load chapters
   $(".data-monhoc").on("change", function () {
     let selectedValue = $(this).val();
     let id = $(this).data("tab");
@@ -323,6 +531,7 @@ $(document).ready(function () {
     });
   });
 
+  // Filter by subject
   $("#main-page-monhoc").on("change", function () {
     let mamonhoc = $(this).val();
     let id = $(this).data("tab");
@@ -342,11 +551,8 @@ $(document).ready(function () {
       },
     });
 
-    // Reset filter
     $("#main-page-dokho").val(0).trigger("change");
     mainPagePagination.option.filter = {};
-
-    // Ajax call + pagination
     mainPagePagination.option.filter.mamonhoc = mamonhoc;
     mainPagePagination.getPagination(
       mainPagePagination.option,
@@ -354,6 +560,7 @@ $(document).ready(function () {
     );
   });
 
+  // Filter by chapter
   $("#main-page-chuong").on("change", function () {
     const machuong = $(this).val();
     mainPagePagination.option.filter.machuong = machuong;
@@ -363,6 +570,7 @@ $(document).ready(function () {
     );
   });
 
+  // Filter by difficulty
   $("#main-page-dokho").on("change", function () {
     const dokho = +$(this).val();
     mainPagePagination.option.filter.dokho = dokho;
@@ -372,6 +580,7 @@ $(document).ready(function () {
     );
   });
 
+  // Handle file upload
   $("#file-cau-hoi").change(function (e) {
     e.preventDefault();
     var file = $("#file-cau-hoi")[0].files[0];
@@ -398,163 +607,7 @@ $(document).ready(function () {
     });
   });
 
-  $("#btnAddExcel").click(function (e) {
-    e.preventDefault();
-    var file = $("#file-cau-hoi")[0].files[0];
-    var formData = new FormData();
-    formData.append("fileToUpload", file);
-    $.ajax({
-      type: "post",
-      url: "./question/addExcel",
-      data: formData,
-      contentType: false,
-      processData: false,
-      dataType: "json",
-      beforeSend: function () {
-        Dashmix.layout("header_loader_on");
-      },
-      success: function (response) {
-        console.log(response);
-        questions = response;
-        loadDataQuestion(response);
-      },
-      complete: function () {
-        Dashmix.layout("header_loader_off");
-      },
-    });
-  });
-
-  function loadDataQuestion(questions) {
-    let data = ``;
-    questions.forEach((item, index) => {
-      data += `<div class="question rounded border mb-3">
-            <div class="question-top p-3">
-                <p class="question-content fw-bold mb-3">${index + 1}. ${
-        item.question
-      } </p>
-                <div class="row">`;
-      item.option.forEach((op, i) => {
-        data += `<div class="col-6 mb-1">
-                <p class="mb-1"><b>${String.fromCharCode(
-                  i + 65
-                )}.</b> ${op}</p></div>`;
-      });
-      data += `</div></div>`;
-      data += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center"><p class="mb-0 text-white me-4">Đáp án của bạn:</p>`;
-      item.option.forEach((op, i) => {
-        data += `<input type="radio" class="btn-check" name="options-c${index}" id="option-c${index}_${i}" autocomplete="off" ${
-          i + 1 == item.answer ? `checked` : ``
-        } disabled>
-                <label class="btn btn-light rounded-pill me-2 btn-answer" for="option-c${index}_${i}">${String.fromCharCode(
-          i + 65
-        )}</label>`;
-      });
-      data += `</div></div>`;
-    });
-    $("#content-file").html(data);
-  }
-
-  loadQuestion();
-
-  //add question
-  $("#add_question").click(function (e) {
-    if ($("#form_add_question").valid()) {
-      let ch = CKEDITOR.instances["js-ckeditor"].getData().length == 0;
-      if (ch == "") {
-        // if essay type, allow no options and use essay-answer as single item
-        let qtype = $("#loai-cau-hoi").val();
-        if (qtype === 'essay') {
-          // create one non-correct answer with essay content (can be empty)
-          let essayContent = $("#essay-answer").val() || "";
-          options = [{ content: essayContent, check: false }];
-        }
-
-        if (qtype !== 'essay' && options.length == 0) {
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            icon: "fa fa-times me-1",
-            message: "Vui lòng thêm câu trả lời!",
-          });
-        } else {
-          if (qtype !== 'essay' && !checkSOption(options)) {
-            Dashmix.helpers("jq-notify", {
-              type: "danger",
-              icon: "fa fa-times me-1",
-              message: "Vui lòng chọn câu trả lời đúng!",
-            });
-          } else {
-            let mamonhoc = $("#mon-hoc").val();
-            let machuong = $("#chuong").val();
-            let dokho = $("#dokho").val();
-            let noidung = CKEDITOR.instances["js-ckeditor"].getData();
-            $.ajax({
-              type: "post",
-              url: "./question/addQues",
-              data: {
-                mamon: mamonhoc,
-                machuong: machuong,
-                dokho: dokho,
-                noidung: noidung,
-                loai: qtype,
-                cautraloi: JSON.stringify(options),
-              },
-              success: function (response) {
-                Dashmix.helpers("jq-notify", {
-                  type: "success",
-                  icon: "fa fa-check me-1",
-                  message: "Tạo câu hỏi thành công!",
-                });
-
-                $("#modal-add-question").modal("hide");
-                reloadQuestionList();
-                loadQuestion();
-                mainPagePagination.getPagination(
-                  mainPagePagination.option,
-                  mainPagePagination.valuePage.curPage
-                );
-              },
-            });
-          }
-        }
-      } else {
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng không để trống câu hỏi",
-        });
-      }
-    }
-  });
-
-  function checkSOption(options) {
-    let check = false;
-    options.forEach((question) => {
-      if (question["check"] == true) {
-        check = true;
-      }
-    });
-    return check;
-  }
-
-  $("#addquestionnew").click(function () {
-    $("#add_question").show();
-    $("#edit_question").hide();
-    $("#mon-hoc").val("").trigger("change");
-    $("#chuong").val("").trigger("change");
-    $("#dokho").val("").trigger("change");
-    $("#monhocfile").val("").trigger("change");
-    $("#chuongfile").val("").trigger("change");
-    CKEDITOR.instances["js-ckeditor"].setData("");
-    options = [];
-    $("#add_option").collapse("hide");
-    $("#list-options").html("");
-    $("#loai-cau-hoi").val('mcq').trigger('change');
-    $("#essay-answer").val('');
-    $("#file-cau-hoi").val(null);
-    $("#btabs-alt-static-home-tab").tab("show");
-    $("#content-file").html("");
-  });
-
+  // Add questions from file
   $("#nhap-file").click(function () {
     $.ajax({
       type: "post",
@@ -582,36 +635,201 @@ $(document).ready(function () {
     });
   });
 
+  // Load questions
+  function loadQuestion() {
+    $.get(
+      "./question/getQuestion",
+      {
+        page: page,
+        selected: $(".btn-filter").text(),
+        content: $("#search-input").val().trim(),
+      },
+      function (data) {
+        showData(data);
+      },
+      "json"
+    );
+  }
+  // Add question
+  $("#add_question").click(function (e) {
+    e.preventDefault();
+
+    let qtype = $("#loai-cau-hoi").val();
+
+    // Lấy dữ liệu từ CKEditor, kiểm tra instance tồn tại
+    let noidung = (CKEDITOR.instances["js-ckeditor"]?.getData() ?? "").trim();
+    let passage = (
+      CKEDITOR.instances["passage-content"]?.getData() ?? ""
+    ).trim();
+    let passageTitle = $("#passage-title")?.val() || "";
+    let cautraloi = [];
+
+    if (qtype === "reading") {
+      if (!passage || readingQuestions.length === 0) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Vui lòng nhập đoạn văn và ít nhất một câu hỏi!",
+        });
+        return;
+      }
+
+      // Kiểm tra mỗi câu hỏi con có ít nhất 1 đáp án đúng
+      let hasValidQuestions = readingQuestions.every(
+        (q) =>
+          q.content.trim() &&
+          q.options.length > 0 &&
+          q.options.some((opt) => opt.check)
+      );
+      if (!hasValidQuestions) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message:
+            "Mỗi câu hỏi con phải có nội dung và ít nhất một đáp án đúng!",
+        });
+        return;
+      }
+
+      // Reading question không dùng trường noidung chính
+      noidung = "";
+      cautraloi = readingQuestions;
+    } else if (qtype === "mcq") {
+      if (
+        !noidung ||
+        options.length === 0 ||
+        !options.some((opt) => opt.check)
+      ) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Vui lòng nhập câu hỏi và chọn ít nhất một đáp án đúng!",
+        });
+        return;
+      }
+      cautraloi = options;
+    } else if (qtype === "essay") {
+      if (!noidung) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Vui lòng nhập nội dung câu hỏi!",
+        });
+        return;
+      }
+      let essayContent = $("#essay-answer").val() || "";
+      cautraloi = [{ content: essayContent, check: false }];
+    }
+
+    // Dữ liệu gửi lên server
+    let dataPost = {
+      mamon: $("#mon-hoc").val(),
+      machuong: $("#chuong").val(),
+      dokho: $("#dokho").val(),
+      noidung: noidung,
+      loai: qtype,
+      cautraloi: JSON.stringify(cautraloi),
+    };
+
+    if (qtype === "reading") {
+      dataPost.doanvan_noidung = passage;
+      dataPost.doanvan_tieude = passageTitle;
+    }
+
+    $.post("./question/addQues", dataPost, function (res) {
+      let response = typeof res === "string" ? JSON.parse(res) : res;
+      if (response.status === "success") {
+        Dashmix.helpers("jq-notify", {
+          type: "success",
+          message: "Tạo câu hỏi thành công!",
+        });
+        $("#modal-add-question").modal("hide");
+        loadQuestion();
+        reloadQuestionList();
+      } else {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: response.message,
+        });
+      }
+    });
+  });
+
+  // Check if at least one correct answer exists
+  function checkSOption(data) {
+    if (!Array.isArray(data)) return false;
+    return data.some((item) =>
+      Array.isArray(item.options)
+        ? item.options.some((opt) => opt.check)
+        : item.check
+    );
+  }
   $(document).on("click", ".btn-edit-question", function () {
     $("#add_question").hide();
     $("#edit_question").show();
-    options = [];
     let id = $(this).data("id");
     $("#question_id").val(id);
     getQuestionById(id);
     $("#modal-add-question").modal("show");
   });
 
+  // Reset form for new question
+  $("#addquestionnew").click(function () {
+    $("#add_question").show();
+    $("#edit_question").hide();
+    $("#mon-hoc").val("").trigger("change");
+    $("#chuong").val("").trigger("change");
+    $("#dokho").val("").trigger("change");
+    $("#monhocfile").val("").trigger("change");
+    $("#chuongfile").val("").trigger("change");
+    CKEDITOR.instances["js-ckeditor"].setData("");
+    CKEDITOR.instances["passage-content"].setData("");
+    options = [];
+    readingQuestions = [];
+    $("#add_option").collapse("hide");
+    $("#add_reading_question").collapse("hide");
+    $("#list-options").html("");
+    $("#reading-questions-list").html("");
+    $("#loai-cau-hoi").val("mcq").trigger("change");
+    $("#essay-answer").val("");
+    $("#file-cau-hoi").val(null);
+    $("#btabs-alt-static-home-tab").tab("show");
+    $("#content-file").html("");
+  });
+
+  // Edit question
   $("#edit_question").click(function () {
     let mamonhoc = $("#mon-hoc").val();
     let machuong = $("#chuong").val();
     let dokho = $("#dokho").val();
     let noidung = CKEDITOR.instances["js-ckeditor"].getData();
-    let cautraloi = options;
-    let id = $("#question_id").val();
+    let passage = CKEDITOR.instances["passage-content"].getData();
     let qtype = $("#loai-cau-hoi").val();
-    // if essay, allow single non-correct answer payload
-    if (qtype === 'essay') {
+    let cautraloi = [];
+    let id = $("#question_id").val();
+    // Nếu có tiêu đề đoạn văn
+    // let tieudeDV = $("#doanvan-tieude").val() || "";
+
+    if (qtype === "essay") {
       let essayContent = $("#essay-answer").val() || "";
       cautraloi = [{ content: essayContent, check: false }];
+    } else if (qtype === "reading") {
+      if (!passage || readingQuestions.length === 0) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: "Vui lòng nhập đoạn ngữ liệu và ít nhất một câu hỏi!",
+        });
+        return;
+      }
+      noidung = passage;
+      cautraloi = readingQuestions;
+    } else {
+      cautraloi = options;
     }
 
     if (
-      mamonhoc != "" &&
-      machuong != "" &&
-      dokho != "" &&
-      noidung != "" &&
-      (qtype === 'essay' || (cautraloi.length > 0 && checkSOption(options) == true))
+      mamonhoc &&
+      machuong &&
+      dokho &&
+      (qtype === "reading" ? passage : noidung) &&
+      (qtype === "essay" || (cautraloi.length > 0 && checkSOption(cautraloi)))
     ) {
       $.ajax({
         type: "post",
@@ -623,72 +841,95 @@ $(document).ready(function () {
           dokho: dokho,
           noidung: noidung,
           loai: qtype,
-          cautraloi: cautraloi,
+          cautraloi: JSON.stringify(cautraloi),
+          // doanvan_tieude: tieudeDV // Thêm nếu dùng tieude
         },
+        dataType: "json",
         success: function (response) {
-          Dashmix.helpers("jq-notify", {
-            type: "success",
-            icon: "fa fa-check me-1",
-            message: "Sửa câu hỏi thành công!",
-          });
-
-          $("#modal-add-question").modal("hide");
-          loadQuestion();
-          reloadQuestionList();
-          mainPagePagination.getPagination(
-            mainPagePagination.option,
-            mainPagePagination.valuePage.curPage
-          );
+          if (response.status === "success") {
+            Dashmix.helpers("jq-notify", {
+              type: "success",
+              icon: "fa fa-check me-1",
+              message: response.message || "Sửa câu hỏi thành công!",
+            });
+            $("#modal-add-question").modal("hide");
+            loadQuestion();
+            reloadQuestionList();
+            mainPagePagination.getPagination(
+              mainPagePagination.option,
+              mainPagePagination.valuePage.curPage
+            );
+          } else {
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              icon: "fa fa-times me-1",
+              message: response.message || "Lỗi khi sửa câu hỏi",
+            });
+          }
         },
         error: function (err) {
-          console.error(err.responseText);
+          console.error("Error in editQuesion:", err.responseText);
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            icon: "fa fa-times me-1",
+            message: "Lỗi kết nối đến server",
+          });
         },
       });
     } else {
-      if (mamonhoc == "") {
+      // Giữ logic validate như cũ
+      if (!mamonhoc) {
         Dashmix.helpers("jq-notify", {
           type: "error",
-          icon: "fa fa-check me-1",
+          icon: "fa fa-times me-1",
           message: "Vui lòng chọn mã môn học",
         });
         $("#mon-hoc").focus();
-      } else if (machuong == "") {
+      } else if (!machuong) {
         Dashmix.helpers("jq-notify", {
           type: "error",
-          icon: "fa fa-check me-1",
+          icon: "fa fa-times me-1",
           message: "Vui lòng chọn mã chương",
         });
         $("#chuong").focus();
-      } else if (dokho == "") {
+      } else if (!dokho) {
         Dashmix.helpers("jq-notify", {
           type: "error",
-          icon: "fa fa-check me-1",
+          icon: "fa fa-times me-1",
           message: "Vui lòng chọn độ khó",
         });
         $("#dokho").focus();
-      } else if (noidung == "") {
+      } else if (!noidung && qtype !== "reading") {
         Dashmix.helpers("jq-notify", {
           type: "error",
-          icon: "fa fa-check me-1",
+          icon: "fa fa-times me-1",
           message: "Vui lòng nhập nội dung",
         });
         CKEDITOR.instances["js-ckeditor"].focus();
-      } else if (cautraloi.length < 2) {
+      } else if (!passage && qtype === "reading") {
         Dashmix.helpers("jq-notify", {
           type: "error",
-          icon: "fa fa-check me-1",
+          icon: "fa fa-times me-1",
+          message: "Vui lòng nhập đoạn ngữ liệu",
+        });
+        CKEDITOR.instances["passage-content"].focus();
+      } else if (cautraloi.length < 1 && qtype !== "essay") {
+        Dashmix.helpers("jq-notify", {
+          type: "error",
+          icon: "fa fa-times me-1",
           message: "Vui lòng thêm câu trả lời",
         });
-      } else if (checkSOption(options) == false) {
+      } else if (!checkSOption(cautraloi) && qtype !== "essay") {
         Dashmix.helpers("jq-notify", {
           type: "error",
-          icon: "fa fa-check me-1",
+          icon: "fa fa-times me-1",
           message: "Vui lòng chọn đáp án đúng",
         });
       }
     }
   });
 
+  // Get question by ID
   function getQuestionById(id) {
     $.ajax({
       type: "post",
@@ -703,12 +944,29 @@ $(document).ready(function () {
         let machuong = data["machuong"];
         let dokho = data["dokho"];
         let noidung = data["noidung"];
-        CKEDITOR.instances["js-ckeditor"].setData(noidung);
+        let loai = data["loai"];
         $("#mon-hoc").val(monhoc).trigger("change");
         $("#dokho").val(dokho).trigger("change");
+        $("#loai-cau-hoi").val(loai).trigger("change");
+        if (loai === "reading") {
+          CKEDITOR.instances["passage-content"].setData(noidung);
+          CKEDITOR.instances["js-ckeditor"].setData("");
+          // Nếu có tiêu đề đoạn văn
+          // $("#doanvan-tieude").val(data["tieude"] || "");
+        } else {
+          CKEDITOR.instances["js-ckeditor"].setData(noidung);
+          CKEDITOR.instances["passage-content"].setData("");
+        }
         setTimeout(function () {
           $("#chuong").val(machuong).trigger("change");
         }, 100);
+      },
+      error: function (err) {
+        console.error("Error in getQuestionById:", err.responseText);
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Lỗi khi lấy dữ liệu câu hỏi",
+        });
       },
     });
 
@@ -721,35 +979,47 @@ $(document).ready(function () {
       dataType: "json",
       success: function (response) {
         options = [];
+        readingQuestions = [];
         let data = response;
-        // Detect essay: single answer which is not marked as correct
-        if (Array.isArray(data) && data.length === 1 && data[0].ladapan == 0) {
-          // treat as essay
-          $("#loai-cau-hoi").val('essay').trigger('change');
-          $("#essay-answer").val(data[0].noidungtl);
-          // keep options empty
-          options = [];
+        if ($("#loai-cau-hoi").val() === "essay") {
+          $("#essay-answer").val(data[0]?.noidungtl || "");
+          $("#list-options").html("");
+        } else if ($("#loai-cau-hoi").val() === "reading") {
+          readingQuestions = data.map((q) => ({
+            content: q.noidung,
+            options: q.options.map((opt) => ({
+              content: opt.noidungtl,
+              check: opt.ladapan == 1,
+            })),
+          }));
+          showReadingQuestions();
           $("#list-options").html("");
         } else {
-          // treat as MCQ
-          $("#loai-cau-hoi").val('mcq').trigger('change');
           data.forEach((option_get) => {
             let option = {
               content: option_get["noidungtl"],
-              check: option_get["ladapan"] == 1 ? true : false,
+              check: option_get["ladapan"] == 1,
             };
             options.push(option);
           });
           showOptions(options);
         }
       },
+      error: function (err) {
+        console.error("Error in getAnswerById:", err.responseText);
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Lỗi khi lấy đáp án",
+        });
+      },
     });
   }
 
+  // Delete question
   $(document).on("click", ".btn-delete-question", function () {
     let trid = $(this).data("id");
     let e = Swal.mixin({
-      buttonsStyling: !1,
+      buttonsStyling: false,
       target: "#page-container",
       customClass: {
         confirmButton: "btn btn-success m-1",
@@ -762,21 +1032,21 @@ $(document).ready(function () {
       title: "Are you sure?",
       text: "Bạn có chắc chắn muốn xoá câu hỏi này?",
       icon: "warning",
-      showCancelButton: !0,
+      showCancelButton: true,
       customClass: {
         confirmButton: "btn btn-danger m-1",
         cancelButton: "btn btn-secondary m-1",
       },
       confirmButtonText: "Vâng, tôi chắc chắn!",
-      html: !1,
-      preConfirm: (e) =>
-        new Promise((e) => {
+      html: false,
+      preConfirm: () =>
+        new Promise((resolve) => {
           setTimeout(() => {
-            e();
+            resolve();
           }, 50);
         }),
-    }).then((t) => {
-      if (t.value == true) {
+    }).then((result) => {
+      if (result.value) {
         $.ajax({
           type: "post",
           url: "./question/delete",
@@ -795,24 +1065,12 @@ $(document).ready(function () {
     });
   });
 
-  // loadDataQuestion
+  // Load questions
   var page = 1;
   var select = "Tất cả";
-  function loadQuestion() {
-    $.get(
-      "./question/getQuestion",
-      {
-        page: page,
-        selected: $(".btn-filter").text(),
-        content: $("#search-input").val().trim(),
-      },
-      function (data) {
-        showData(data);
-      },
-      "json"
-    );
-  }
+  loadQuestion();
 });
+
 function reloadQuestionList() {
   mainPagePagination.getPagination(
     mainPagePagination.option,
