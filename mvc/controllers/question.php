@@ -38,53 +38,414 @@ class Question extends Controller
             $this->view("single_layout", ["Page" => "error/page_404","Title" => "Lỗi !"]);
         }
     }
+   
+// Hàm phụ parse MCQ (dùng chung cho cả MCQ thường và câu hỏi con Reading)
+private function parseMCQBlock($lines)
+{
+    $questions = [];
+    $current = null;
 
-    public function xulyDocx()
-    {
-        if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("cauhoi", "create")) {
-            require_once 'vendor/autoload.php';
-            $filename = $_FILES["fileToUpload"]["tmp_name"];
-            $objReader = WordIOFactory::createReader('Word2007');
-            $phpWord = $objReader->load($filename);
-            $text = '';
-            // Lấy kí tự từng đoạn
-            function getWordText($element)
-            {
-                $result = '';
-                if ($element instanceof AbstractContainer) {
-                    foreach ($element->getElements() as $element) {
-                        $result .= getWordText($element);
-                    }
-                } elseif ($element instanceof Text) {
-                    $result .= $element->getText();
-                }
-                return $result;
+    foreach ($lines as $line) {
+        $line = trim($line);
+
+        // Bắt đầu câu hỏi mới
+        if (preg_match('/^(\[|\d+[\.\)])\s*(Level:\s*\d+\s*)?(.*)/i', $line, $m)) {
+            if ($current !== null) {
+                if (empty($current['answer'])) $current['answer'] = 1; // mặc định A nếu thiếu
+                $questions[] = $current;
             }
 
-            foreach ($phpWord->getSections() as $section) {
-                foreach ($section->getElements() as $element) {
-                    $text .= trim(getWordText($element));
-                    $text .= "\\n";
-                }
-            }
+            $level = 1;
+            if (preg_match('/Level:\s*(\d+)/i', $line, $lm)) $level = (int)$lm[1];
 
-            $text = rtrim($text, "\\n");
-            substr($text, -1);
-            $questions = explode("\\n\\n", $text);
-            $arrques = array();
-            for ($i = 0; $i < count($questions); $i++) {
-                $data = explode("\\n", $questions[$i]);
-                $arrques[$i]['level'] = substr($data[0], 1, 1);
-                $arrques[$i]['question'] = substr(trim($data[0]), 4);
-                $arrques[$i]['answer'] = ord(trim(substr($data[count($data) - 1], 8))) - 65 + 1;
-                $arrques[$i]['option'] = array();
-                for ($j = 1; $j < count($data) - 1; $j++) {
-                    $arrques[$i]['option'][] = trim(substr($data[$j], 3));
-                }
+            $questionText = trim(preg_replace('/^(Câu\s*\d+[:\.]|\[\d+\]|\d+[\.\)])\s*(Level:\s*\d+\s*)?/i', '', $line));
+
+            $current = [
+                'type' => 'mcq',
+                'level' => $level,
+                'question' => $questionText,
+                'option' => [],
+                'answer' => 0
+            ];
+            continue;
+        }
+
+        // Đáp án A, B, C, D
+        if (preg_match('/^([A-D])\.\s*(.+)/i', $line, $m)) {
+            if ($current) {
+                $current['option'][] = $m[2];
             }
-            echo json_encode($arrques);
+            continue;
+        }
+
+        // Đáp án đúng
+        if (preg_match('/^ANSWER:\s*([A-D])/i', $line, $m)) {
+            if ($current) {
+                $current['answer'] = ord($m[1]) - 65 + 1; // A=1, B=2...
+            }
+            continue;
+        }
+
+        // Nếu dòng không phải đáp án mà chưa có nội dung câu hỏi → thêm vào câu hỏi
+        if ($current && !empty($line) && empty($current['option'])) {
+            $current['question'] .= " " . $line;
+            $current['question'] = trim($current['question']);
         }
     }
+
+    if ($current !== null) {
+        if (empty($current['answer'])) $current['answer'] = 1;
+        $questions[] = $current;
+    }
+
+    return $questions;
+}
+public function xulyDocx()
+{
+    if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
+        echo json_encode(['error' => 'Unauthorized']);
+        return;
+    }
+
+    require_once 'vendor/autoload.php';
+
+    $file = $_FILES["fileToUpload"]["tmp_name"];
+    if (!file_exists($file)) {
+        echo json_encode(['error' => 'File not found']);
+        return;
+    }
+
+    $phpWord = \PhpOffice\PhpWord\IOFactory::load($file);
+    $text = "";
+
+    // Recursive extractor (giữ nguyên, rất ổn)
+    $extractElementText = null;
+    $extractElementText = function($el) use (&$extractElementText) {
+        $out = '';
+        if (is_string($el)) return $el;
+        if (is_object($el) && method_exists($el, 'getText')) {
+            try {
+                $val = call_user_func([$el, 'getText']);
+                if (is_string($val)) $out .= $val;
+            } catch (\Throwable $t) {}
+        }
+        if (is_object($el) && method_exists($el, 'getElements')) {
+            foreach ($el->getElements() as $child) {
+                $out .= $extractElementText($child);
+            }
+        }
+        return $out;
+    };
+
+    foreach ($phpWord->getSections() as $section) {
+        foreach ($section->getElements() as $e) {
+            $part = $extractElementText($e);
+            if ($part !== '') {
+                $text .= trim($part) . "\n";
+            }
+        }
+    }
+
+    // Chuẩn hóa dòng: bỏ dòng trống hoàn toàn, trim kỹ
+    $lines = array_values(array_filter(array_map(function($line) {
+        $line = trim($line);
+        return $line === '' ? false : $line;
+    }, preg_split("/\r\n|\r|\n/", $text))));
+
+    $result = [];
+    $i = 0;
+
+    while ($i < count($lines)) {
+        $line = $lines[$i];
+
+        // ============================================================
+        // 1) READING FORMAT MỚI (hỗ trợ tối đa mọi kiểu người dùng viết)
+        // ============================================================
+        if (preg_match('/^\[Reading\]\[(\d+)\](.*)$/u', $line, $m)) {
+            $level = (int)$m[1];
+            $passage = trim($m[2]); // có thể rỗng nếu passage ở dòng sau
+
+            $i++;
+
+            // Gom passage: tiếp tục lấy các dòng CHO ĐẾN KHI gặp dấu hiệu của câu hỏi hoặc đáp án
+            while ($i < count($lines)) {
+                $nextLine = $lines[$i];
+
+                // Dừng gom passage nếu gặp:
+                // - Câu hỏi (kết thúc bằng ?)
+                // - Đáp án A. B. C. D.
+                // - ANSWER:
+                // - [Reading] mới
+                if (preg_match('/\?$/', $nextLine) ||
+                    preg_match('/^[ABCD]\.\s+/ui', $nextLine) ||
+                    preg_match('/^ANSWER:/ui', $nextLine) ||
+                    preg_match('/^\[Reading\]/ui', $nextLine)) {
+                    break;
+                }
+
+                $passage .= " " . trim($nextLine);
+                $i++;
+            }
+
+            // Chuẩn hóa passage: nhiều khoảng trắng → 1 khoảng trắng, trim lại
+            $passage = preg_replace('/\s+/', ' ', trim($passage));
+
+            // Gom câu hỏi con
+            $subQuestions = [];
+            while ($i < count($lines)) {
+                // Nếu gặp Reading mới → dừng lại, để vòng while chính xử lý
+                if (preg_match('/^\[Reading\]/ui', $lines[$i])) {
+                    break;
+                }
+
+                // Bỏ qua dòng trống hoặc dòng không phải câu hỏi
+                if (!preg_match('/\?$/', $lines[$i])) {
+                    $i++;
+                    continue;
+                }
+
+                $questionText = trim($lines[$i]);
+                $i++;
+
+                $opts = [];
+                $correct = "";
+
+                while ($i < count($lines)) {
+                    $l = trim($lines[$i]);
+
+                    // Gặp câu hỏi mới hoặc Reading mới → dừng gom đáp án
+                    if (preg_match('/\?$/', $l) || preg_match('/^\[Reading\]/ui', $l)) {
+                        break;
+                    }
+
+                    if (preg_match('/^A[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['A'] = trim($mm[1]);
+                    if (preg_match('/^B[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['B'] = trim($mm[1]);
+                    if (preg_match('/^C[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['C'] = trim($mm[1]);
+                    if (preg_match('/^D[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['D'] = trim($mm[1]);
+                    if (preg_match('/^ANSWER:\s*([ABCD])/ui', $l, $mm)) $correct = $mm[1];
+
+                    $i++;
+                }
+
+                // Chỉ thêm câu hỏi nếu có ít nhất 3 đáp án và có ANSWER
+                if (count($opts) >= 3 && $correct !== "") {
+                    $subQuestions[] = [
+                        "type" => "reading",
+                        "level" => $level,
+                        "question" => $questionText,
+                        "option" => array_values($opts),
+                        "answer" => array_search($correct, array_keys($opts)) + 1
+                    ];
+                }
+            }
+
+            $result[] = [
+                "type" => "reading",
+                "passage" => $passage,
+                "questions" => $subQuestions
+            ];
+
+            // Quan trọng: không $i++ ở cuối vòng while chính khi dùng continue
+            continue;
+        }
+
+        // ============================================================
+        // 2) MCQ THƯỜNG (câu hỏi độc lập, không nằm trong Reading)
+        // ============================================================
+        if (preg_match('/\?$/', $line)) {
+            $question = trim($line);
+            $i++;
+
+            $opts = [];
+            $correct = "";
+
+            while ($i < count($lines)) {
+                $l = trim($lines[$i]);
+
+                if (preg_match('/\?$/', $l) || preg_match('/^\[Reading\]/ui', $l)) {
+                    break;
+                }
+
+                
+                if (preg_match('/^A[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['A'] = trim($mm[1]);
+                if (preg_match('/^B[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['B'] = trim($mm[1]);
+                if (preg_match('/^C[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['C'] = trim($mm[1]);
+                if (preg_match('/^D[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['D'] = trim($mm[1]);
+                if (preg_match('/^ANSWER:\s*([ABCD])/ui', $l, $mm)) $correct = $mm[1];
+
+                $i++;
+            }
+
+            if (count($opts) >= 3 && $correct !== "") {
+                $result[] = [
+                    "type" => "mcq",
+                    "level" => 1,
+                    "question" => $question,
+                    "option" => array_values($opts),
+                    "answer" => array_search($correct, array_keys($opts)) + 1
+                ];
+            }
+
+            continue;
+        }
+
+        // Nếu không match gì → bỏ qua dòng này
+        $i++;
+    }
+
+    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+}
+
+
+public function addQuesFile()
+{
+    header('Content-Type: application/json; charset=utf-8');
+
+    if (!AuthCore::checkPermission("cauhoi", "create") || $_SERVER["REQUEST_METHOD"] !== "POST") {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+        return;
+    }
+
+    $nguoitao = $_SESSION['user_id'];
+    $monhoc   = $_POST['monhoc'] ?? null;
+    $chuong   = $_POST['chuong'] ?? null;
+    $items    = json_decode($_POST['questions'] ?? '[]', true);
+
+    if (!$monhoc || !$chuong || !is_array($items)) {
+        echo json_encode(['status' => 'error', 'message' => 'Dữ liệu không hợp lệ']);
+        return;
+    }
+
+    $this->cauHoiModel->con->begin_transaction();
+    $inserted = 0;
+    $errors = [];
+
+    try {
+        foreach ($items as $idx => $item) {
+            // READING
+            if ($item["type"] === "reading") {
+                $passage = trim($item["passage"] ?? '');
+                if (empty($passage)) {
+                    $errors[] = "Mục $idx: Đoạn văn trống";
+                    continue;
+                }
+
+                // Tạo doan_van
+                $madv = $this->cauHoiModel->createWithDoanVan(
+                    "",
+                    1,
+                    $monhoc,
+                    $chuong,
+                    $nguoitao,
+                    "reading",
+                    $passage,
+                    $item["title"] ?? null
+                );
+
+                if (!$madv) {
+                    $errors[] = "Mục $idx: Không thể tạo đoạn văn";
+                    continue;
+                }
+
+                // Thêm câu hỏi con
+                $subQuestions = $item["questions"] ?? [];
+                foreach ($subQuestions as $subIdx => $sub) {
+                    $subContent = trim($sub["question"] ?? '');
+                    if (empty($subContent)) continue;
+
+                    $subLevel = $sub["level"] ?? 1;
+                    $macauhoi = $this->cauHoiModel->create(
+                        $subContent,
+                        $subLevel,
+                        $monhoc,
+                        $chuong,
+                        $nguoitao,
+                        "reading",
+                        $madv
+                    );
+
+                    if (!$macauhoi) {
+                        $errors[] = "Mục $idx câu $subIdx: Không thể tạo câu hỏi con";
+                        continue;
+                    }
+
+                    // Thêm đáp án
+                    $options = $sub["option"] ?? [];
+                    foreach ($options as $optIdx => $opt) {
+                        $optContent = trim($opt ?? '');
+                        if (empty($optContent)) continue;
+
+                        $isCorrect = ($optIdx + 1 == $sub["answer"]) ? 1 : 0;
+                        if (!$this->cauTraLoiModel->create($macauhoi, $optContent, $isCorrect)) {
+                            $errors[] = "Mục $idx câu $subIdx đáp án $optIdx: Lỗi thêm đáp án";
+                        }
+                    }
+
+                    $inserted++;
+                }
+
+                continue;
+            }
+
+            // MCQ
+            if ($item["type"] === "mcq") {
+                $qContent = trim($item["question"] ?? '');
+                if (empty($qContent)) {
+                    $errors[] = "Mục $idx: Câu hỏi trống";
+                    continue;
+                }
+
+                $macauhoi = $this->cauHoiModel->create(
+                    $qContent,
+                    $item["level"] ?? 1,
+                    $monhoc,
+                    $chuong,
+                    $nguoitao,
+                    "mcq"
+                );
+
+                if (!$macauhoi) {
+                    $errors[] = "Mục $idx: Không thể tạo câu hỏi";
+                    continue;
+                }
+
+                $options = $item["option"] ?? [];
+                foreach ($options as $optIdx => $opt) {
+                    $optContent = trim($opt ?? '');
+                    if (empty($optContent)) continue;
+
+                    $isCorrect = ($optIdx + 1 == $item["answer"]) ? 1 : 0;
+                    if (!$this->cauTraLoiModel->create($macauhoi, $optContent, $isCorrect)) {
+                        $errors[] = "Mục $idx đáp án $optIdx: Lỗi thêm đáp án";
+                    }
+                }
+
+                $inserted++;
+            }
+        }
+
+        $this->cauHoiModel->con->commit();
+
+        echo json_encode([
+            'status' => 'success',
+            'inserted' => $inserted,
+            'message' => "Đã thêm $inserted câu hỏi!",
+            'errors' => $errors
+        ]);
+
+    } catch (Exception $e) {
+        $this->cauHoiModel->con->rollback();
+        echo json_encode([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'errors' => $errors
+        ]);
+    }
+}
+
+
+
+
 
 
     public function addExcel()
@@ -373,84 +734,7 @@ public function editQuesion()
         }
     }
 }
-    public function addQuesFile()
-    {
-        if (AuthCore::checkPermission("cauhoi", "create")) {
-            if ($_SERVER["REQUEST_METHOD"] == "POST") {
-                $nguoitao = $_SESSION['user_id'];
-                $monhoc   = $_POST['monhoc'];
-                $chuong   = $_POST['chuong'];
-                $questions = $_POST["questions"];
 
-                foreach ($questions as $question) {
-                    $level   = (int)$question['level']; // dùng luôn từ request
-                    $noidung = $question['question'];
-                    $answer  = (int)$question['answer']; // 1-4
-                    $options = $question['option'];
-
-                    // Thêm câu hỏi và lấy ID (file import assumed MCQ)
-                    $macauhoi = $this->cauHoiModel->create($noidung, $level, $monhoc, $chuong, $nguoitao, 'mcq');
-                    if (!$macauhoi) {
-                        continue; // insert lỗi thì bỏ qua
-                    }
-
-                    // Thêm đáp án
-                    $index = 1;
-                    foreach ($options as $option) {
-                        $check = ($index == $answer) ? 1 : 0;
-                        $this->cauTraLoiModel->create($macauhoi, $option, $check);
-                        $index++;
-                    }
-                }
-
-                echo json_encode([
-                    'status' => 'success',
-                    'inserted' => count($questions)
-                ]);
-            }
-        }
-    }
-
-
-    public function getQuestion()
-    {
-        if (AuthCore::checkPermission("cauhoi", "view")) {
-            if ($_SERVER['REQUEST_METHOD'] == 'GET') {
-                $result = $this->cauHoiModel->getAll();
-                echo json_encode($result);
-            }
-        }
-    }
-
-   public function delete()
-{
-    if (AuthCore::checkPermission("cauhoi", "delete")) {
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            $id = $_POST['macauhoi'];
-            $question = $this->cauHoiModel->getById($id);
-
-            // Xóa mềm câu hỏi chính
-            $this->cauHoiModel->delete($id);
-
-            // Nếu là reading → xóa mềm luôn các câu hỏi con + xóa đoạn văn
-            if ($question['loai'] === 'reading' && $question['madv']) {
-                // Xóa mềm các câu hỏi con
-                $sql = "UPDATE cauhoi SET trangthai = 0 WHERE madv = ?";
-                $stmt = $this->cauHoiModel->con->prepare($sql);
-                $stmt->bind_param("i", $question['madv']);
-                $stmt->execute();
-                $stmt->close();
-
-                // Xóa đoạn văn (cứng hoặc mềm tùy ý, hiện tại xóa cứng)
-                $sql2 = "UPDATE doan_van SET trangthai = 0 WHERE madv = ?";
-                $stmt2 = $this->cauHoiModel->con->prepare($sql2);
-                $stmt2->bind_param("i", $question['madv']);
-                $stmt2->execute();
-                $stmt2->close();
-            }
-        }
-    }
-}
 
 
 

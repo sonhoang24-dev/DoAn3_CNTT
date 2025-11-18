@@ -114,7 +114,7 @@ function showData(data) {
     let badge = "";
     if (question["loai"] === "reading") {
       let numSub = question["num_subquestions"] || 0;
-      badge = `<span class="badge bg-primary badge ms-2">Đoạn văn · ${numSub} câu</span>`;
+      badge = `<span class="badge bg-primary badge ms-2">Đoạn văn · ${numSub} câu hỏi</span>`;
     } else if (question["loai"] === "essay") {
       badge = `<span class="badge bg-warning ms-2">Tự luận</span>`;
     } else {
@@ -608,60 +608,328 @@ $(document).ready(function () {
       mainPagePagination.valuePage.curPage
     );
   });
+  // =================== FIX: Load môn học + chương cho modal nhập file ===================
+  function loadMonHocForFileImport() {
+    $.get(
+      "./subject/getSubjectAssignment",
+      function (data) {
+        let html = '<option value="">Chọn môn học</option>';
+        data.forEach((item) => {
+          html += `<option value="${item.mamonhoc}">${item.tenmonhoc}</option>`;
+        });
+        $("#monhocfile").html(html).val("").trigger("change"); // reset + trigger change
+      },
+      "json"
+    );
+  }
 
-  // Handle file upload
-  $("#file-cau-hoi").change(function (e) {
-    e.preventDefault();
-    var file = $("#file-cau-hoi")[0].files[0];
-    var formData = new FormData();
-    formData.append("fileToUpload", file);
-    $.ajax({
-      type: "post",
-      url: "./question/xulyDocx",
-      data: formData,
-      contentType: false,
-      processData: false,
-      dataType: "json",
-      beforeSend: function () {
-        Dashmix.layout("header_loader_on");
+  // Load chương khi chọn môn trong modal nhập file
+  $("#monhocfile").on("change", function () {
+    const mamonhoc = $(this).val();
+    let html = '<option value="">Chọn chương</option>';
+
+    if (!mamonhoc) {
+      $("#chuongfile").html(html);
+      return;
+    }
+
+    $.post(
+      "./subject/getAllChapter",
+      { mamonhoc: mamonhoc },
+      function (data) {
+        data.forEach((item) => {
+          html += `<option value="${item.machuong}">${item.tenchuong}</option>`;
+        });
+        $("#chuongfile").html(html);
       },
-      success: function (response) {
-        console.log(response);
-        questions = response;
-        loadDataQuestion(response);
-      },
-      complete: function () {
-        Dashmix.layout("header_loader_off");
-      },
-    });
+      "json"
+    );
   });
 
-  // Add questions from file
-  $("#nhap-file").click(function () {
-    $.ajax({
-      type: "post",
-      url: "./question/addQuesFile",
-      data: {
-        monhoc: $("#monhocfile").val(),
-        chuong: $("#chuongfile").val(),
-        questions: questions,
-      },
-      success: function (response) {
-        $("#modal-add-question").modal("hide");
-        loadQuestion();
-        mainPagePagination.getPagination(
-          mainPagePagination.option,
-          mainPagePagination.valuePage.curPage
-        );
-        setTimeout(function () {
-          Dashmix.helpers("jq-notify", {
-            type: "success",
-            icon: "fa fa-check me-1",
-            message: "Thêm câu hỏi từ file thành công!",
-          });
-        }, 10);
-      },
+  // Gọi tự động khi mở modal nhập file
+  $("#modal-add-question").on("shown.bs.modal", function () {
+    // Chỉ load khi đang ở tab nhập file
+    if (
+      $("#btabs-alt-static-file").hasClass("active") ||
+      $("#content-file").is(":visible")
+    ) {
+      loadMonHocForFileImport();
+    }
+  });
+
+  // Handle file upload
+  let questions = [];
+
+  $(document).ready(function () {
+    // =================== 1. Khi chọn file .docx ===================
+    $("#file-cau-hoi").on("change", function (e) {
+      e.preventDefault();
+      const $input = $(this);
+      const file = $input[0].files[0];
+
+      // Reset trước khi xử lý
+      questions = [];
+      $("#preview-cau-hoi").empty().hide();
+      $("#nhap-file")
+        .prop("disabled", true)
+        .html('<i class="fa fa-cloud-arrow-up me-1"></i> Thêm vào hệ thống');
+
+      if (!file) return;
+
+      // Kiểm tra định dạng
+      if (!file.name.toLowerCase().endsWith(".docx")) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Chỉ chấp nhận file .docx!",
+        });
+        $input.val("");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("fileToUpload", file);
+
+      Dashmix.layout("header_loader_on");
+
+      $.ajax({
+        url: "./question/xulyDocx",
+        type: "POST",
+        data: formData,
+        contentType: false,
+        processData: false,
+        cache: false,
+        dataType: "json",
+        success: function (res) {
+          console.log("Parse file thành công:", res);
+
+          if (!Array.isArray(res) || res.length === 0) {
+            Dashmix.helpers("jq-notify", {
+              type: "warning",
+              message: "File trống hoặc không có câu hỏi hợp lệ!",
+            });
+            return;
+          }
+
+          questions = res;
+          renderPreview(res);
+          enableImportButton(res.length);
+        },
+        error: function (xhr) {
+          console.error("Lỗi xử lý file:", xhr.responseText);
+          let msg = "Lỗi xử lý file Word!";
+          try {
+            const err = JSON.parse(xhr.responseText);
+            if (err.error) msg += " " + err.error;
+          } catch (e) {}
+          Dashmix.helpers("jq-notify", { type: "danger", message: msg });
+        },
+        complete: function () {
+          Dashmix.layout("header_loader_off");
+        },
+      });
     });
+
+    // =================== 2. Hiển thị preview đẹp ===================
+    function renderPreview(data) {
+      let html = `
+            <div class="block block-rounded border border-2 border-success shadow mb-4">
+                <div class="block-header bg-success-subtle">
+                    <h3 class="block-title text-success fw-bold">
+                        <i class="fa fa-check-double me-2"></i>
+                        Đã parse thành công ${data.length} mục từ file Word
+                    </h3>
+                </div>
+                <div class="block-content">`;
+
+      data.forEach((item, idx) => {
+        if (item.type === "reading") {
+          const numQ = item.questions?.length || 0;
+          const passagePreview = escapeHtml(item.passage)
+            .replace(/\s+/g, " ")
+            .trim();
+          const shortPassage =
+            passagePreview.length > 200
+              ? passagePreview.substr(0, 200) + "..."
+              : passagePreview;
+
+          html += `
+                <div class="mb-4 p-3 bg-light rounded border-start border-success border-4">
+                    <h5 class="text-primary mb-2">
+                        <i class="fa fa-book-open me-2"></i>
+                        <strong>Đoạn văn ${idx + 1} • ${numQ} câu hỏi</strong>
+                        ${
+                          item.questions[0]?.level
+                            ? `<span class="badge bg-info ms-2">Level ${item.questions[0].level}</span>`
+                            : ""
+                        }
+                    </h5>
+                    <div class="text-muted small mb-3 fst-italic">
+                        "${shortPassage}"
+                    </div>`;
+
+          // Hiển thị từng câu hỏi con
+          item.questions.forEach((q, qidx) => {
+            const ansLetter = q.answer
+              ? String.fromCharCode(64 + q.answer)
+              : "?";
+            const optsHtml = (q.option || [])
+              .map(
+                (opt, oidx) =>
+                  `${String.fromCodePoint(65 + oidx)}. ${escapeHtml(opt)}`
+              )
+              .join(" · ");
+
+            html += `
+                    <div class="ms-4 mb-3 p-3 bg-white rounded shadow-sm border">
+                        <strong>${idx + 1}.${qidx + 1}.</strong> ${escapeHtml(
+              q.question
+            )}
+                        <div class="mt-2 small text-muted">
+                            ${optsHtml}
+                        </div>
+                        <div class="mt-1">
+                            <span class="badge bg-danger">Đáp án: ${ansLetter}</span>
+                            ${
+                              q.type === "reading"
+                                ? '<span class="badge bg-primary ms-2">Thuộc đoạn văn</span>'
+                                : ""
+                            }
+                        </div>
+                    </div>`;
+          });
+
+          html += `</div>`; // end reading block
+        }
+        // MCQ thường (nếu có trong file)
+        else if (item.type === "mcq" || item.type === "reading") {
+          // thêm "reading để fallback nếu có câu lẻ
+          const ansLetter = item.answer
+            ? String.fromCharCode(64 + item.answer)
+            : "?";
+          const optsHtml = (item.option || [])
+            .map(
+              (opt, oidx) =>
+                `${String.fromCharCode(65 + oidx)}. ${escapeHtml(opt)}`
+            )
+            .join(" · ");
+
+          html += `
+                <div class="p-3 bg-white rounded border mb-3 shadow-sm">
+                    <span class="badge bg-success me-2">Trắc nghiệm</span>
+                    <strong>${idx + 1}.</strong> ${escapeHtml(
+            item.question
+          ).substr(0, 150)}...<br>
+                    <small class="text-muted">${optsHtml}</small><br>
+                    <span class="badge bg-danger mt-1">Đáp án: ${ansLetter}</span>
+                </div>`;
+        }
+      });
+
+      html += `</div></div>`;
+
+      $("#preview-cau-hoi").html(html).slideDown();
+    }
+
+    // =================== 3. Bật nút import ===================
+    function enableImportButton(count) {
+      $("#nhap-file")
+        .prop("disabled", false)
+        .html(
+          `<i class="fa fa-cloud-arrow-up me-1"></i> Thêm vào hệ thống (${count} mục)`
+        );
+    }
+
+    // =================== 4. Click nút "Thêm vào hệ thống" – SỬA CHỖ NÀY ===================
+    $("#nhap-file")
+      .off("click")
+      .on("click", function (e) {
+        // thêm .off để tránh bind nhiều lần
+        e.preventDefault();
+
+        if (questions.length === 0) {
+          Dashmix.helpers("jq-notify", {
+            type: "warning",
+            message: "Chưa có dữ liệu để thêm!",
+          });
+          return;
+        }
+
+        const monhoc = $("#monhocfile").val();
+        const chuong = $("#chuongfile").val();
+        if (!monhoc || !chuong) {
+          Dashmix.helpers("jq-notify", {
+            type: "warning",
+            message: "Vui lòng chọn Môn học và Chương!",
+          });
+          return;
+        }
+
+        const $btn = $(this);
+        $btn
+          .prop("disabled", true)
+          .html('<i class="fa fa-spinner fa-spin me-1"></i> Đang thêm...');
+        Dashmix.layout("header_loader_on");
+
+        $.ajax({
+          url: "./question/addQuesFile",
+          type: "POST",
+          data: {
+            monhoc: monhoc,
+            chuong: chuong,
+            questions: JSON.stringify(questions), // Đảm bảo stringify
+          },
+          dataType: "json",
+          timeout: 90000,
+          success: function (res) {
+            res = typeof res === "string" ? JSON.parse(res) : res;
+            if (res.status === "success") {
+              Dashmix.helpers("jq-notify", {
+                type: "success",
+                message: `Thêm thành công ${
+                  res.inserted || questions.length
+                } mục!`,
+              });
+              // Reset
+              $("#form-upload")[0].reset();
+              $("#file-cau-hoi").val("");
+              $("#preview-cau-hoi").empty().hide();
+              questions = [];
+              $btn.prop("disabled", true).html("Thêm vào hệ thống");
+              $("#modal-add-question").modal("hide");
+              if (typeof mainPagePagination !== "undefined")
+                mainPagePagination.getPagination(
+                  mainPagePagination.option,
+                  mainPagePagination.valuePage.curPage
+                );
+            } else {
+              Dashmix.helpers("jq-notify", {
+                type: "danger",
+                message: res.message || "Lỗi server",
+              });
+            }
+          },
+          error: function (xhr, status) {
+            console.error(xhr.responseText);
+            let msg =
+              status === "timeout"
+                ? "Thời gian xử lý quá lâu!"
+                : "Lỗi kết nối server!";
+            Dashmix.helpers("jq-notify", { type: "danger", message: msg });
+          },
+          complete: function () {
+            $btn.prop("disabled", false).html("Thêm vào hệ thống");
+            Dashmix.layout("header_loader_off");
+          },
+        });
+      });
+
+    // =================== Helper: Escape HTML ===================
+    function escapeHtml(text) {
+      if (!text) return "";
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
   });
 
   // Load questions

@@ -269,76 +269,87 @@
                     <!-- file -->
                     <div class="tab-pane" id="btabs-alt-static-profile" role="tabpanel"
                         aria-labelledby="btabs-static-profile-tab" tabindex="0">
-                       <form id="form-upload" method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
-    <div class="block block-rounded">
-        <div class="block-content">
+                      <form id="form-upload" method="POST" enctype="multipart/form-data" class="needs-validation" novalidate>
+    <div class="block block-rounded shadow">
+        <div class="block-header block-header-default bg-primary-dark">
+            <h3 class="block-title text-white">
+                Nhập câu hỏi từ file Word (.docx)
+            </h3>
+        </div>
 
-            <!-- Môn học + Chương + Loại câu hỏi cùng 1 hàng -->
-            <div class="row mb-4">
-                <div class="col-md-4">
-                    <label class="form-label" for="monhocfile">Môn học <span class="text-danger">*</span></label>
-                    <select id="monhocfile" class="js-select2 form-select data-monhoc" 
-                            data-placeholder="Chọn môn học" required>
-                        <option value=""></option>
-                    </select>
-                    <div class="invalid-feedback">Vui lòng chọn môn học</div>
-                </div>
+        <div class="block-content block-content-full">
 
-                <div class="col-md-4">
-                    <label class="form-label" for="chuongfile">Chương <span class="text-danger">*</span></label>
-                    <select id="chuongfile" class="js-select2 form-select data-chuong" 
-                            data-placeholder="Chọn chương" required>
-                        <option value=""></option>
-                    </select>
-                    <div class="invalid-feedback">Vui lòng chọn chương</div>
-                </div>
+            <!-- Dòng 1: Môn học + Chương + Loại câu hỏi -->
+            <div class="row g-3 mb-4">
+               <div class="col-6">
+                                        <label for="" class="form-label">Môn học</label>
+                                        <select id="monhocfile" class="js-select2 form-select data-monhoc" data-tab="2"
+                                            style="width: 100%;" data-placeholder="Choose one.." required>
+                                        </select>
+                                    </div>
 
-                <div class="col-md-4">
-                    <label class="form-label" for="loai-cau-hoi">Loại câu hỏi <span class="text-danger">*</span></label>
-                    <select id="loai-cau-hoi" class="js-select2 form-select" required>
-                        <option value="">Chọn loại câu hỏi</option>
-                        <option value="mcq">Trắc nghiệm</option>
-                        <option value="essay">Tự luận</option>
-                        <option value="reading">Đọc hiểu</option>
-                    </select>
-                    <div class="invalid-feedback">Vui lòng chọn loại câu hỏi</div>
-                </div>
+              <div class="col-6">
+                                        <label class="form-label">Chương</label>
+                                        <select id="chuongfile" class="js-select2 form-select data-chuong" data-tab="2"
+                                            style="width: 100%;" data-placeholder="Choose one.." required>
+                                        </select>
+                                    </div>
+
+                <!-- ĐÃ BỔ SUNG LOẠI CÂU HỎI -->
+               
             </div>
 
-            <!-- File upload -->
+            <!-- Upload file -->
             <div class="mb-4">
-                <label class="form-label" for="file-cau-hoi">Tệp câu hỏi (.docx) <span class="text-danger">*</span></label>
-                <input class="form-control" type="file" id="file-cau-hoi" 
-                       accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
-                       required>
-                <div class="invalid-feedback">Vui lòng chọn file Word (.docx)</div>
+                <label class="form-label" for="file-cau-hoi">
+                    File câu hỏi (.docx) <span class="text-danger">*</span>
+                </label>
+                <input type="file" class="form-control form-control-lg" 
+                       id="file-cau-hoi" accept=".docx" required>
+                <div class="form-text mt-2">
+                    Chỉ hỗ trợ file Word 2007 trở lên (.docx)
+                </div>
+                <div class="invalid-feedback">Vui lòng chọn file .docx</div>
             </div>
 
-            <!-- File mẫu -->
-            <div class="mb-4">
-                <div class="alert alert-info d-flex align-items-center" role="alert">
-                    <i class="fa fa-info-circle fa-2x me-3"></i>
-                    <div>
-                        Vui lòng soạn theo đúng định dạng trong file mẫu.<br>
-                        <a href="./public/filemau/mau_import_cau_hoi.docx" target="_blank" class="alert-link">
-                            <i class="fa fa-download me-1"></i> Tải file mẫu
-                        </a>
-                    </div>
+            <!-- Hướng dẫn + File mẫu -->
+            <div class="alert alert-info d-flex align-items-start mb-4" role="alert">
+                <i class="fa fa-info-circle fa-2x me-3"></i>
+                <div>
+                    <strong>Hướng dẫn nhanh:</strong><br>
+                    • Dùng <code>[Essay][3]-Loại Năng Cao</code> cho tự luận<br>
+                    • Dùng <code>[Reading][2]-Loại TB</code> cho đoạn văn + câu hỏi con<br>
+                    • Dùng <code>[1]-Loại dễ</code> cho trắc nghiệm thường<br>
+                    • Một file có thể chứa nhiều loại cùng lúc<br><br>
+                    <a href="./public/filemau/mau_import_cau_hoi.docx" 
+                       class="btn btn-alt-info btn-sm" download>
+                        Tải file mẫu chuẩn (.docx)
+                    </a>
                 </div>
             </div>
 
-            <!-- Nút submit -->
-            <div class="text-end">
-                <button type="submit" class="btn btn-hero btn-primary" id="nhap-file">
-                    <i class="fa fa-cloud-arrow-up me-1"></i>
-                    Thêm vào hệ thống
+            <!-- Preview -->
+            <div id="preview-cau-hoi" class="mb-4" style="display: none; max-height: 500px; overflow-y: auto;"></div>
+
+            <!-- Nút hành động -->
+            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                <button type="button" class="btn btn-alt-secondary" data-bs-dismiss="modal">
+                    Hủy bỏ
                 </button>
+
+                <div>
+                    <button type="button" class="btn btn-hero-primary me-2" id="btnAddExcel">
+                        Thêm file Excel (sắp có)
+                    </button>
+                    <button type="submit" class="btn btn-hero-success btn-lg" id="nhap-file" disabled>
+                        <span id="text-nhap-file">Thêm vào hệ thống</span>
+                    </button>
+                </div>
             </div>
 
         </div>
     </div>
 </form>
-
                         <div id="content-file" class="mt-4"></div>
                     </div>
                 </div>
