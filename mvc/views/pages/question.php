@@ -150,12 +150,23 @@
                             </div>
 
                             <!-- Passage Input for Reading Type -->
-                            <div class="mb-4" id="passage-area" style="display: none;">
-                                <label class="form-label" for="passage-content">Đoạn ngữ liệu <span class="text-danger">*</span></label>
-                                <textarea id="passage-content" name="passage-content" class="form-control"
-                                    placeholder="Nhập đoạn ngữ liệu cho câu hỏi đọc hiểu"></textarea>
-                                <small class="text-muted">Nhập đoạn văn hoặc nội dung liên quan cho các câu hỏi đọc hiểu.</small>
-                            </div>
+                             <div class="mb-4" id="passage-area" style="display: none;">
+    <!-- Ô nhập tiêu đề đoạn văn -->
+    <div class="mb-2">
+        <label class="form-label" for="passage-title">Tiêu đề đoạn văn <span class="text-danger">*</span></label>
+        <input type="text" id="passage-title" name="passage-title" class="form-control"
+            placeholder="Nhập tiêu đề cho đoạn văn">
+        <small class="text-muted">Nhập tiêu đề hoặc tên cho đoạn văn đọc hiểu.</small>
+    </div>
+
+    <!-- Ô nhập đoạn ngữ liệu -->
+    <label class="form-label" for="passage-content">Đoạn ngữ liệu <span class="text-danger">*</span></label>
+    <textarea id="passage-content" name="passage-content" class="form-control"
+        placeholder="Nhập đoạn ngữ liệu cho câu hỏi đọc hiểu"></textarea>
+    <small class="text-muted">Nhập đoạn văn hoặc nội dung liên quan cho các câu hỏi đọc hiểu.</small>
+</div>
+
+                            
 
                             <!-- Question Content for MCQ and Essay -->
                             <div class="mb-4" id="question-content-area">
@@ -282,20 +293,31 @@
             <!-- Dòng 1: Môn học + Chương + Loại câu hỏi -->
             <div class="row g-3 mb-4">
                <div class="col-6">
-                                        <label for="" class="form-label">Môn học</label>
+                                        <label for="" class="form-label">Môn học <span class="text-danger">*</span></label>
                                         <select id="monhocfile" class="js-select2 form-select data-monhoc" data-tab="2"
                                             style="width: 100%;" data-placeholder="Choose one.." required>
                                         </select>
                                     </div>
 
               <div class="col-6">
-                                        <label class="form-label">Chương</label>
+                                        <label class="form-label">Chương <span class="text-danger">*</span></label>
                                         <select id="chuongfile" class="js-select2 form-select data-chuong" data-tab="2"
                                             style="width: 100%;" data-placeholder="Choose one.." required>
                                         </select>
                                     </div>
 
                 <!-- ĐÃ BỔ SUNG LOẠI CÂU HỎI -->
+                 <div class="col-6">
+    <label class="form-label">Loại câu hỏi <span class="text-danger">*</span></label>
+    <select id="loaicauhoifile" class="js-select2 form-select" data-tab="2" style="width: 100%;" required>
+        <option value="">Chọn loại câu hỏi</option>
+        <option value="mcq">Trắc nghiệm</option>
+        <option value="essay">Tự luận</option>
+        <option value="reading">Đọc hiểu</option>
+    </select>
+</div>
+
+
                
             </div>
 
@@ -317,34 +339,63 @@
                 <i class="fa fa-info-circle fa-2x me-3"></i>
                 <div>
                     <strong>Hướng dẫn nhanh:</strong><br>
-                    • Dùng <code>[Essay][3]-Loại Năng Cao</code> cho tự luận<br>
-                    • Dùng <code>[Reading][2]-Loại TB</code> cho đoạn văn + câu hỏi con<br>
-                    • Dùng <code>[1]-Loại dễ</code> cho trắc nghiệm thường<br>
-                    • Một file có thể chứa nhiều loại cùng lúc<br><br>
-                    <a href="./public/filemau/mau_import_cau_hoi.docx" 
+                    • Dùng <code>[Essay][3]</code> cho tự luận - mức độ khó<br>
+                    • Dùng <code>[Reading][2]</code> cho đoạn văn - mức độ TB<br>
+                    • Dùng <code>[mcq][1]</code> cho trắc nghiệm - mức độ dễ<br>
+                    <a href="./public/filemau/THEMFILE_TULUAN.pdf" 
                        class="btn btn-alt-info btn-sm" download>
                         Tải file mẫu chuẩn (.docx)
                     </a>
+                    <div class="mb-3">
+  <label class="form-label fw-bold">Tải file mẫu theo định dạng:</label>
+  <div class="d-flex gap-2 flex-wrap">
+    <!-- Trắc nghiệm -->
+    <a href="./public/filemau/THEMFILE_TRACNGHIEM.pdf" 
+       class="btn btn-alt-success btn-sm" 
+       download>
+      <i class="fa fa-download me-1"></i> Trắc nghiệm (.pdf)
+    </a>
+
+    <!-- Tự luận -->
+    <a href="./public/filemau/THEMFILE_TULUAN.pdf" 
+       class="btn btn-alt-danger btn-sm" 
+       download>
+      <i class="fa fa-download me-1"></i> Tự luận (.pdf)
+    </a>
+
+    <!-- Đoạn văn -->
+    <a href="./public/filemau/THEMFILE_DOANVAN.pdf" 
+       class="btn btn-alt-warning btn-sm" 
+       download>
+      <i class="fa fa-download me-1"></i> Đoạn văn (.pdf)
+    </a>
+  </div>
+</div>
+
                 </div>
             </div>
 
             <!-- Preview -->
             <div id="preview-cau-hoi" class="mb-4" style="display: none; max-height: 500px; overflow-y: auto;"></div>
 
-            <!-- Nút hành động -->
-            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
-                <button type="button" class="btn btn-alt-secondary" data-bs-dismiss="modal">
-                    Hủy bỏ
-                </button>
+<!-- Nút hành động -->
+<div class="d-flex justify-content-between align-items-center pt-3 border-top">
+    <!-- Nút Hủy bỏ -->
+    <button type="button" class="btn btn-alt-secondary" data-bs-dismiss="modal">
+        Hủy bỏ
+    </button>
 
-                <div>
-                    <button type="button" class="btn btn-hero-primary me-2" id="btnAddExcel">
-                        Thêm file Excel (sắp có)
-                    </button>
-                    <button type="submit" class="btn btn-hero-success btn-lg" id="nhap-file" disabled>
-                        <span id="text-nhap-file">Thêm vào hệ thống</span>
-                    </button>
-                </div>
+    <!-- Các nút hành động chính -->
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-hero-primary" id="btnAddExcel" disabled>
+            Thêm file Excel (sắp có)
+        </button>
+        <button type="submit" class="btn btn-hero-success btn-lg" id="nhap-file" disabled>
+            <span id="text-nhap-file">Thêm vào hệ thống</span>
+        </button>
+    </div>
+
+
             </div>
 
         </div>
@@ -426,6 +477,13 @@
   background-color: #6c757d;
   border-radius: 50%;
 }
+#nhap-file.btn-success {
+  background: linear-gradient(90deg, #28a745, #5cd65c);
+  border-color: #28a745;
+  color: #fff;
+}
+
+
 
 
 

@@ -160,10 +160,13 @@ function showData(data) {
   $('[data-bs-toggle="tooltip"]').tooltip();
 }
 
-$(document).ready(function () {
-  let options = []; // For MCQ and Reading question options
-  let readingQuestions = []; // For Reading type questions
+let options = [];
+let readingQuestions = [];
+let questions = [];
+let isModified = false;
+let autoSaveTimer = null;
 
+$(document).ready(function () {
   // Initialize Select2
   $(".js-select2").select2();
   $("#main-page-loai").select2();
@@ -426,7 +429,7 @@ $(document).ready(function () {
     `;
 
       // --- Các phương án ---
-      let correctRendered = false; // Đảm bảo chỉ 1 đáp án đúng được tô
+      let correctRendered = false;
       question.options.forEach((opt, i) => {
         let isCorrect = "";
         let checkedAttr = "";
@@ -437,7 +440,6 @@ $(document).ready(function () {
           correctRendered = true;
         }
 
-        // Tạo chữ A, B, C,... cho từng option
         const optionLetter = String.fromCharCode(65 + i);
 
         html += `
@@ -491,7 +493,7 @@ $(document).ready(function () {
     });
 
     $("#add_reading_question").collapse("show");
-    readingQuestions.splice(index, 1); // Xóa cũ để update
+    readingQuestions.splice(index, 1);
     showReadingQuestions();
   });
 
@@ -601,14 +603,14 @@ $(document).ready(function () {
   // Filter by question type
   $("#main-page-loai").on("change", function () {
     const loai = $(this).val();
-    // store as 0/'0' or empty means all
     mainPagePagination.option.filter.loai = loai && loai !== "0" ? loai : "";
     mainPagePagination.getPagination(
       mainPagePagination.option,
       mainPagePagination.valuePage.curPage
     );
   });
-  // =================== FIX: Load môn học + chương cho modal nhập file ===================
+
+  // Load môn học cho modal nhập file
   function loadMonHocForFileImport() {
     $.get(
       "./subject/getSubjectAssignment",
@@ -617,7 +619,7 @@ $(document).ready(function () {
         data.forEach((item) => {
           html += `<option value="${item.mamonhoc}">${item.tenmonhoc}</option>`;
         });
-        $("#monhocfile").html(html).val("").trigger("change"); // reset + trigger change
+        $("#monhocfile").html(html).val("").trigger("change");
       },
       "json"
     );
@@ -646,9 +648,8 @@ $(document).ready(function () {
     );
   });
 
-  // Gọi tự động khi mở modal nhập file
+  // Gọi khi mở modal nhập file
   $("#modal-add-question").on("shown.bs.modal", function () {
-    // Chỉ load khi đang ở tab nhập file
     if (
       $("#btabs-alt-static-file").hasClass("active") ||
       $("#content-file").is(":visible")
@@ -657,280 +658,508 @@ $(document).ready(function () {
     }
   });
 
-  // Handle file upload
-  let questions = [];
+  // =================== AUTO SAVE KHI SỬA TRÊN PREVIEW ===================
+  function autoSaveChanges() {
+    isModified = true;
 
-  $(document).ready(function () {
-    // =================== 1. Khi chọn file .docx ===================
-    $("#file-cau-hoi").on("change", function (e) {
-      e.preventDefault();
-      const $input = $(this);
-      const file = $input[0].files[0];
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      if (questions.length === 0) return;
 
-      // Reset trước khi xử lý
-      questions = [];
-      $("#preview-cau-hoi").empty().hide();
-      $("#nhap-file")
-        .prop("disabled", true)
-        .html('<i class="fa fa-cloud-arrow-up me-1"></i> Thêm vào hệ thống');
-
-      if (!file) return;
-
-      // Kiểm tra định dạng
-      if (!file.name.toLowerCase().endsWith(".docx")) {
+      $.post(
+        "./question/updateQuestionJSON",
+        {
+          questions: JSON.stringify(questions),
+        },
+        function (res) {
+          if (res.status === "success") {
+            questions = res.questions || questions;
+            Dashmix.helpers("jq-notify", {
+              type: "success",
+              icon: "fa fa-check-circle me-1",
+              message: "Đã lưu thay đổi tự động!",
+            });
+          }
+        },
+        "json"
+      ).fail(() => {
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: "Chỉ chấp nhận file .docx!",
+          message: "Lỗi tự động lưu!",
         });
-        $input.val("");
+      });
+    }, 1200);
+  }
+
+  // Gắn event cho preview edits
+  $("#preview-cau-hoi").on(
+    "change input",
+    `
+    .level-select,
+    .level-select-passage,
+    .answer-radio,
+    input[type="text"],
+    textarea,
+    input[data-type="title"],
+    textarea[data-type="passage"],
+    input[data-type="question"],
+    textarea[data-type="question"],
+    input[data-type="option"]
+  `,
+    autoSaveChanges
+  );
+
+  // =================== UPLOAD FILE .DOCX ===================
+  $("#file-cau-hoi").on("change", function (e) {
+    const file = this.files[0];
+    const loaiCauHoi = $("#loaicauhoifile").val();
+
+    if (!loaiCauHoi) {
+      Dashmix.helpers("jq-notify", {
+        type: "warning",
+        message: "Chọn loại câu hỏi!",
+      });
+      this.value = "";
+      return;
+    }
+    if (!file || !file.name.toLowerCase().endsWith(".docx")) {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: "Chỉ chấp nhận file .docx!",
+      });
+      this.value = "";
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("fileToUpload", file);
+
+    const urlMap = {
+      reading: "./question/xulydoanvan",
+      mcq: "./question/xulytracnghiem",
+      essay: "./question/xulytuluan",
+    };
+
+    Dashmix.layout("header_loader_on");
+    $("#preview-cau-hoi").empty().hide();
+    $("#nhap-file").prop("disabled", true).html("Đang xử lý...");
+
+    $.ajax({
+      url: urlMap[loaiCauHoi] || urlMap.mcq,
+      type: "POST",
+      data: formData,
+      contentType: false,
+      processData: false,
+      cache: false,
+      dataType: "json",
+      success: function (res) {
+        if (!Array.isArray(res) || res.length === 0) {
+          Dashmix.helpers("jq-notify", {
+            type: "warning",
+            message: "File trống hoặc sai định dạng!",
+          });
+          return;
+        }
+
+        questions = JSON.parse(JSON.stringify(res));
+        isModified = false;
+        renderPreview(questions);
+        enableImportButton(res.length);
+      },
+      error: function (xhr) {
+        let msg = "Lỗi xử lý file Word!";
+        try {
+          msg += " " + JSON.parse(xhr.responseText).error;
+        } catch (e) {}
+        Dashmix.helpers("jq-notify", { type: "danger", message: msg });
+      },
+      complete: () => Dashmix.layout("header_loader_off"),
+    });
+  });
+
+  // =================== RENDER PREVIEW ===================
+  function renderPreview(data) {
+    const levelText = {
+      1: "Dễ",
+      2: "TB",
+      3: "Khó",
+    };
+
+    let html = `
+<div class="block block-rounded border border-2 border-success shadow mb-4">
+  <div class="block-header bg-success-subtle">
+    <h3 class="block-title text-success fw-bold">
+      <i class="fa fa-check-double me-2"></i>
+      Đã thêm thành công ${data.length} mục từ file Word
+    </h3>
+  </div>
+  <div class="block-content">`;
+
+    data.forEach((item, idx) => {
+      if (item.type === "reading") {
+        html += `
+<div class="mb-5 p-4 bg-light rounded border-start border-primary border-5 shadow">
+  <div class="mb-3 d-flex align-items-center justify-content-between">
+    <div>
+      <label class="form-label fw-bold text-primary">Tiêu đề đoạn văn:</label>
+      <input type="text" class="form-control mb-2" value="${escapeHtml(
+        item.title || ""
+      )}" data-type="title" data-index="${idx}">
+    </div>
+    <div>
+      <label class="form-label fw-bold text-primary">Mức độ đọc hiểu:</label>
+      <select class="form-select level-select-passage" data-index="${idx}">
+        ${[1, 2, 3]
+          .map(
+            (l) =>
+              `<option value="${l}" ${item.level === l ? "selected" : ""}>${
+                levelText[l]
+              }</option>`
+          )
+          .join("")}
+      </select>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label fw-bold">Đoạn văn:</label>
+    <textarea class="form-control mb-2" rows="5" data-type="passage" data-index="${idx}">${escapeHtml(
+          item.passage
+        )}</textarea>
+  </div>
+  <div class="mb-3">
+    <table class="table table-bordered table-striped">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Câu hỏi</th>
+          <th>Phương án & Đáp án</th>
+          <th>Mức độ</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+        item.questions.forEach((q, qidx) => {
+          html += `
+<tr>
+  <td>${idx + 1}.${qidx + 1}</td>
+  <td>
+    <input type="text" class="form-control" value="${escapeHtml(
+      q.question
+    )}" data-type="question" data-index="${idx}" data-qindex="${qidx}">
+  </td>
+  <td>
+    ${q.option
+      .map((opt, i) => {
+        const letter = String.fromCharCode(65 + i);
+        const isAnswer = q.answer === i + 1;
+        return `
+      <div class="d-flex align-items-center mb-1 p-1 rounded ${
+        isAnswer ? "border border-3 border-primary" : ""
+      }">
+        <input class="form-check-input me-2 answer-radio" type="radio" name="answer-${idx}-${qidx}" data-index="${idx}" data-qindex="${qidx}" data-oid="${i}" ${
+          isAnswer ? "checked" : ""
+        }>
+        <span class="me-2 fw-bold">${letter}</span>
+        <input type="text" class="form-control" data-type="option" data-index="${idx}" data-qindex="${qidx}" data-oid="${i}" value="${escapeHtml(
+          opt
+        )}">
+      </div>`;
+      })
+      .join("")}
+  </td>
+  <td class="text-center">
+    <span class="fw-bold text-primary display-level">${
+      levelText[q.level]
+    }</span>
+  </td>
+</tr>`;
+        });
+
+        html += `</tbody></table></div></div>`;
+      } else if (item.type === "mcq") {
+        html += `
+<div class="mb-4 p-3 bg-light rounded border-start border-success border-5 shadow">
+  <div class="mb-2 fw-bold text-success">Câu ${idx + 1} 
+  (Trắc nghiệm, Mức độ <span class="display-level">${
+    levelText[item.level]
+  }</span>):</div>
+  
+  <input type="text" class="form-control mb-2" data-type="question" data-index="${idx}" value="${escapeHtml(
+          item.question
+        )}">
+
+  <div class="mb-2">
+    ${item.option
+      .map((opt, i) => {
+        const letter = String.fromCharCode(65 + i);
+        const isAnswer = item.answer === i + 1;
+        return `
+      <div class="d-flex align-items-center mb-1 p-1 rounded ${
+        isAnswer ? "border border-3 border-primary" : ""
+      }">
+        <input class="form-check-input me-2 answer-radio" type="radio" name="answer-${idx}" data-index="${idx}" data-oid="${i}" ${
+          isAnswer ? "checked" : ""
+        }>
+        <span class="me-2 fw-bold">${letter}</span>
+        <input type="text" class="form-control" data-type="option" data-index="${idx}" data-oid="${i}" value="${escapeHtml(
+          opt
+        )}">
+      </div>`;
+      })
+      .join("")}
+  </div>
+
+  <div class="mb-2">
+    <label>Mức độ:</label>
+    <select class="form-select level-select" data-index="${idx}">
+      ${[1, 2, 3]
+        .map(
+          (l) =>
+            `<option value="${l}" ${item.level === l ? "selected" : ""}>${
+              levelText[l]
+            }</option>`
+        )
+        .join("")}
+    </select>
+  </div>
+</div>`;
+      } else if (item.type === "essay") {
+        html += `
+<div class="mb-3 p-3 bg-light rounded border-start border-warning border-5 shadow">
+  <div class="fw-bold text-warning">Câu ${
+    idx + 1
+  } (Tự luận, Mức độ <span class="display-level">${
+          levelText[item.level]
+        }</span>):</div>
+
+  <textarea class="form-control mt-1" rows="3" data-type="question" data-index="${idx}">${escapeHtml(
+          item.question
+        )}</textarea>
+
+  <div class="mt-1">
+    <label>Mức độ:</label>
+    <select class="form-select level-select" data-index="${idx}">
+      ${[1, 2, 3]
+        .map(
+          (l) =>
+            `<option value="${l}" ${item.level === l ? "selected" : ""}>${
+              levelText[l]
+            }</option>`
+        )
+        .join("")}
+    </select>
+  </div>
+</div>`;
+      }
+    });
+
+    html += `</div></div>`;
+    $("#preview-cau-hoi").html(html).slideDown();
+
+    // --- BIND EVENTS KEEP NGUYÊN ---
+    $("#preview-cau-hoi").on("change", "input[data-type='title']", function () {
+      const idx = $(this).data("index");
+      questions[idx].title = $(this).val();
+      autoSaveChanges();
+    });
+
+    $("#preview-cau-hoi").on(
+      "change",
+      "textarea[data-type='passage']",
+      function () {
+        const idx = $(this).data("index");
+        questions[idx].passage = $(this).val();
+        autoSaveChanges();
+      }
+    );
+
+    $("#preview-cau-hoi").on(
+      "change",
+      "input[data-type='question'], textarea[data-type='question']",
+      function () {
+        const idx = $(this).data("index");
+        const qidx = $(this).data("qindex");
+        const newVal = $(this).val();
+
+        if (qidx !== undefined) {
+          questions[idx].questions[qidx].question = newVal;
+        } else {
+          questions[idx].question = newVal;
+        }
+        autoSaveChanges();
+      }
+    );
+
+    $("#preview-cau-hoi").on(
+      "change",
+      "input[data-type='option']",
+      function () {
+        const idx = $(this).data("index");
+        const qidx = $(this).data("qindex");
+        const oid = $(this).data("oid");
+        const newVal = $(this).val();
+
+        if (qidx !== undefined) {
+          questions[idx].questions[qidx].option[oid] = newVal;
+        } else {
+          questions[idx].option[oid] = newVal;
+        }
+        autoSaveChanges();
+      }
+    );
+
+    // === UPDATE LEVEL WITH TEXT ===
+    $("#preview-cau-hoi").on(
+      "change",
+      ".level-select, .level-select-passage",
+      function () {
+        const idx = $(this).data("index");
+        const qidx = $(this).data("qindex");
+        const newLevel = parseInt($(this).val());
+
+        if (qidx !== undefined) {
+          questions[idx].questions[qidx].level = newLevel;
+        } else {
+          questions[idx].level = newLevel;
+        }
+
+        $(this)
+          .closest("div.mb-4, div.mb-3, div.mb-5")
+          .find(".display-level")
+          .first()
+          .text(levelText[newLevel]);
+
+        $(this)
+          .closest(".mb-5")
+          .find("tbody .display-level")
+          .text(levelText[newLevel]);
+
+        autoSaveChanges();
+      }
+    );
+
+    $("#preview-cau-hoi").on("change", ".answer-radio", function () {
+      const idx = $(this).data("index");
+      const qidx = $(this).data("qindex");
+      const oid = $(this).data("oid");
+
+      if (qidx !== undefined) {
+        questions[idx].questions[qidx].answer = oid + 1;
+        $(this)
+          .closest("td")
+          .find(".d-flex")
+          .removeClass("border border-3 border-primary");
+        $(this).parent().addClass("border border-3 border-primary");
+      } else {
+        questions[idx].answer = oid + 1;
+        $(this)
+          .closest("div.mb-2")
+          .find(".d-flex")
+          .removeClass("border border-3 border-primary");
+        $(this).parent().addClass("border border-3 border-primary");
+      }
+      autoSaveChanges();
+    });
+  }
+
+  // =================== BẬT NÚT IMPORT ===================
+  function enableImportButton(count) {
+    const $btn = $("#nhap-file");
+    $btn.prop("disabled", false);
+    $btn
+      .html(
+        `<i class="fa fa-cloud-arrow-up me-1"></i> Thêm vào hệ thống (${count} mục)`
+      )
+      .removeClass("btn-secondary")
+      .addClass("btn-success fw-bold");
+  }
+
+  // =================== NÚT THÊM VÀO HỆ THỐNG ===================
+  $("#nhap-file")
+    .off("click")
+    .on("click", function (e) {
+      e.preventDefault();
+
+      if (questions.length === 0) {
+        Dashmix.helpers("jq-notify", {
+          type: "warning",
+          message: "Chưa có dữ liệu!",
+        });
         return;
       }
 
-      const formData = new FormData();
-      formData.append("fileToUpload", file);
+      const monhoc = $("#monhocfile").val();
+      const chuong = $("#chuongfile").val();
+      if (!monhoc || !chuong) {
+        Dashmix.helpers("jq-notify", {
+          type: "warning",
+          message: "Chọn môn học và chương!",
+        });
+        return;
+      }
 
+      const $btn = $(this);
+      $btn
+        .prop("disabled", true)
+        .html('<i class="fa fa-spinner fa-spin"></i> Đang thêm...');
       Dashmix.layout("header_loader_on");
 
+      console.log("📤 Sending questions:", JSON.stringify(questions));
+
       $.ajax({
-        url: "./question/xulyDocx",
+        url: "./question/addQuesFile",
         type: "POST",
-        data: formData,
-        contentType: false,
-        processData: false,
-        cache: false,
+        data: {
+          monhoc: monhoc,
+          chuong: chuong,
+          questions: JSON.stringify(questions),
+        },
         dataType: "json",
+        timeout: 120000,
         success: function (res) {
-          console.log("Parse file thành công:", res);
-
-          if (!Array.isArray(res) || res.length === 0) {
+          if (res.status === "success") {
             Dashmix.helpers("jq-notify", {
-              type: "warning",
-              message: "File trống hoặc không có câu hỏi hợp lệ!",
+              type: "success",
+              message: `Thêm thành công ${
+                res.inserted || questions.length
+              } câu hỏi!`,
             });
-            return;
-          }
 
-          questions = res;
-          renderPreview(res);
-          enableImportButton(res.length);
+            questions = [];
+            isModified = false;
+            $("#preview-cau-hoi").empty().hide();
+            $("#file-cau-hoi").val("");
+            $("#form-upload")[0]?.reset();
+            $btn.prop("disabled", true).html("Thêm vào hệ thống");
+            $("#modal-add-question").modal("hide");
+            reloadQuestionList();
+          } else {
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: res.message || "Lỗi server!",
+            });
+          }
         },
-        error: function (xhr) {
-          console.error("Lỗi xử lý file:", xhr.responseText);
-          let msg = "Lỗi xử lý file Word!";
-          try {
-            const err = JSON.parse(xhr.responseText);
-            if (err.error) msg += " " + err.error;
-          } catch (e) {}
-          Dashmix.helpers("jq-notify", { type: "danger", message: msg });
+        error: function () {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: "Lỗi kết nối hoặc timeout!",
+          });
         },
-        complete: function () {
+        complete: () => {
+          $btn.prop("disabled", false);
           Dashmix.layout("header_loader_off");
         },
       });
     });
 
-    // =================== 2. Hiển thị preview đẹp ===================
-    function renderPreview(data) {
-      let html = `
-            <div class="block block-rounded border border-2 border-success shadow mb-4">
-                <div class="block-header bg-success-subtle">
-                    <h3 class="block-title text-success fw-bold">
-                        <i class="fa fa-check-double me-2"></i>
-                        Đã parse thành công ${data.length} mục từ file Word
-                    </h3>
-                </div>
-                <div class="block-content">`;
-
-      data.forEach((item, idx) => {
-        if (item.type === "reading") {
-          const numQ = item.questions?.length || 0;
-          const passagePreview = escapeHtml(item.passage)
-            .replace(/\s+/g, " ")
-            .trim();
-          const shortPassage =
-            passagePreview.length > 200
-              ? passagePreview.substr(0, 200) + "..."
-              : passagePreview;
-
-          html += `
-                <div class="mb-4 p-3 bg-light rounded border-start border-success border-4">
-                    <h5 class="text-primary mb-2">
-                        <i class="fa fa-book-open me-2"></i>
-                        <strong>Đoạn văn ${idx + 1} • ${numQ} câu hỏi</strong>
-                        ${
-                          item.questions[0]?.level
-                            ? `<span class="badge bg-info ms-2">Level ${item.questions[0].level}</span>`
-                            : ""
-                        }
-                    </h5>
-                    <div class="text-muted small mb-3 fst-italic">
-                        "${shortPassage}"
-                    </div>`;
-
-          // Hiển thị từng câu hỏi con
-          item.questions.forEach((q, qidx) => {
-            const ansLetter = q.answer
-              ? String.fromCharCode(64 + q.answer)
-              : "?";
-            const optsHtml = (q.option || [])
-              .map(
-                (opt, oidx) =>
-                  `${String.fromCodePoint(65 + oidx)}. ${escapeHtml(opt)}`
-              )
-              .join(" · ");
-
-            html += `
-                    <div class="ms-4 mb-3 p-3 bg-white rounded shadow-sm border">
-                        <strong>${idx + 1}.${qidx + 1}.</strong> ${escapeHtml(
-              q.question
-            )}
-                        <div class="mt-2 small text-muted">
-                            ${optsHtml}
-                        </div>
-                        <div class="mt-1">
-                            <span class="badge bg-danger">Đáp án: ${ansLetter}</span>
-                            ${
-                              q.type === "reading"
-                                ? '<span class="badge bg-primary ms-2">Thuộc đoạn văn</span>'
-                                : ""
-                            }
-                        </div>
-                    </div>`;
-          });
-
-          html += `</div>`; // end reading block
-        }
-        // MCQ thường (nếu có trong file)
-        else if (item.type === "mcq" || item.type === "reading") {
-          // thêm "reading để fallback nếu có câu lẻ
-          const ansLetter = item.answer
-            ? String.fromCharCode(64 + item.answer)
-            : "?";
-          const optsHtml = (item.option || [])
-            .map(
-              (opt, oidx) =>
-                `${String.fromCharCode(65 + oidx)}. ${escapeHtml(opt)}`
-            )
-            .join(" · ");
-
-          html += `
-                <div class="p-3 bg-white rounded border mb-3 shadow-sm">
-                    <span class="badge bg-success me-2">Trắc nghiệm</span>
-                    <strong>${idx + 1}.</strong> ${escapeHtml(
-            item.question
-          ).substr(0, 150)}...<br>
-                    <small class="text-muted">${optsHtml}</small><br>
-                    <span class="badge bg-danger mt-1">Đáp án: ${ansLetter}</span>
-                </div>`;
-        }
-      });
-
-      html += `</div></div>`;
-
-      $("#preview-cau-hoi").html(html).slideDown();
-    }
-
-    // =================== 3. Bật nút import ===================
-    function enableImportButton(count) {
-      $("#nhap-file")
-        .prop("disabled", false)
-        .html(
-          `<i class="fa fa-cloud-arrow-up me-1"></i> Thêm vào hệ thống (${count} mục)`
-        );
-    }
-
-    // =================== 4. Click nút "Thêm vào hệ thống" – SỬA CHỖ NÀY ===================
-    $("#nhap-file")
-      .off("click")
-      .on("click", function (e) {
-        // thêm .off để tránh bind nhiều lần
-        e.preventDefault();
-
-        if (questions.length === 0) {
-          Dashmix.helpers("jq-notify", {
-            type: "warning",
-            message: "Chưa có dữ liệu để thêm!",
-          });
-          return;
-        }
-
-        const monhoc = $("#monhocfile").val();
-        const chuong = $("#chuongfile").val();
-        if (!monhoc || !chuong) {
-          Dashmix.helpers("jq-notify", {
-            type: "warning",
-            message: "Vui lòng chọn Môn học và Chương!",
-          });
-          return;
-        }
-
-        const $btn = $(this);
-        $btn
-          .prop("disabled", true)
-          .html('<i class="fa fa-spinner fa-spin me-1"></i> Đang thêm...');
-        Dashmix.layout("header_loader_on");
-
-        $.ajax({
-          url: "./question/addQuesFile",
-          type: "POST",
-          data: {
-            monhoc: monhoc,
-            chuong: chuong,
-            questions: JSON.stringify(questions), // Đảm bảo stringify
-          },
-          dataType: "json",
-          timeout: 90000,
-          success: function (res) {
-            res = typeof res === "string" ? JSON.parse(res) : res;
-            if (res.status === "success") {
-              Dashmix.helpers("jq-notify", {
-                type: "success",
-                message: `Thêm thành công ${
-                  res.inserted || questions.length
-                } mục!`,
-              });
-              // Reset
-              $("#form-upload")[0].reset();
-              $("#file-cau-hoi").val("");
-              $("#preview-cau-hoi").empty().hide();
-              questions = [];
-              $btn.prop("disabled", true).html("Thêm vào hệ thống");
-              $("#modal-add-question").modal("hide");
-              if (typeof mainPagePagination !== "undefined")
-                mainPagePagination.getPagination(
-                  mainPagePagination.option,
-                  mainPagePagination.valuePage.curPage
-                );
-            } else {
-              Dashmix.helpers("jq-notify", {
-                type: "danger",
-                message: res.message || "Lỗi server",
-              });
-            }
-          },
-          error: function (xhr, status) {
-            console.error(xhr.responseText);
-            let msg =
-              status === "timeout"
-                ? "Thời gian xử lý quá lâu!"
-                : "Lỗi kết nối server!";
-            Dashmix.helpers("jq-notify", { type: "danger", message: msg });
-          },
-          complete: function () {
-            $btn.prop("disabled", false).html("Thêm vào hệ thống");
-            Dashmix.layout("header_loader_off");
-          },
-        });
-      });
-
-    // =================== Helper: Escape HTML ===================
-    function escapeHtml(text) {
-      if (!text) return "";
-      const div = document.createElement("div");
-      div.textContent = text;
-      return div.innerHTML;
-    }
-  });
+  // Helper escape HTML
+  function escapeHtml(text) {
+    if (!text) return "";
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
 
   // Load questions
   function loadQuestion() {
@@ -947,13 +1176,12 @@ $(document).ready(function () {
       "json"
     );
   }
+
   // Add question
   $("#add_question").click(function (e) {
     e.preventDefault();
 
     let qtype = $("#loai-cau-hoi").val();
-
-    // Lấy dữ liệu từ CKEditor, kiểm tra instance tồn tại
     let noidung = (CKEDITOR.instances["js-ckeditor"]?.getData() ?? "").trim();
     let passage = (
       CKEDITOR.instances["passage-content"]?.getData() ?? ""
@@ -970,7 +1198,6 @@ $(document).ready(function () {
         return;
       }
 
-      // Kiểm tra mỗi câu hỏi con có ít nhất 1 đáp án đúng
       let hasValidQuestions = readingQuestions.every(
         (q) =>
           q.content.trim() &&
@@ -986,7 +1213,6 @@ $(document).ready(function () {
         return;
       }
 
-      // Reading question không dùng trường noidung chính
       noidung = "";
       cautraloi = readingQuestions;
     } else if (qtype === "mcq") {
@@ -1014,7 +1240,6 @@ $(document).ready(function () {
       cautraloi = [{ content: essayContent, check: false }];
     }
 
-    // Dữ liệu gửi lên server
     let dataPost = {
       mamon: $("#mon-hoc").val(),
       machuong: $("#chuong").val(),
@@ -1057,6 +1282,7 @@ $(document).ready(function () {
         : item.check
     );
   }
+
   $(document).on("click", ".btn-edit-question", function () {
     $("#add_question").hide();
     $("#edit_question").show();
@@ -1075,10 +1301,12 @@ $(document).ready(function () {
     $("#dokho").val("").trigger("change");
     $("#monhocfile").val("").trigger("change");
     $("#chuongfile").val("").trigger("change");
+    $("#loaicauhoifile").val("").trigger("change");
     CKEDITOR.instances["js-ckeditor"].setData("");
     CKEDITOR.instances["passage-content"].setData("");
     options = [];
     readingQuestions = [];
+    questions = [];
     $("#add_option").collapse("hide");
     $("#add_reading_question").collapse("hide");
     $("#list-options").html("");
@@ -1086,8 +1314,8 @@ $(document).ready(function () {
     $("#loai-cau-hoi").val("mcq").trigger("change");
     $("#essay-answer").val("");
     $("#file-cau-hoi").val(null);
+    $("#preview-cau-hoi").empty().hide();
     $("#btabs-alt-static-home-tab").tab("show");
-    $("#content-file").html("");
   });
 
   // Edit question
@@ -1100,8 +1328,6 @@ $(document).ready(function () {
     let qtype = $("#loai-cau-hoi").val();
     let cautraloi = [];
     let id = $("#question_id").val();
-    // Nếu có tiêu đề đoạn văn
-    // let tieudeDV = $("#doanvan-tieude").val() || "";
 
     if (qtype === "essay") {
       let essayContent = $("#essay-answer").val() || "";
@@ -1139,7 +1365,6 @@ $(document).ready(function () {
           noidung: noidung,
           loai: qtype,
           cautraloi: JSON.stringify(cautraloi),
-          // doanvan_tieude: tieudeDV // Thêm nếu dùng tieude
         },
         dataType: "json",
         success: function (response) {
@@ -1174,7 +1399,6 @@ $(document).ready(function () {
         },
       });
     } else {
-      // Giữ logic validate như cũ
       if (!mamonhoc) {
         Dashmix.helpers("jq-notify", {
           type: "error",
@@ -1248,8 +1472,6 @@ $(document).ready(function () {
         if (loai === "reading") {
           CKEDITOR.instances["passage-content"].setData(noidung);
           CKEDITOR.instances["js-ckeditor"].setData("");
-          // Nếu có tiêu đề đoạn văn
-          // $("#doanvan-tieude").val(data["tieude"] || "");
         } else {
           CKEDITOR.instances["js-ckeditor"].setData(noidung);
           CKEDITOR.instances["passage-content"].setData("");

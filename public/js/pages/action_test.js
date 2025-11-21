@@ -381,9 +381,11 @@ $(document).ready(function () {
   // Xử lý nút tạo đề
   $("#btn-add-test").click(function (e) {
     e.preventDefault();
+
     if ($(".form-taodethi").valid()) {
       let chapters = getSelectedChapters();
       let m = $("#nhom-hp").val() ? groups[$("#nhom-hp").val()].mamonhoc : 0;
+
       let socaude = parseInt($("#coban").val()) || 0;
       let socautb = parseInt($("#trungbinh").val()) || 0;
       let socaukho = parseInt($("#kho").val()) || 0;
@@ -397,11 +399,26 @@ $(document).ready(function () {
         return;
       }
 
+      // Lấy loại câu hỏi: mặc định MCQ
+      let loaicauhoi = ["mcq"];
+      $(".loaicauhoi:checked").each(function () {
+        let lc = $(this).val().toLowerCase();
+        if (["essay", "reading"].includes(lc) && !loaicauhoi.includes(lc)) {
+          loaicauhoi.push(lc);
+        }
+      });
+
       let valid = true;
-      // Kiểm tra số lượng câu hỏi cho cả đề thủ công và tự động
-      let availableEasy = getToTalQuestionOfChapter(chapters, m, 1);
-      let availableMedium = getToTalQuestionOfChapter(chapters, m, 2);
-      let availableHard = getToTalQuestionOfChapter(chapters, m, 3);
+
+      // Kiểm tra số lượng câu hỏi cho mức độ dễ, TB, khó
+      let availableEasy = getToTalQuestionOfChapter(chapters, m, 1, loaicauhoi);
+      let availableMedium = getToTalQuestionOfChapter(
+        chapters,
+        m,
+        2,
+        loaicauhoi
+      );
+      let availableHard = getToTalQuestionOfChapter(chapters, m, 3, loaicauhoi);
 
       if (availableEasy < socaude) {
         Dashmix.helpers("jq-notify", {
@@ -428,6 +445,7 @@ $(document).ready(function () {
         valid = false;
       }
 
+      // Nếu hợp lệ và có nhóm học phần
       if (valid && getGroupSelected().length > 0) {
         $.ajax({
           type: "post",
@@ -450,6 +468,7 @@ $(document).ready(function () {
             daodapan: $("#daodapan").prop("checked") ? 1 : 0,
             tudongnop: $("#tudongnop").prop("checked") ? 1 : 0,
             manhom: getGroupSelected(),
+            loaicauhoi: loaicauhoi, // gửi lên server
           },
           dataType: "json",
           success: function (response) {
@@ -497,6 +516,7 @@ $(document).ready(function () {
       }
     }
   });
+
   // Trong $("#btn-update-test").click
   $("#btn-update-test").click(function (e) {
     e.preventDefault();

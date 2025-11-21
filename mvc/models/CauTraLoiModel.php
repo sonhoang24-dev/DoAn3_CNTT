@@ -3,27 +3,28 @@
 class CauTraLoiModel extends DB
 {
     public function create($macauhoi, $noidungtl, $ladapan)
-    {
-        $valid = true;
+{
+    $stmt = mysqli_prepare($this->con, 
+        "INSERT INTO cautraloi (macauhoi, noidungtl, ladapan) VALUES (?, ?, ?)"
+    );
 
-        // Escape dữ liệu tránh lỗi và tấn công SQL injection
-        $macauhoi = (int)$macauhoi;
-        $noidungtl = mysqli_real_escape_string($this->con, $noidungtl);
-        $ladapan = mysqli_real_escape_string($this->con, $ladapan);
-
-        $sql = "INSERT INTO `cautraloi`(`macautl`, `macauhoi`, `noidungtl`, `ladapan`) 
-            VALUES (NULL, $macauhoi, '$noidungtl', '$ladapan')";
-        //echo $sql;
-
-        $result = mysqli_query($this->con, $sql);
-
-        if (!$result) {
-            echo "Lỗi truy vấn: " . mysqli_error($this->con); // Thêm dòng này để biết lý do lỗi
-            $valid = false;
-        }
-
-        return $valid;
+    if (!$stmt) {
+        die("Prepare failed: " . mysqli_error($this->con));
     }
+
+    // $macauhoi: int, $noidungtl: string, $ladapan: int
+    mysqli_stmt_bind_param($stmt, "isi", $macauhoi, $noidungtl, $ladapan);
+
+    $result = mysqli_stmt_execute($stmt);
+    if (!$result) {
+        die("Execute failed: " . mysqli_error($this->con));
+    }
+
+    mysqli_stmt_close($stmt);
+    return $result;
+}
+
+
 
     public function update($macautl, $macauhoi, $noidungtl, $ladapan)
     {

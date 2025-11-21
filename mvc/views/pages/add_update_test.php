@@ -290,6 +290,38 @@
   </label>
   <div id="chuong" class="d-flex flex-column gap-2"></div>
 </div>
+<!-- CHỌN LOẠI CÂU HỎI -->
+<div class="mb-4" id="loaicauhoi-container">
+    <label class="form-label fw-semibold text-dark mb-2 d-flex align-items-center">
+        <i class="fa fa-tasks text-primary me-2 fs-5"></i> Loại câu hỏi
+    </label>
+
+    <div class="d-flex flex-column gap-2 ps-2">
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="loai-tracnghiem" name="loai_cau_hoi[]" value="tracnghiem" checked>
+            <label class="form-check-label" for="loai-tracnghiem">
+                <i class="fa fa-check text-success"></i> Trắc nghiệm
+            </label>
+        </div>
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="loai-tuluan" name="loai_cau_hoi[]" value="tuluan">
+            <label class="form-check-label" for="loai-tuluan">
+                <i class="fa fa-pen text-info"></i> Tự luận
+            </label>
+        </div>
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="loai-doc-hieu" name="loai_cau_hoi[]" value="dochieu">
+            <label class="form-check-label" for="loai-doc-hieu">
+                <i class="fa fa-book text-warning"></i> Đọc hiểu
+            </label>
+        </div>
+
+    </div>
+</div>
+
 
                     
 

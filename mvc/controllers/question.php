@@ -100,202 +100,466 @@ private function parseMCQBlock($lines)
 
     return $questions;
 }
-public function xulyDocx()
+
+
+
+// === THAY TOÀN BỘ HÀM xulyDocx() BẰNG ĐOẠN NÀY ===
+public function xulydoanvan()
 {
-    if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
-        echo json_encode(['error' => 'Unauthorized']);
-        return;
-    }
+    ob_clean(); // xóa sạch mọi output rác
+    header("Content-Type: application/json; charset=utf-8");
 
-    require_once 'vendor/autoload.php';
+    try {
 
-    $file = $_FILES["fileToUpload"]["tmp_name"];
-    if (!file_exists($file)) {
-        echo json_encode(['error' => 'File not found']);
-        return;
-    }
-
-    $phpWord = \PhpOffice\PhpWord\IOFactory::load($file);
-    $text = "";
-
-    // Recursive extractor (giữ nguyên, rất ổn)
-    $extractElementText = null;
-    $extractElementText = function($el) use (&$extractElementText) {
-        $out = '';
-        if (is_string($el)) return $el;
-        if (is_object($el) && method_exists($el, 'getText')) {
-            try {
-                $val = call_user_func([$el, 'getText']);
-                if (is_string($val)) $out .= $val;
-            } catch (\Throwable $t) {}
+        // ============= CHECK FILE =============
+        if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
+            throw new Exception("Unauthorized");
         }
-        if (is_object($el) && method_exists($el, 'getElements')) {
-            foreach ($el->getElements() as $child) {
-                $out .= $extractElementText($child);
+
+        require_once 'vendor/autoload.php';
+
+        if (!isset($_FILES["fileToUpload"]["tmp_name"])) {
+            throw new Exception("No file uploaded");
+        }
+
+        $file = $_FILES["fileToUpload"]["tmp_name"];
+        if (!file_exists($file)) {
+            throw new Exception("File not found");
+        }
+
+        // ============= LOAD FILE DOCX ============
+        try {
+            $phpWord = \PhpOffice\PhpWord\IOFactory::load($file);
+        } catch (\Throwable $t) {
+            throw new Exception("Cannot read DOCX: " . $t->getMessage());
+        }
+
+        // ============= EXTRACT TEXT ============
+        $text = "";
+        $extract = function ($el) use (&$extract) {
+            $out = "";
+            if (is_string($el)) return $el;
+
+            if (is_object($el) && method_exists($el, 'getText')) {
+                try {
+                    $out .= $el->getText();
+                } catch (\Throwable $t) {}
             }
-        }
-        return $out;
-    };
 
-    foreach ($phpWord->getSections() as $section) {
-        foreach ($section->getElements() as $e) {
-            $part = $extractElementText($e);
-            if ($part !== '') {
-                $text .= trim($part) . "\n";
-            }
-        }
-    }
-
-    // Chuẩn hóa dòng: bỏ dòng trống hoàn toàn, trim kỹ
-    $lines = array_values(array_filter(array_map(function($line) {
-        $line = trim($line);
-        return $line === '' ? false : $line;
-    }, preg_split("/\r\n|\r|\n/", $text))));
-
-    $result = [];
-    $i = 0;
-
-    while ($i < count($lines)) {
-        $line = $lines[$i];
-
-        // ============================================================
-        // 1) READING FORMAT MỚI (hỗ trợ tối đa mọi kiểu người dùng viết)
-        // ============================================================
-        if (preg_match('/^\[Reading\]\[(\d+)\](.*)$/u', $line, $m)) {
-            $level = (int)$m[1];
-            $passage = trim($m[2]); // có thể rỗng nếu passage ở dòng sau
-
-            $i++;
-
-            // Gom passage: tiếp tục lấy các dòng CHO ĐẾN KHI gặp dấu hiệu của câu hỏi hoặc đáp án
-            while ($i < count($lines)) {
-                $nextLine = $lines[$i];
-
-                // Dừng gom passage nếu gặp:
-                // - Câu hỏi (kết thúc bằng ?)
-                // - Đáp án A. B. C. D.
-                // - ANSWER:
-                // - [Reading] mới
-                if (preg_match('/\?$/', $nextLine) ||
-                    preg_match('/^[ABCD]\.\s+/ui', $nextLine) ||
-                    preg_match('/^ANSWER:/ui', $nextLine) ||
-                    preg_match('/^\[Reading\]/ui', $nextLine)) {
-                    break;
+            if (is_object($el) && method_exists($el, 'getElements')) {
+                foreach ($el->getElements() as $child) {
+                    $out .= $extract($child);
                 }
+            }
+            return $out;
+        };
 
-                $passage .= " " . trim($nextLine);
+        foreach ($phpWord->getSections() as $section) {
+            foreach ($section->getElements() as $e) {
+                $part = trim($extract($e));
+                if ($part !== "") $text .= $part . "\n";
+            }
+        }
+
+        // ============= SPLIT LINES ============
+        $lines = array_values(array_filter(array_map("trim", preg_split("/\r\n|\n|\r/", $text))));
+        $total = count($lines);
+
+        $result = [];
+        $i = 0;
+
+        // ============= PARSER ============
+        while ($i < $total) {
+
+            $line = $lines[$i];
+
+            // detect Reading block: [Reading][x] - Tiêu đề -
+            if (preg_match('/^\[Reading\]\[(\d+)\]\s*-\s*(.+?)\s*-\s*$/iu', $line, $m)) {
+
+                $levelHeader = intval($m[1]);       // mức độ
+                $title = trim($m[2]);               // tiêu đề
+                $passage = "";                       // passage
                 $i++;
-            }
 
-            // Chuẩn hóa passage: nhiều khoảng trắng → 1 khoảng trắng, trim lại
-            $passage = preg_replace('/\s+/', ' ', trim($passage));
+                // ===== GOM PASSAGE =====
+                while ($i < $total) {
+                    $next = $lines[$i];
 
-            // Gom câu hỏi con
-            $subQuestions = [];
-            while ($i < count($lines)) {
-                // Nếu gặp Reading mới → dừng lại, để vòng while chính xử lý
-                if (preg_match('/^\[Reading\]/ui', $lines[$i])) {
-                    break;
-                }
+                    if (preg_match('/^\[Reading\]/i', $next)) break;  // block mới
+                    if (preg_match('/\?$/', $next)) break;           // câu hỏi bắt đầu
+                    if (preg_match('/^\d+[\.\)]\s+/', $next)) break;
+                    if (preg_match('/^[A-D][)\.]\s+/', $next)) break;
+                    if (preg_match('/^ANSWER:/i', $next)) break;
 
-                // Bỏ qua dòng trống hoặc dòng không phải câu hỏi
-                if (!preg_match('/\?$/', $lines[$i])) {
+                    $passage .= " " . trim($next);
                     $i++;
-                    continue;
                 }
 
-                $questionText = trim($lines[$i]);
-                $i++;
+                // ===== PARSE QUESTIONS =====
+                $subQuestions = [];
+                while ($i < $total && preg_match('/\?$/', $lines[$i])) {
 
-                $opts = [];
-                $correct = "";
+                    $questionText = trim($lines[$i]);
+                    $subLevel = $levelHeader;
 
-                while ($i < count($lines)) {
-                    $l = trim($lines[$i]);
-
-                    // Gặp câu hỏi mới hoặc Reading mới → dừng gom đáp án
-                    if (preg_match('/\?$/', $l) || preg_match('/^\[Reading\]/ui', $l)) {
-                        break;
+                    if (preg_match('/Level:\s*(\d+)/i', $questionText, $lm)) {
+                        $subLevel = intval($lm[1]);
+                        $questionText = trim(preg_replace('/Level:\s*\d+/i', '', $questionText));
                     }
 
-                    if (preg_match('/^A[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['A'] = trim($mm[1]);
-                    if (preg_match('/^B[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['B'] = trim($mm[1]);
-                    if (preg_match('/^C[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['C'] = trim($mm[1]);
-                    if (preg_match('/^D[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['D'] = trim($mm[1]);
-                    if (preg_match('/^ANSWER:\s*([ABCD])/ui', $l, $mm)) $correct = $mm[1];
+                    $i++;
+                    $opts = [];
+                    $correct = null;
 
+                    while ($i < $total) {
+                        $l = trim($lines[$i]);
+                        if (preg_match('/^\[Reading\]/i', $l)) break;
+                        if (preg_match('/\?$/', $l)) break;
+
+                        if (preg_match('/^([A-D])[)\.]\s*(.+)$/u', $l, $mm)) {
+                            $letter = strtoupper($mm[1]);
+                            $opts[$letter] = trim($mm[2]);
+                        }
+                        if (preg_match('/^ANSWER:\s*([A-D])$/i', $l, $ans)) {
+                            $correct = strtoupper($ans[1]);
+                        }
+                        $i++;
+                    }
+
+                    if (count($opts) == 0 || !$correct) {
+                        throw new Exception("Missing options or ANSWER in a question");
+                    }
+
+                    uksort($opts, fn($a, $b) => ord($a) - ord($b));
+                    $optionsArr = array_values($opts);
+                    $answerNumber = array_search($correct, array_keys($opts)) + 1;
+
+                    $subQuestions[] = [
+                        "type" => "reading",
+                        "level" => $subLevel,
+                        "question" => $questionText,
+                        "option" => $optionsArr,
+                        "answer" => $answerNumber
+                    ];
+                }
+
+                $result[] = [
+                    "type" => "reading",
+                    "level" => $levelHeader,
+                    "title" => $title,
+                    "passage" => $passage,
+                    "questions" => $subQuestions
+                ];
+
+                continue;
+            }
+
+            $i++;
+        }
+
+        // ============= RETURN JSON ============
+        ob_clean();
+        echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+
+    } catch (Exception $e) {
+
+        ob_clean();
+        echo json_encode([
+            "status" => "error",
+            "message" => $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+public function xulytracnghiem()
+{
+    if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
+        echo json_encode(["status" => "error", "message" => "Unauthorized"]);
+        exit;
+    }
+
+    try {
+        require_once 'vendor/autoload.php';
+
+        if (!isset($_FILES["fileToUpload"]["tmp_name"])) {
+            throw new Exception("No file uploaded");
+        }
+
+        $file = $_FILES["fileToUpload"]["tmp_name"];
+        if (!file_exists($file)) {
+            throw new Exception("File not found");
+        }
+
+        // Load DOCX
+        $phpWord = \PhpOffice\PhpWord\IOFactory::load($file);
+
+        // Hàm đệ quy lấy text từ element
+        $extract = function ($el) use (&$extract) {
+            $out = "";
+            if (is_string($el)) return $el;
+
+            if (is_object($el) && method_exists($el, 'getText')) {
+                try { $out .= $el->getText(); } catch (\Throwable $t) {}
+            }
+
+            if (is_object($el) && method_exists($el, 'getElements')) {
+                foreach ($el->getElements() as $child) {
+                    $out .= $extract($child);
+                }
+            }
+            return $out;
+        };
+
+        // Lấy tất cả text
+        $text = "";
+        foreach ($phpWord->getSections() as $section) {
+            foreach ($section->getElements() as $e) {
+                $part = trim($extract($e));
+                if ($part !== "") $text .= $part . "\n";
+            }
+        }
+
+        // Tách từng dòng
+        $lines = array_values(array_filter(array_map("trim", preg_split("/\r\n|\n|\r/", $text))));
+        $total = count($lines);
+        $result = [];
+        $i = 0;
+
+        while ($i < $total) {
+            $line = $lines[$i];
+
+            // detect MCQ block: [mcq][x] Câu hỏi...
+            if (preg_match('/^\[mcq\]\[(\d+)\]\s*(.+)$/i', $line, $m)) {
+                $level = intval($m[1]);
+                $questionText = trim($m[2]);
+                $i++;
+
+                $options = [];
+                $answer = null;
+
+                // Lấy các option và ANSWER
+                while ($i < $total) {
+                    $l = trim($lines[$i]);
+                    if (preg_match('/^[A-D][)\.]\s*(.+)$/', $l, $opt)) {
+                        $letter = strtoupper($l[0]);
+                        $options[$letter] = trim($opt[1]);
+                    } elseif (preg_match('/^ANSWER:\s*([A-D])/i', $l, $ans)) {
+                        $answer = strtoupper($ans[1]);
+                        break;
+                    }
                     $i++;
                 }
 
-                // Chỉ thêm câu hỏi nếu có ít nhất 3 đáp án và có ANSWER
-                if (count($opts) >= 3 && $correct !== "") {
-                    $subQuestions[] = [
-                        "type" => "reading",
-                        "level" => $level,
-                        "question" => $questionText,
-                        "option" => array_values($opts),
-                        "answer" => array_search($correct, array_keys($opts)) + 1
-                    ];
-                }
-            }
-
-            $result[] = [
-                "type" => "reading",
-                "passage" => $passage,
-                "questions" => $subQuestions
-            ];
-
-            // Quan trọng: không $i++ ở cuối vòng while chính khi dùng continue
-            continue;
-        }
-
-        // ============================================================
-        // 2) MCQ THƯỜNG (câu hỏi độc lập, không nằm trong Reading)
-        // ============================================================
-        if (preg_match('/\?$/', $line)) {
-            $question = trim($line);
-            $i++;
-
-            $opts = [];
-            $correct = "";
-
-            while ($i < count($lines)) {
-                $l = trim($lines[$i]);
-
-                if (preg_match('/\?$/', $l) || preg_match('/^\[Reading\]/ui', $l)) {
-                    break;
+                if (!$answer || count($options) === 0) {
+                    throw new Exception("Missing options or ANSWER in question: $questionText");
                 }
 
-                
-                if (preg_match('/^A[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['A'] = trim($mm[1]);
-                if (preg_match('/^B[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['B'] = trim($mm[1]);
-                if (preg_match('/^C[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['C'] = trim($mm[1]);
-                if (preg_match('/^D[\.\)]\s*(.+)$/ui', $l, $mm)) $opts['D'] = trim($mm[1]);
-                if (preg_match('/^ANSWER:\s*([ABCD])/ui', $l, $mm)) $correct = $mm[1];
+                // Sắp xếp option theo A-D
+                uksort($options, fn($a, $b) => ord($a) - ord($b));
+                $optionsArr = array_values($options);
+                $answerNumber = array_search($answer, array_keys($options)) + 1;
 
-                $i++;
-            }
-
-            if (count($opts) >= 3 && $correct !== "") {
                 $result[] = [
                     "type" => "mcq",
-                    "level" => 1,
-                    "question" => $question,
-                    "option" => array_values($opts),
-                    "answer" => array_search($correct, array_keys($opts)) + 1
+                    "level" => $level,
+                    "question" => $questionText,
+                    "option" => $optionsArr,
+                    "answer" => $answerNumber
                 ];
+            } else {
+                $i++;
             }
-
-            continue;
         }
 
-        // Nếu không match gì → bỏ qua dòng này
-        $i++;
+        echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+
+    } catch (Exception $e) {
+        echo json_encode([
+            "status" => "error",
+            "message" => $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+public function xulytuluan()
+{
+    if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
+        echo json_encode(["status" => "error", "message" => "Unauthorized"]);
+        exit;
     }
 
-    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    try {
+        require_once 'vendor/autoload.php';
+
+        if (!isset($_FILES["fileToUpload"]["tmp_name"])) {
+            throw new Exception("No file uploaded");
+        }
+
+        $file = $_FILES["fileToUpload"]["tmp_name"];
+        if (!file_exists($file)) {
+            throw new Exception("File not found");
+        }
+
+        // Load DOCX
+        $phpWord = \PhpOffice\PhpWord\IOFactory::load($file);
+
+        // Hàm đệ quy lấy text từ element
+        $extract = function ($el) use (&$extract) {
+            $out = "";
+            if (is_string($el)) return $el;
+
+            if (is_object($el) && method_exists($el, 'getText')) {
+                try { $out .= $el->getText(); } catch (\Throwable $t) {}
+            }
+
+            if (is_object($el) && method_exists($el, 'getElements')) {
+                foreach ($el->getElements() as $child) {
+                    $out .= $extract($child);
+                }
+            }
+            return $out;
+        };
+
+        // Lấy tất cả text
+        $text = "";
+        foreach ($phpWord->getSections() as $section) {
+            foreach ($section->getElements() as $e) {
+                $part = trim($extract($e));
+                if ($part !== "") $text .= $part . "\n";
+            }
+        }
+
+        // Tách từng dòng
+        $lines = array_values(array_filter(array_map("trim", preg_split("/\r\n|\n|\r/", $text))));
+        $total = count($lines);
+        $result = [];
+        $i = 0;
+
+        while ($i < $total) {
+            $line = $lines[$i];
+
+            // detect Essay block: [essay][x] Câu hỏi...
+            if (preg_match('/^\[essay\]\[(\d+)\]\s*(.+)$/i', $line, $m)) {
+                $level = intval($m[1]);
+                $questionText = trim($m[2]);
+
+                $result[] = [
+                    "type" => "essay",
+                    "level" => $level,
+                    "question" => $questionText
+                ];
+
+                $i++;
+            } else {
+                $i++;
+            }
+        }
+
+        echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+
+    } catch (Exception $e) {
+        echo json_encode([
+            "status" => "error",
+            "message" => $e->getMessage()
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
 
+public function updateQuestionJSON() {
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+        echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        return;
+    }
+
+    $json = $_POST['questions'] ?? '';
+    if (!$json) {
+        echo json_encode(['status' => 'error', 'message' => 'No data provided']);
+        return;
+    }
+
+    $questions = json_decode($json, true);
+    if (!$questions || !is_array($questions)) {
+        echo json_encode(['status' => 'error', 'message' => 'Invalid JSON']);
+        return;
+    }
+
+    foreach ($questions as &$item) {
+
+        // ======== MỨC ĐỘ ========
+        if (!isset($item['level']) || !$item['level']) {
+            $item['level'] = 1;
+        }
+
+        // ======== ĐỌC HIỂU ========
+       // ======== ĐỌC HIỂU ========
+if ($item['type'] === 'reading') {
+    // Thiếu title hoặc passage -> đảm bảo tồn tại
+    if (!isset($item['title'])) $item['title'] = "";
+    if (!isset($item['passage'])) $item['passage'] = "";
+
+    // Đảm bảo level của block luôn tồn tại
+    if (!isset($item['level']) || !$item['level']) {
+        $item['level'] = 1;
+    }
+
+    // Nếu không có mảng câu hỏi con
+    if (!isset($item['questions']) || !is_array($item['questions'])) {
+        $item['questions'] = [];
+    }
+
+    // ===> QUAN TRỌNG: GHI ĐÈ LUÔN LEVEL CỦA TẤT CẢ CÂU HỎI CON ===
+    foreach ($item['questions'] as &$sub) {
+        // Luôn gán level của câu hỏi con = level của block reading
+        $sub['level'] = $item['level'];
+
+        // Chuẩn hoá các trường khác
+        if (!isset($sub['option']) || !is_array($sub['option'])) {
+            $sub['option'] = [];
+        }
+        if (!isset($sub['answer']) || !$sub['answer']) {
+            $sub['answer'] = 1;
+        }
+        if (!isset($sub['question'])) {
+            $sub['question'] = "";
+        }
+    }
+    unset($sub); // phá tham chiếu
+}
+        // ======== TRẮC NGHIỆM ========
+        else if ($item['type'] === 'mcq') {
+
+            if (!isset($item['question'])) $item['question'] = "";
+
+            if (!isset($item['option']) || !is_array($item['option'])) {
+                $item['option'] = [];
+            }
+
+            if (!isset($item['answer']) || !$item['answer']) {
+                $item['answer'] = 1;
+            }
+        }
+
+        // ======== TỰ LUẬN ========
+        else if ($item['type'] === 'essay') {
+
+            if (!isset($item['question'])) $item['question'] = "";
+
+            // Tự luận không có option & answer
+            $item['option'] = [];
+            $item['answer'] = null;
+        }
+
+    }
+
+    echo json_encode([
+        'status' => 'success',
+        'questions' => $questions
+    ]);
+}
 
 public function addQuesFile()
 {
@@ -306,142 +570,158 @@ public function addQuesFile()
         return;
     }
 
-    $nguoitao = $_SESSION['user_id'];
+    $nguoitao = $_SESSION['user_id'] ?? null;
     $monhoc   = $_POST['monhoc'] ?? null;
     $chuong   = $_POST['chuong'] ?? null;
     $items    = json_decode($_POST['questions'] ?? '[]', true);
 
-    if (!$monhoc || !$chuong || !is_array($items)) {
+    if (!$nguoitao || !$monhoc || !$chuong || !is_array($items)) {
         echo json_encode(['status' => 'error', 'message' => 'Dữ liệu không hợp lệ']);
         return;
     }
 
-    $this->cauHoiModel->con->begin_transaction();
-    $inserted = 0;
     $errors = [];
+    $inserted = 0;
+    $ansValues = []; // Lưu tất cả đáp án tạm thời
 
     try {
+        // ===================== Insert câu hỏi =====================
         foreach ($items as $idx => $item) {
-            // READING
+            if (!isset($item["type"])) {
+                $errors[] = "Mục $idx: Dữ liệu sai";
+                continue;
+            }
+
+            // --- READING ---
             if ($item["type"] === "reading") {
-                $passage = trim($item["passage"] ?? '');
-                if (empty($passage)) {
+                $passage = trim($item["passage"] ?? "");
+                if ($passage === "") {
                     $errors[] = "Mục $idx: Đoạn văn trống";
                     continue;
                 }
 
-                // Tạo doan_van
                 $madv = $this->cauHoiModel->createWithDoanVan(
-                    "",
-                    1,
-                    $monhoc,
-                    $chuong,
-                    $nguoitao,
-                    "reading",
-                    $passage,
-                    $item["title"] ?? null
+                    "", 1, $monhoc, $chuong, $nguoitao, "reading", $passage, $item["title"] ?? null
                 );
-
                 if (!$madv) {
-                    $errors[] = "Mục $idx: Không thể tạo đoạn văn";
+                    $errors[] = "Mục $idx: Lỗi tạo đoạn văn";
                     continue;
                 }
 
-                // Thêm câu hỏi con
                 $subQuestions = $item["questions"] ?? [];
                 foreach ($subQuestions as $subIdx => $sub) {
-                    $subContent = trim($sub["question"] ?? '');
-                    if (empty($subContent)) continue;
+                    $qText = trim($sub["question"] ?? "");
+                    $opts  = $sub["option"] ?? [];
+                    $ans   = intval($sub["answer"] ?? 0);
 
-                    $subLevel = $sub["level"] ?? 1;
-                    $macauhoi = $this->cauHoiModel->create(
-                        $subContent,
-                        $subLevel,
-                        $monhoc,
-                        $chuong,
-                        $nguoitao,
-                        "reading",
-                        $madv
-                    );
-
-                    if (!$macauhoi) {
-                        $errors[] = "Mục $idx câu $subIdx: Không thể tạo câu hỏi con";
+                    if ($qText === "" || count($opts) < 2 || $ans < 1) {
+                        $errors[] = "Mục $idx câu $subIdx: Dữ liệu không hợp lệ";
                         continue;
                     }
 
-                    // Thêm đáp án
-                    $options = $sub["option"] ?? [];
-                    foreach ($options as $optIdx => $opt) {
-                        $optContent = trim($opt ?? '');
-                        if (empty($optContent)) continue;
+                    $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
+                    $dokho   = intval($sub["level"] ?? 1);
 
-                        $isCorrect = ($optIdx + 1 == $sub["answer"]) ? 1 : 0;
-                        if (!$this->cauTraLoiModel->create($macauhoi, $optContent, $isCorrect)) {
-                            $errors[] = "Mục $idx câu $subIdx đáp án $optIdx: Lỗi thêm đáp án";
-                        }
+                    $sqlQ = "INSERT INTO cauhoi (noidung, dokho, mamonhoc, machuong, nguoitao, loai, madv)
+                             VALUES ('$noidung', $dokho, '$monhoc', $chuong, '$nguoitao', 'reading', $madv)";
+                    mysqli_query($this->cauHoiModel->con, $sqlQ);
+                    $qId = mysqli_insert_id($this->cauHoiModel->con);
+
+                    // Lưu đáp án tạm
+                    foreach ($opts as $i => $opt) {
+                        $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, trim($opt));
+                        $ladapan = ($i + 1 == $ans) ? 1 : 0;
+                        $ansValues[] = "($qId, '$noidungtl', $ladapan)";
                     }
 
                     $inserted++;
                 }
-
                 continue;
             }
 
-            // MCQ
+            // --- MCQ ---
             if ($item["type"] === "mcq") {
-                $qContent = trim($item["question"] ?? '');
-                if (empty($qContent)) {
-                    $errors[] = "Mục $idx: Câu hỏi trống";
+                $qText = trim($item["question"] ?? "");
+                $opts  = $item["option"] ?? [];
+                $ans   = intval($item["answer"] ?? 0);
+
+                if ($qText === "" || count($opts) < 2 || $ans < 1) {
+                    $errors[] = "Mục $idx: Dữ liệu câu hỏi không hợp lệ";
                     continue;
                 }
 
-                $macauhoi = $this->cauHoiModel->create(
-                    $qContent,
-                    $item["level"] ?? 1,
-                    $monhoc,
-                    $chuong,
-                    $nguoitao,
-                    "mcq"
-                );
+                $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
+                $dokho   = intval($item["level"] ?? 1);
 
-                if (!$macauhoi) {
-                    $errors[] = "Mục $idx: Không thể tạo câu hỏi";
-                    continue;
-                }
+                $sqlQ = "INSERT INTO cauhoi (noidung, dokho, mamonhoc, machuong, nguoitao, loai, madv)
+                         VALUES ('$noidung', $dokho, '$monhoc', $chuong, '$nguoitao', 'mcq', NULL)";
+                mysqli_query($this->cauHoiModel->con, $sqlQ);
+                $qId = mysqli_insert_id($this->cauHoiModel->con);
 
-                $options = $item["option"] ?? [];
-                foreach ($options as $optIdx => $opt) {
-                    $optContent = trim($opt ?? '');
-                    if (empty($optContent)) continue;
-
-                    $isCorrect = ($optIdx + 1 == $item["answer"]) ? 1 : 0;
-                    if (!$this->cauTraLoiModel->create($macauhoi, $optContent, $isCorrect)) {
-                        $errors[] = "Mục $idx đáp án $optIdx: Lỗi thêm đáp án";
-                    }
+                foreach ($opts as $i => $opt) {
+                    $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, trim($opt));
+                    $ladapan = ($i + 1 == $ans) ? 1 : 0;
+                    $ansValues[] = "($qId, '$noidungtl', $ladapan)";
                 }
 
                 $inserted++;
             }
+            // --- ESSAY ---
+            else if ($item["type"] === "essay") {
+                $qText = trim($item["question"] ?? "");
+                if ($qText === "") {
+                    $errors[] = "Mục $idx: Câu hỏi trống";
+                    continue;
+                }
+
+                $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
+                $dokho   = intval($item["level"] ?? 1);
+
+                $sqlQ = "INSERT INTO cauhoi (noidung, dokho, mamonhoc, machuong, nguoitao, loai, madv)
+                         VALUES ('$noidung', $dokho, '$monhoc', $chuong, '$nguoitao', 'essay', NULL)";
+                if (!mysqli_query($this->cauHoiModel->con, $sqlQ)) {
+                    $errors[] = "Mục $idx: Lỗi tạo câu hỏi tự luận";
+                    continue;
+                }
+
+                $inserted++;
+            } else {
+                $errors[] = "Mục $idx: Loại câu hỏi không hợp lệ";
+                continue;
+            }
+            
         }
 
-        $this->cauHoiModel->con->commit();
+        // ===================== Batch insert đáp án =====================
+        $batchSize = 500; // 500 đáp án mỗi batch
+        $totalAns = count($ansValues);
+        for ($start = 0; $start < $totalAns; $start += $batchSize) {
+            $batch = array_slice($ansValues, $start, $batchSize);
+            $sqlA = "INSERT INTO cautraloi (macauhoi, noidungtl, ladapan) VALUES " . implode(',', $batch);
+            if (!mysqli_query($this->cauTraLoiModel->con, $sqlA)) {
+                throw new Exception("Lỗi insert đáp án: " . mysqli_error($this->cauTraLoiModel->con));
+            }
+        }
 
         echo json_encode([
-            'status' => 'success',
-            'inserted' => $inserted,
-            'message' => "Đã thêm $inserted câu hỏi!",
-            'errors' => $errors
+            "status" => "success",
+            "inserted" => $inserted,
+            "errors" => $errors
         ]);
 
-    } catch (Exception $e) {
-        $this->cauHoiModel->con->rollback();
+    } catch (\Throwable $e) {
         echo json_encode([
-            'status' => 'error',
-            'message' => $e->getMessage(),
-            'errors' => $errors
+            "status" => "error",
+            "message" => $e->getMessage(),
+            "errors" => $errors
         ]);
     }
 }
+
+
+
+
+
 
 
 

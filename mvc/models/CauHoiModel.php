@@ -3,35 +3,21 @@
 class CauHoiModel extends DB
 {
   public function create($noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai = 'mcq', $madv = null)
-{
-    // Nếu có madv, mặc định loai là 'reading'
-    if ($madv !== null && $loai === 'mcq') {
-        $loai = 'reading';
+    {
+        if ($madv !== null && $loai === 'mcq') {
+            $loai = 'reading';
+        }
+
+        $sql = "INSERT INTO cauhoi (noidung, dokho, mamonhoc, machuong, nguoitao, loai, madv) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $stmt = mysqli_prepare($this->con, $sql);
+        mysqli_stmt_bind_param($stmt, "sissssi", $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $madv);
+        mysqli_stmt_execute($stmt);
+        $id = mysqli_insert_id($this->con);
+        mysqli_stmt_close($stmt);
+
+        return $id > 0 ? $id : false;
     }
-
-    $sql = "INSERT INTO cauhoi (noidung, dokho, mamonhoc, machuong, nguoitao, loai, madv) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)";
-    $stmt = mysqli_prepare($this->con, $sql);
-
-    mysqli_stmt_bind_param($stmt, "sissssi", 
-        $noidung, 
-        $dokho, 
-        $mamonhoc, 
-        $machuong, 
-        $nguoitao, 
-        $loai, 
-        $madv
-    );
-
-    mysqli_stmt_execute($stmt);
-
-    $id = mysqli_insert_id($this->con);
-    mysqli_stmt_close($stmt);
-
-    return $id > 0 ? $id : false;
-}
-
-
 
     public function update($macauhoi, $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai = 'mcq', $madv = null)
 {
@@ -83,24 +69,23 @@ public function getWithDoanVan($macauhoi)
     return $row;
 }
 public function createWithDoanVan($noidungCH, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $noidungDV, $tieudeDV = null)
-{
-    // Tạo đoạn văn
-    $sql = "INSERT INTO doan_van (noidung, tieude, mamonhoc, machuong, nguoitao)
-            VALUES (?, ?, ?, ?, ?)";
-    $stmt = mysqli_prepare($this->con, $sql);
-    mysqli_stmt_bind_param($stmt, "sssis", $noidungDV, $tieudeDV, $mamonhoc, $machuong, $nguoitao);
-    mysqli_stmt_execute($stmt);
+    {
+        // Tạo đoạn văn
+        $sql = "INSERT INTO doan_van (noidung, tieude, mamonhoc, machuong, nguoitao)
+                VALUES (?, ?, ?, ?, ?)";
+        $stmt = mysqli_prepare($this->con, $sql);
+        mysqli_stmt_bind_param($stmt, "sssis", $noidungDV, $tieudeDV, $mamonhoc, $machuong, $nguoitao);
+        mysqli_stmt_execute($stmt);
+        $madv = mysqli_insert_id($this->con);
+        mysqli_stmt_close($stmt);
 
-    $madv = mysqli_insert_id($this->con);  // Lấy ID của đoạn văn
-    mysqli_stmt_close($stmt);
+        // Tạo câu hỏi nếu có nội dung
+        if (!empty($noidungCH)) {
+            $this->create($noidungCH, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $madv);
+        }
 
-    // Chỉ tạo câu hỏi nếu $noidungCH không rỗng
-    if (!empty($noidungCH)) {
-        $this->create($noidungCH, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $madv);
+        return $madv;
     }
-
-    return $madv; // Trả về madv
-}
 
 
     public function delete($macauhoi)
@@ -468,61 +453,32 @@ public function getQueryWithInput($filter, $input, $args)
 
 
     
-    public function getsoluongcauhoi($chuong, $monhoc, $dokho)
-    {
-        // Log tham số đầu vào
-        error_log("getsoluongcauhoi: chuong=" . json_encode($chuong) . ", monhoc=$monhoc, dokho=$dokho");
+    public function getsoluongcauhoi($chuong, $monhoc, $dokho, $loaicauhoi = ['mcq'])
+{
+    if (!is_array($chuong)) $chuong = !empty($chuong) ? [$chuong] : [];
+    if (!is_array($loaicauhoi)) $loaicauhoi = [$loaicauhoi];
 
-        // Chuyển chuong thành mảng nếu nó là chuỗi
-        if (!is_array($chuong)) {
-            $chuong = !empty($chuong) ? [$chuong] : [];
-        }
+    $sql = "SELECT COUNT(*) as soluong FROM cauhoi WHERE dokho = ? AND mamonhoc = ? AND loai IN (" . implode(',', array_fill(0, count($loaicauhoi), '?')) . ")";
+    $types = str_repeat('s', 2 + count($loaicauhoi)); // dokho, mamonhoc + loaicauhoi
+    $params = array_merge([(string)$dokho, $monhoc], $loaicauhoi);
 
-        $sql = "SELECT COUNT(*) as soluong FROM cauhoi WHERE dokho = ? AND mamonhoc = ?";
-        $params = ['is', (int)$dokho, $monhoc];
-
-        if (!empty($chuong)) {
-            $placeholders = str_repeat('?,', count($chuong) - 1) . '?';
-            $sql .= " AND machuong IN ($placeholders)";
-            $params[0] .= str_repeat('s', count($chuong));
-            $params = array_merge($params, $chuong);
-        }
-
-        // Log câu lệnh SQL
-        error_log("SQL Query: $sql");
-        error_log("Params: " . json_encode($params));
-
-        $stmt = mysqli_prepare($this->con, $sql);
-        if ($stmt === false) {
-            error_log("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
-            return 0;
-        }
-
-        if (!mysqli_stmt_bind_param($stmt, ...$params)) {
-            error_log("Lỗi bind param: " . mysqli_stmt_error($stmt));
-            mysqli_stmt_close($stmt);
-            return 0;
-        }
-
-        if (!mysqli_stmt_execute($stmt)) {
-            error_log("Lỗi thực thi truy vấn: " . mysqli_stmt_error($stmt));
-            mysqli_stmt_close($stmt);
-            return 0;
-        }
-
-        $result = mysqli_stmt_get_result($stmt);
-        if ($result === false) {
-            error_log("Lỗi lấy kết quả: " . mysqli_stmt_error($stmt));
-            mysqli_stmt_close($stmt);
-            return 0;
-        }
-
-        $row = mysqli_fetch_assoc($result);
-        $soluong = $row['soluong'] ?? 0;
-        error_log("Số lượng câu hỏi: $soluong");
-
-        mysqli_stmt_close($stmt);
-        return (int)$soluong;
+    if (!empty($chuong)) {
+        $sql .= " AND machuong IN (" . implode(',', array_fill(0, count($chuong), '?')) . ")";
+        $types .= str_repeat('s', count($chuong));
+        $params = array_merge($params, $chuong);
     }
+
+    $stmt = mysqli_prepare($this->con, $sql);
+    if (!$stmt) return 0;
+
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
+    return (int)($row['soluong'] ?? 0);
+}
+
 
 }

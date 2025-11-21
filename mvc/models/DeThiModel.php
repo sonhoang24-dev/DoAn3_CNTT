@@ -86,63 +86,6 @@ class DeThiModel extends DB
             return false;
         }
     }
-
-    public function create_dethi_auto($made, $monhoc, $chuong, $socaude, $socautb, $socaukho)
-    {
-        $check = $this->checkQuestionAvailability($monhoc, $chuong, $socaude, $socautb, $socaukho);
-        if (!$check['valid']) {
-            return $check;
-        }
-
-        // Lấy giá trị troncauhoi từ bảng dethi
-        $sql_dethi = "SELECT troncauhoi FROM dethi WHERE made = '$made'";
-        $data_dethi = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
-        $troncauhoi = $data_dethi['troncauhoi'];
-
-        // Sử dụng ORDER BY cố định nếu troncauhoi = 0
-        $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
-
-        $sql_caude = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 1 AND ch.trangthai != 0 AND ";
-        $sql_cautb = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 2 AND ch.trangthai != 0 AND ";
-        $sql_caukho = "SELECT * FROM cauhoi ch JOIN monhoc mh ON ch.mamonhoc = mh.mamonhoc WHERE ch.mamonhoc = '$monhoc' AND ch.dokho = 3 AND ch.trangthai != 0 AND ";
-
-        $countChuong = count($chuong) - 1;
-        $detailChuong = "(";
-        for ($i = 0; $i < $countChuong; $i++) {
-            $detailChuong .= "ch.machuong='$chuong[$i]' OR ";
-        }
-        $detailChuong .= "ch.machuong='$chuong[$countChuong]')";
-
-        $sql_caude .= $detailChuong . " $orderBy LIMIT $socaude";
-        $sql_cautb .= $detailChuong . " $orderBy LIMIT $socautb";
-        $sql_caukho .= $detailChuong . " $orderBy LIMIT $socaukho";
-
-        $result_cd = mysqli_query($this->con, $sql_caude);
-        $result_tb = mysqli_query($this->con, $sql_cautb);
-        $result_ck = mysqli_query($this->con, $sql_caukho);
-
-        $data_cd = [];
-        while ($row = mysqli_fetch_assoc($result_cd)) {
-            $data_cd[] = $row;
-        }
-        while ($row = mysqli_fetch_assoc($result_tb)) {
-            $data_cd[] = $row;
-        }
-        while ($row = mysqli_fetch_assoc($result_ck)) {
-            $data_cd[] = $row;
-        }
-
-        // Chỉ xáo trộn nếu troncauhoi = 1
-        if ($troncauhoi == 1) {
-            shuffle($data_cd);
-        }
-
-        return [
-            'valid' => true,
-            'data' => $data_cd
-        ];
-    }
-
     public function create_chuongdethi($made, $chuong)
     {
         $valid = true;
@@ -155,21 +98,7 @@ class DeThiModel extends DB
         }
         return $valid;
     }
-
-    public function update_chuongdethi($made, $chuong)
-    {
-        $valid = true;
-        $sql = "DELETE FROM `dethitudong` WHERE `made`='$made'";
-        $result_del = mysqli_query($this->con, $sql);
-        if ($result_del) {
-            $result_update = $this->create_chuongdethi($made, $chuong);
-        } else {
-            $valid = false;
-        }
-        return $valid;
-    }
-
-    public function create_giaodethi($made, $nhom)
+     public function create_giaodethi($made, $nhom)
     {
         $valid = true;
         $nhom = array_unique($nhom);
@@ -188,6 +117,115 @@ class DeThiModel extends DB
         }
         return $valid;
     }
+    public function create_dethi_auto($made, $monhoc, $chuong, $socaude, $socautb, $socaukho, $loai_cauhoi = [])
+{
+    // Lấy thông tin đề thi
+    $sql_dethi = "SELECT troncauhoi, trondapan FROM dethi WHERE made = '$made'";
+    $dethi_data = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
+    $troncauhoi = $dethi_data['troncauhoi'];
+    $trondapan  = $dethi_data['trondapan'];
+
+    $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
+
+    // CHUẨN HÓA CHƯƠNG
+    $listChuong = implode(",", array_map(function ($c) {
+        return "'" . $c . "'";
+    }, $chuong));
+
+    $data = [];
+
+    // ----------------------------
+    // 1) MCQ (luôn lấy)
+    // ----------------------------
+    $data = array_merge($data, $this->fetchQuestionsByType('mcq', $monhoc, $listChuong, $socaude, $socautb, $socaukho, $trondapan, $orderBy));
+
+    // ----------------------------
+    // 2) Các loại khác nếu có
+    // ----------------------------
+    if (in_array('essay', $loai_cauhoi)) {
+        $data = array_merge($data, $this->fetchQuestionsByType('essay', $monhoc, $listChuong, $socaude, $socautb, $socaukho, $trondapan, $orderBy));
+    }
+
+    if (in_array('reading', $loai_cauhoi)) {
+        // lấy block đọc hiểu
+        $sql_dv = "SELECT * FROM doan_van WHERE mamonhoc='$monhoc' AND machuong IN ($listChuong) AND trangthai != 0";
+        $res_dv = mysqli_query($this->con, $sql_dv);
+
+        $reading_blocks = [];
+        while ($dv = mysqli_fetch_assoc($res_dv)) {
+            $sql_cau = "SELECT * FROM cauhoi WHERE loai='reading' AND trangthai!=0 AND madv={$dv['madv']} ORDER BY macauhoi ASC";
+            $res_cau = mysqli_query($this->con, $sql_cau);
+
+            $questions = [];
+            while ($q = mysqli_fetch_assoc($res_cau)) {
+                $sql_ans = "SELECT * FROM cautraloi WHERE macauhoi = {$q['macauhoi']} ORDER BY macautl ASC";
+                $ans = mysqli_query($this->con, $sql_ans);
+                $q['answers'] = [];
+                while ($a = mysqli_fetch_assoc($ans)) $q['answers'][] = $a;
+                $questions[] = $q;
+            }
+
+            $reading_blocks[] = [
+                "type" => "reading_block",
+                "doanvan" => $dv,
+                "questions" => $questions
+            ];
+        }
+
+        if ($troncauhoi == 1) shuffle($reading_blocks);
+
+        $data = array_merge($data, $reading_blocks);
+    }
+
+    return [
+        "valid" => true,
+        "data" => $data
+    ];
+}
+
+private function fetchQuestionsByType($type, $monhoc, $listChuong, $socaude, $socautb, $socaukho, $trondapan, $orderBy)
+{
+    $data = [];
+    $levels = ['1'=>$socaude,'2'=>$socautb,'3'=>$socaukho];
+    foreach ($levels as $dokho => $limit) {
+        $sql = "SELECT * FROM cauhoi WHERE loai='$type' AND mamonhoc='$monhoc' AND dokho=$dokho AND trangthai!=0 AND machuong IN ($listChuong) $orderBy LIMIT $limit";
+        $res = mysqli_query($this->con, $sql);
+
+        while ($row = mysqli_fetch_assoc($res)) {
+            if ($type === 'mcq') {
+                $sql_ans = "SELECT * FROM cautraloi WHERE macauhoi = {$row['macauhoi']} ORDER BY macautl ASC";
+                $ans_res = mysqli_query($this->con, $sql_ans);
+                $answers = [];
+                while ($a = mysqli_fetch_assoc($ans_res)) $answers[] = $a;
+                if ($trondapan == 1) shuffle($answers);
+                $row['answers'] = $answers;
+            }
+            $data[] = $row;
+        }
+    }
+    return $data;
+}
+
+
+
+    
+
+
+    
+    public function update_chuongdethi($made, $chuong)
+    {
+        $valid = true;
+        $sql = "DELETE FROM `dethitudong` WHERE `made`='$made'";
+        $result_del = mysqli_query($this->con, $sql);
+        if ($result_del) {
+            $result_update = $this->create_chuongdethi($made, $chuong);
+        } else {
+            $valid = false;
+        }
+        return $valid;
+    }
+
+   
 
     public function update_giaodethi($made, $nhom)
     {
