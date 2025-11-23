@@ -35,7 +35,7 @@
         <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item filtered-by-role active" href="javascript:void(0)" data-id="0">Tất cả vai trò</a></li>
             <?php foreach ($data["Roles"] as $role): ?>
-                <?php if ($role['manhomquyen'] != 3): // bỏ nhóm quyền 3 ?>
+                <?php if ($role['manhomquyen'] != 3): // bỏ nhóm quyền 3?>
                     <li>
                         <a class="dropdown-item filtered-by-role" href="javascript:void(0)" 
                            data-id="<?= $role['manhomquyen'] ?>">

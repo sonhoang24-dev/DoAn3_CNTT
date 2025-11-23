@@ -243,135 +243,150 @@ class Test extends Controller
         }
     }
 
-   public function addTest()
-{
-    if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("dethi", "create")) {
-        $response = ['success' => false, 'error' => '', 'made' => 0];
+    public function addTest()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("dethi", "create")) {
+            $response = ['success' => false, 'error' => '', 'made' => 0];
 
-        // ============================
-        // 1) LẤY DỮ LIỆU POST
-        // ============================
-        $mamonhoc = trim($_POST['mamonhoc'] ?? '');
-        $tenmonhoc = $mamonhoc;
-        $sqlTenMon = "SELECT tenmonhoc FROM monhoc WHERE mamonhoc = '$mamonhoc' LIMIT 1";
-        $resTenMon = mysqli_query($this->dethimodel->con, $sqlTenMon);
-        if ($row = mysqli_fetch_assoc($resTenMon)) {
-            $tenmonhoc = $row['tenmonhoc'];
-        }
+            $mamonhoc = trim($_POST['mamonhoc'] ?? '');
+            $tenmonhoc = $mamonhoc;
+            $sqlTenMon = "SELECT tenmonhoc FROM monhoc WHERE mamonhoc = '$mamonhoc' LIMIT 1";
+            $resTenMon = mysqli_query($this->dethimodel->con, $sqlTenMon);
+            if ($row = mysqli_fetch_assoc($resTenMon)) {
+                $tenmonhoc = $row['tenmonhoc'];
+            }
 
-        $nguoitao = $_SESSION['user_id'] ?? 0;
-        $tende = trim($_POST['tende'] ?? '');
-        $thoigianthi = (int)($_POST['thoigianthi'] ?? 0);
-        $thoigianbatdau = trim($_POST['thoigianbatdau'] ?? '');
-        $thoigianketthuc = trim($_POST['thoigianketthuc'] ?? '');
-        $socaude = (int)($_POST['socaude'] ?? 0);
-        $socautb = (int)($_POST['socautb'] ?? 0);
-        $socaukho = (int)($_POST['socaukho'] ?? 0);
-        $chuong = isset($_POST['chuong']) && $_POST['chuong'] !== '' ? (array)$_POST['chuong'] : [];
-        $loaide = (int)($_POST['loaide'] ?? 0);
-        $xemdiem = (int)($_POST['xemdiem'] ?? 0);
-        $xemdapan = (int)($_POST['xemdapan'] ?? 0);
-        $hienthibailam = (int)($_POST['xembailam'] ?? 0);
-        $daocauhoi = (int)($_POST['daocauhoi'] ?? 0);
-        $daodapan = (int)($_POST['daodapan'] ?? 0);
-        $tudongnop = (int)($_POST['tudongnop'] ?? 0);
-        $manhom = isset($_POST['manhom']) ? (array)$_POST['manhom'] : [];
+            $nguoitao = $_SESSION['user_id'] ?? 0;
+            $tende = trim($_POST['tende'] ?? '');
+            $thoigianthi = (int)($_POST['thoigianthi'] ?? 0);
+            $thoigianbatdau = trim($_POST['thoigianbatdau'] ?? '');
+            $thoigianketthuc = trim($_POST['thoigianketthuc'] ?? '');
+            $socaude = (int)($_POST['socaude'] ?? 0);
+            $socautb = (int)($_POST['socautb'] ?? 0);
+            $socaukho = (int)($_POST['socaukho'] ?? 0);
+            $chuong = isset($_POST['chuong']) && $_POST['chuong'] !== '' ? (array)$_POST['chuong'] : [];
+            $loaide = (int)($_POST['loaide'] ?? 0);
+            $xemdiem = (int)($_POST['xemdiem'] ?? 0);
+            $xemdapan = (int)($_POST['xemdapan'] ?? 0);
+            $hienthibailam = (int)($_POST['xembailam'] ?? 0);
+            $daocauhoi = (int)($_POST['daocauhoi'] ?? 0);
+            $daodapan = (int)($_POST['daodapan'] ?? 0);
+            $tudongnop = (int)($_POST['tudongnop'] ?? 0);
+            $manhom = isset($_POST['manhom']) ? (array)$_POST['manhom'] : [];
 
-        // Lấy loại câu hỏi bổ sung (mặc định chỉ MCQ)
-        $loaicauhoi = ['mcq']; // luôn có MCQ
-        if (isset($_POST['loaicauhoi']) && is_array($_POST['loaicauhoi'])) {
-            foreach ($_POST['loaicauhoi'] as $lc) {
-                $lc = strtolower(trim($lc));
-                if (in_array($lc, ['essay', 'reading']) && !in_array($lc, $loaicauhoi)) {
-                    $loaicauhoi[] = $lc;
+            $loaicauhoi = ['mcq'];
+            if (isset($_POST['loaicauhoi']) && is_array($_POST['loaicauhoi'])) {
+                foreach ($_POST['loaicauhoi'] as $lc) {
+                    $lc = strtolower(trim($lc));
+                    if (in_array($lc, ['essay', 'reading']) && !in_array($lc, $loaicauhoi)) {
+                        $loaicauhoi[] = $lc;
+                    }
                 }
             }
-        }
 
-        error_log("addTest: mamonhoc=$mamonhoc, chuong=" . json_encode($chuong) . 
-                  ", socaude=$socaude, socautb=$socautb, socaukho=$socaukho, loaide=$loaide, manhom=" . json_encode($manhom) . 
-                  ", loaicauhoi=" . json_encode($loaicauhoi));
+            error_log("addTest: mamonhoc=$mamonhoc, chuong=" . json_encode($chuong) .
+                      ", socaude=$socaude, socautb=$socautb, socaukho=$socaukho, loaide=$loaide, manhom=" . json_encode($manhom) .
+                      ", loaicauhoi=" . json_encode($loaicauhoi));
 
-        // ============================
-        // 2) KIỂM TRA DỮ LIỆU BẮT BUỘC
-        // ============================
-        if (!$mamonhoc) { $response['error'] = "Vui lòng chọn môn học."; echo json_encode($response); return; }
-        if (!$tende) { $response['error'] = "Vui lòng nhập tên đề thi."; echo json_encode($response); return; }
-        if ($thoigianthi <= 0) { $response['error'] = "Thời gian thi phải lớn hơn 0."; echo json_encode($response); return; }
-        if (!$thoigianbatdau || !$thoigianketthuc) { $response['error'] = "Vui lòng chọn thời gian bắt đầu và kết thúc."; echo json_encode($response); return; }
-        if (strtotime($thoigianketthuc) <= strtotime($thoigianbatdau)) { $response['error'] = "Thời gian kết thúc phải sau thời gian bắt đầu."; echo json_encode($response); return; }
-        if (empty($manhom)) { $response['error'] = "Vui lòng chọn ít nhất một nhóm học phần."; echo json_encode($response); return; }
+            if (!$mamonhoc) {
+                $response['error'] = "Vui lòng chọn môn học.";
+                echo json_encode($response);
+                return;
+            }
+            if (!$tende) {
+                $response['error'] = "Vui lòng nhập tên đề thi.";
+                echo json_encode($response);
+                return;
+            }
+            if ($thoigianthi <= 0) {
+                $response['error'] = "Thời gian thi phải lớn hơn 0.";
+                echo json_encode($response);
+                return;
+            }
+            if (!$thoigianbatdau || !$thoigianketthuc) {
+                $response['error'] = "Vui lòng chọn thời gian bắt đầu và kết thúc.";
+                echo json_encode($response);
+                return;
+            }
+            if (strtotime($thoigianketthuc) <= strtotime($thoigianbatdau)) {
+                $response['error'] = "Thời gian kết thúc phải sau thời gian bắt đầu.";
+                echo json_encode($response);
+                return;
+            }
+            if (empty($manhom)) {
+                $response['error'] = "Vui lòng chọn ít nhất một nhóm học phần.";
+                echo json_encode($response);
+                return;
+            }
+            if ($loaide == 1) {
+                if (empty($chuong)) {
+                    $response['error'] = "Vui lòng chọn ít nhất một chương.";
+                    echo json_encode($response);
+                    return;
+                }
 
-        // ============================
-        // 3) KIỂM TRA SỐ LƯỢNG CÂU HỎI TỰ ĐỘNG
-        // ============================
-        if ($loaide == 1) {
-            if (empty($chuong)) { $response['error'] = "Vui lòng chọn ít nhất một chương."; echo json_encode($response); return; }
-
-            foreach (['1' => $socaude, '2' => $socautb, '3' => $socaukho] as $level => $qty) {
-                $available = $this->cauhoimodel->getsoluongcauhoi($chuong, $mamonhoc, $level, $loaicauhoi);
-                if ($available < $qty) {
-                    $response['error'] = "Không đủ câu hỏi mức độ $level: Có $available, yêu cầu $qty.";
-                    echo json_encode($response); return;
+                foreach (['1' => $socaude, '2' => $socautb, '3' => $socaukho] as $level => $qty) {
+                    $available = $this->cauhoimodel->getsoluongcauhoi($chuong, $mamonhoc, $level, $loaicauhoi);
+                    if ($available < $qty) {
+                        $response['error'] = "Không đủ câu hỏi mức độ $level: Có $available, yêu cầu $qty.";
+                        echo json_encode($response);
+                        return;
+                    }
                 }
             }
-        }
 
-        // ============================
-        // 4) TẠO ĐỀ THI
-        // ============================
-        $made = $this->dethimodel->create(
-            $mamonhoc,
-            $nguoitao,
-            $tende,
-            $thoigianthi,
-            $thoigianbatdau,
-            $thoigianketthuc,
-            $hienthibailam,
-            $xemdiem,
-            $xemdapan,
-            $daocauhoi,
-            $daodapan,
-            $tudongnop,
-            $loaide,
-            $socaude,
-            $socautb,
-            $socaukho,
-            $chuong,
-            $manhom,
-        );
-
-        if ($made) {
-            $response['success'] = true;
-            $response['made'] = $made;
-            $link = "./test/start/$made";
-            $content_raw = '<span style="text-decoration: underline; color: blue; cursor: pointer;" onclick="window.open(\'' . $link . '\', \'_blank\')">' . $tende . ' – Môn ' . $tenmonhoc . '</span>';
-            $content = mysqli_real_escape_string($this->dethimodel->con, $content_raw);
-
-            $thoigiantao = date("Y-m-d H:i:s");
-            $matb = $this->dethimodel->insertAndGetId(
-                "INSERT INTO thongbao(noidung, thoigiantao, nguoitao, is_auto) 
-                 VALUES ('$content', '$thoigiantao', '$nguoitao', 1)"
+            $made = $this->dethimodel->create(
+                $mamonhoc,
+                $nguoitao,
+                $tende,
+                $thoigianthi,
+                $thoigianbatdau,
+                $thoigianketthuc,
+                $hienthibailam,
+                $xemdiem,
+                $xemdapan,
+                $daocauhoi,
+                $daodapan,
+                $tudongnop,
+                $loaide,
+                $socaude,
+                $socautb,
+                $socaukho,
+                $chuong,
+                $manhom,
             );
 
-            foreach ($manhom as $nhom) {
-                $this->dethimodel->executeQuery("INSERT INTO chitietthongbao(matb, manhom) VALUES ('$matb', '$nhom')");
-                $res = $this->dethimodel->executeQuery("SELECT DISTINCT manguoidung FROM chitietnhom WHERE manhom = '$nhom'");
-                while ($row = mysqli_fetch_assoc($res)) {
-                    $id = $row['manguoidung'];
-                    $this->dethimodel->executeQuery("INSERT INTO trangthaithongbao(matb, manguoidung) VALUES ('$matb', '$id')");
+            if ($made) {
+                $response['success'] = true;
+                $response['made'] = $made;
+                $link = "./test/start/$made";
+                $content_raw = '<span style="text-decoration: underline; color: blue; cursor: pointer;" onclick="window.open(\'' . $link . '\', \'_blank\')">' . $tende . ' – Môn ' . $tenmonhoc . '</span>';
+                $content = mysqli_real_escape_string($this->dethimodel->con, $content_raw);
+
+                $thoigiantao = date("Y-m-d H:i:s");
+                $matb = $this->dethimodel->insertAndGetId(
+                    "INSERT INTO thongbao(noidung, thoigiantao, nguoitao, is_auto) 
+                 VALUES ('$content', '$thoigiantao', '$nguoitao', 1)"
+                );
+
+                foreach ($manhom as $nhom) {
+                    $this->dethimodel->executeQuery("INSERT INTO chitietthongbao(matb, manhom) VALUES ('$matb', '$nhom')");
+                    $res = $this->dethimodel->executeQuery("SELECT DISTINCT manguoidung FROM chitietnhom WHERE manhom = '$nhom'");
+                    while ($row = mysqli_fetch_assoc($res)) {
+                        $id = $row['manguoidung'];
+                        $this->dethimodel->executeQuery("INSERT INTO trangthaithongbao(matb, manguoidung) VALUES ('$matb', '$id')");
+                    }
                 }
+
+            } else {
+                $response['error'] = "Lỗi hệ thống khi tạo đề thi: " . mysqli_error($this->dethimodel->con);
             }
 
+            echo json_encode($response);
         } else {
-            $response['error'] = "Lỗi hệ thống khi tạo đề thi: " . mysqli_error($this->dethimodel->con);
+            echo json_encode(['success' => false, 'error' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.']);
         }
-
-        echo json_encode($response);
-    } else {
-        echo json_encode(['success' => false, 'error' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.']);
     }
-}
 
 
 

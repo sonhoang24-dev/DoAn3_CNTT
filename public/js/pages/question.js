@@ -235,59 +235,162 @@ $(document).ready(function () {
     e.preventDefault();
     let content_option = CKEDITOR.instances["option-content"].getData();
     let true_option = $("#true-option").prop("checked");
+    let imageFile = $("#option-image")[0]?.files[0];
+
     let option = {
       content: content_option,
       check: true_option,
+      image: null,
+      file: imageFile || null,
     };
-    options.push(option);
-    $("#add_option").collapse("hide");
-    resetOptionForm();
-    showOptions(options);
-  });
 
+    if (!imageFile) {
+      options.push(option);
+      $("#add_option").collapse("hide");
+      resetOptionForm();
+      showOptions(options);
+      return;
+    }
+
+    let reader = new FileReader();
+    reader.onload = function (e) {
+      option.image = e.target.result;
+      options.push(option);
+      console.log("Saved option with image:", option);
+      $("#add_option").collapse("hide");
+      resetOptionForm();
+      showOptions(options);
+    };
+    reader.readAsDataURL(imageFile);
+  });
   // Update MCQ option
   $("#update-option").click(function (e) {
     e.preventDefault();
+
     let index = $(this).data("id");
-    options[index].content = CKEDITOR.instances["option-content"].getData();
-    options[index].check = $("#true-option").prop("checked");
-    showOptions(options);
-    resetOptionForm();
-    $("#add_option").collapse("hide");
+
+    options[index].content = CKEDITOR.instances["option-content"]
+      .getData()
+      .trim();
+    options[index].check = $("#true-option").prop("checked") ? 1 : 0;
+
+    let imageFile = $("#option-image")[0]?.files[0];
+
+    if (imageFile) {
+      let reader = new FileReader();
+      reader.onload = function (e) {
+        options[index].image = e.target.result;
+        options[index].file = imageFile;
+
+        showOptions(options);
+        resetOptionForm();
+        $("#add_option").collapse("hide");
+      };
+      reader.readAsDataURL(imageFile);
+    } else {
+      showOptions(options);
+      resetOptionForm();
+      $("#add_option").collapse("hide");
+    }
   });
 
   // Show MCQ options
   function showOptions(options) {
-    let data = "";
-    options.forEach((item, index) => {
-      data += `<tr>
-        <th class="text-center" scope="row">${index + 1}</th>
-        <td>${item.content}</td>
-        <td class="text-center">
-            <div class="form-check">
-                <input class="form-check-input" type="radio" name="da-dung" data-id="${index}" id="da-${index}" ${
+    let html = "";
+    options.forEach((item, i) => {
+      let imgHtml = '<small class="text-muted">Không có ảnh</small>';
+      if (item.image) {
+        imgHtml = `
+                <div class="position-relative d-inline-block">
+                    <img src="${item.image}" class="img-thumbnail" style="max-width:120px; max-height:80px; object-fit:contain;">
+                    <button type="button" class="btn btn-danger btn-xs position-absolute top-0 end-0 btn-delete-option-image" data-id="${i}" style="transform: translate(50%, -50%); font-size: 10px; padding: 2px 6px;">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>`;
+      }
+
+      html += `<tr>
+            <th class="text-center">${i + 1}</th>
+            <td>${item.content}</td>
+            <td class="text-center">${imgHtml}</td>
+            <td class="text-center">
+                <input type="radio" class="form-check-input" name="da-dung" data-id="${i}" ${
         item.check ? "checked" : ""
       }>
-                <label class="form-check-label" for="da-${index}">Đáp án đúng</label>
-            </div>
-        </td>
-        <td class="text-center">
-            <button type="button" class="btn btn-sm btn-alt-secondary btn-edit-option" data-bs-toggle="tooltip" title="Edit" data-id="${index}">
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-alt-secondary btn-edit-option" data-id="${i}"><i class="fa fa-pencil-alt"></i></button>
+                <button class="btn btn-sm btn-alt-secondary btn-delete-option" data-id="${i}"><i class="fa fa-times"></i></button>
+            </td>
+        </tr>`;
+    });
+    $("#list-options").html(html);
+  }
+  // READING
+  function showReadingQuestions() {
+    let html = "";
+
+    readingQuestions.forEach((question, index) => {
+      // --- Dòng câu hỏi ---
+      html += `
+      <tr class="question-row">
+        <td class="text-center align-top">${index + 1}</td>
+        <td class="align-top"><strong>${question.content}</strong></td>
+        <td></td>
+        <td></td>
+        <td class="text-center align-top">
+          <div class="btn-group">
+            <button class="btn btn-sm btn-alt-secondary btn-edit-reading-question"
+                    data-id="${index}" title="Chỉnh sửa">
                 <i class="fa fa-pencil-alt"></i>
             </button>
-            <button type="button" class="btn btn-sm btn-alt-secondary btn-delete-option" data-bs-toggle="tooltip" title="Delete" data-id="${index}">
+            <button class="btn btn-sm btn-alt-secondary btn-delete-reading-question"
+                    data-id="${index}" title="Xóa">
                 <i class="fa fa-times"></i>
             </button>
+          </div>
         </td>
-    </tr>`;
+      </tr>
+    `;
+
+      // --- Các phương án ---
+      let correctRendered = false;
+      question.options.forEach((opt, i) => {
+        let isCorrect = "";
+        let checkedAttr = "";
+
+        if (opt.check && !correctRendered) {
+          isCorrect = "correct-answer";
+          checkedAttr = "checked";
+          correctRendered = true;
+        }
+
+        const optionLetter = String.fromCharCode(65 + i);
+
+        html += `
+        <tr class="option-row">
+          <td></td>
+          <td></td>
+          <td class="ps-4">${optionLetter}. ${opt.content}</td>
+          <td class="text-center">
+            <input type="radio" name="reading-da-${index}"
+                   class="correct-radio ${isCorrect}"
+                   ${checkedAttr}>
+          </td>
+          <td></td>
+        </tr>
+      `;
+      });
     });
-    $("#list-options").html(data);
+
+    $("#reading-questions-list").html(html);
   }
 
   // Reset MCQ option form
   function resetOptionForm() {
     CKEDITOR.instances["option-content"].setData("");
     $("#true-option").prop("checked", false);
+    $("#option-image").val("");
   }
 
   // Edit MCQ option
@@ -299,6 +402,14 @@ $(document).ready(function () {
     $("#add_option").collapse("show");
     CKEDITOR.instances["option-content"].setData(options[index].content);
     $("#true-option").prop("checked", options[index].check);
+    $("#option-image").val("");
+    console.log("Editing option:", options[index]);
+    setTimeout(() => {
+      document.getElementById("add_option").scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 300);
   });
 
   // Delete MCQ option
@@ -406,55 +517,52 @@ $(document).ready(function () {
     let html = "";
 
     readingQuestions.forEach((question, index) => {
-      // --- Dòng câu hỏi ---
+      const questionImage = question.image
+        ? `<img src="${question.image}" class="img-thumbnail mt-2" style="max-width: 300px; max-height: 200px; object-fit: contain;">`
+        : "";
+
       html += `
       <tr class="question-row">
         <td class="text-center align-top">${index + 1}</td>
-        <td class="align-top"><strong>${question.content}</strong></td>
+        <td class="align-top">
+          <strong>${question.content}</strong>
+          ${questionImage}
+        </td>
         <td></td>
         <td></td>
         <td class="text-center align-top">
           <div class="btn-group">
-            <button class="btn btn-sm btn-alt-secondary btn-edit-reading-question"
-                    data-id="${index}" title="Chỉnh sửa">
+            <button class="btn btn-sm btn-alt-secondary btn-edit-reading-question" data-id="${index}">
                 <i class="fa fa-pencil-alt"></i>
             </button>
-            <button class="btn btn-sm btn-alt-secondary btn-delete-reading-question"
-                    data-id="${index}" title="Xóa">
+            <button class="btn btn-sm btn-alt-secondary btn-delete-reading-question" data-id="${index}">
                 <i class="fa fa-times"></i>
             </button>
           </div>
         </td>
-      </tr>
-    `;
+      </tr>`;
 
-      // --- Các phương án ---
-      let correctRendered = false;
       question.options.forEach((opt, i) => {
-        let isCorrect = "";
-        let checkedAttr = "";
-
-        if (opt.check && !correctRendered) {
-          isCorrect = "correct-answer";
-          checkedAttr = "checked";
-          correctRendered = true;
-        }
-
         const optionLetter = String.fromCharCode(65 + i);
+        const optImage = opt.image
+          ? `<img src="${opt.image}" class="img-thumbnail mt-1" style="max-width: 100px; height: 60px; object-fit: contain;">`
+          : "";
 
         html += `
         <tr class="option-row">
           <td></td>
           <td></td>
-          <td class="ps-4">${optionLetter}. ${opt.content}</td>
+          <td class="ps-4">
+            ${optionLetter}. ${opt.content}
+            ${optImage}
+          </td>
           <td class="text-center">
-            <input type="radio" name="reading-da-${index}"
-                   class="correct-radio ${isCorrect}"
-                   ${checkedAttr} disabled>
+            <input type="radio" name="reading-da-${index}" class="correct-radio" ${
+          opt.check ? "checked" : ""
+        } disabled>
           </td>
           <td></td>
-        </tr>
-      `;
+        </tr>`;
       });
     });
 
@@ -495,6 +603,12 @@ $(document).ready(function () {
     $("#add_reading_question").collapse("show");
     readingQuestions.splice(index, 1);
     showReadingQuestions();
+    setTimeout(() => {
+      document.getElementById("add_reading_question").scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 300);
   });
 
   // Delete Reading Question
@@ -717,7 +831,7 @@ $(document).ready(function () {
     if (!loaiCauHoi) {
       Dashmix.helpers("jq-notify", {
         type: "warning",
-        message: "Chọn loại câu hỏi!",
+        message: "Chọn loại câu hỏi trước khi thêm file!",
       });
       this.value = "";
       return;
@@ -956,7 +1070,6 @@ $(document).ready(function () {
     html += `</div></div>`;
     $("#preview-cau-hoi").html(html).slideDown();
 
-    // --- BIND EVENTS KEEP NGUYÊN ---
     $("#preview-cau-hoi").on("change", "input[data-type='title']", function () {
       const idx = $(this).data("index");
       questions[idx].title = $(this).val();
@@ -1008,7 +1121,6 @@ $(document).ready(function () {
       }
     );
 
-    // === UPDATE LEVEL WITH TEXT ===
     $("#preview-cau-hoi").on(
       "change",
       ".level-select, .level-select-passage",
@@ -1183,97 +1295,72 @@ $(document).ready(function () {
 
     let qtype = $("#loai-cau-hoi").val();
     let noidung = (CKEDITOR.instances["js-ckeditor"]?.getData() ?? "").trim();
-    let passage = (
-      CKEDITOR.instances["passage-content"]?.getData() ?? ""
-    ).trim();
-    let passageTitle = $("#passage-title")?.val() || "";
-    let cautraloi = [];
+    let passage = CKEDITOR.instances["passage-content"]?.getData() ?? "";
+    let cautraloi = qtype === "reading" ? readingQuestions : options;
+    let questionImage = $("#question-image")[0]?.files[0];
 
-    if (qtype === "reading") {
-      if (!passage || readingQuestions.length === 0) {
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: "Vui lòng nhập đoạn văn và ít nhất một câu hỏi!",
-        });
-        return;
-      }
-
-      let hasValidQuestions = readingQuestions.every(
-        (q) =>
-          q.content.trim() &&
-          q.options.length > 0 &&
-          q.options.some((opt) => opt.check)
-      );
-      if (!hasValidQuestions) {
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message:
-            "Mỗi câu hỏi con phải có nội dung và ít nhất một đáp án đúng!",
-        });
-        return;
-      }
-
-      noidung = "";
-      cautraloi = readingQuestions;
-    } else if (qtype === "mcq") {
-      if (
-        !noidung ||
-        options.length === 0 ||
-        !options.some((opt) => opt.check)
-      ) {
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: "Vui lòng nhập câu hỏi và chọn ít nhất một đáp án đúng!",
-        });
-        return;
-      }
-      cautraloi = options;
-    } else if (qtype === "essay") {
-      if (!noidung) {
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: "Vui lòng nhập nội dung câu hỏi!",
-        });
-        return;
-      }
-      let essayContent = $("#essay-answer").val() || "";
-      cautraloi = [{ content: essayContent, check: false }];
+    if (
+      qtype === "mcq" &&
+      (options.length === 0 || !options.some((opt) => opt.check))
+    ) {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: "Chọn ít nhất một đáp án đúng!",
+      });
+      return;
     }
 
-    let dataPost = {
-      mamon: $("#mon-hoc").val(),
-      machuong: $("#chuong").val(),
-      dokho: $("#dokho").val(),
-      noidung: noidung,
-      loai: qtype,
-      cautraloi: JSON.stringify(cautraloi),
-    };
+    let formData = new FormData();
+    formData.append("loai", qtype);
+    formData.append("noidung", qtype === "reading" ? passage : noidung);
+    formData.append("doanvan_noidung", passage);
+    formData.append("mamon", $("#mon-hoc").val());
+    formData.append("machuong", $("#chuong").val());
+    formData.append("dokho", $("#dokho").val());
 
-    if (qtype === "reading") {
-      dataPost.doanvan_noidung = passage;
-      dataPost.doanvan_tieude = passageTitle;
-    }
+    if (questionImage) formData.append("hinhanh", questionImage);
 
-    $.post("./question/addQues", dataPost, function (res) {
-      let response = typeof res === "string" ? JSON.parse(res) : res;
-      if (response.status === "success") {
-        Dashmix.helpers("jq-notify", {
-          type: "success",
-          message: "Tạo câu hỏi thành công!",
-        });
-        $("#modal-add-question").modal("hide");
-        loadQuestion();
-        reloadQuestionList();
+    cautraloi.forEach((opt, i) => {
+      if (opt.file) {
+        formData.append("option_hinhanh[]", opt.file);
       } else {
+        formData.append("option_hinhanh[]", "");
+      }
+    });
+
+    formData.append("cautraloi", JSON.stringify(cautraloi));
+
+    $.ajax({
+      url: "./question/addQues",
+      type: "POST",
+      data: formData,
+      contentType: false,
+      processData: false,
+      success: function (res) {
+        let response = typeof res === "string" ? JSON.parse(res) : res;
+        if (response.status === "success") {
+          Dashmix.helpers("jq-notify", {
+            type: "success",
+            message: "Thêm câu hỏi thành công!",
+          });
+          $("#modal-add-question").modal("hide");
+          reloadQuestionList();
+        } else {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: response.message,
+          });
+        }
+      },
+      error: function () {
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: response.message,
+          message: "Lỗi server!",
         });
-      }
+      },
     });
   });
 
-  // Check if at least one correct answer exists
   function checkSOption(data) {
     if (!Array.isArray(data)) return false;
     return data.some((item) =>
@@ -1283,256 +1370,372 @@ $(document).ready(function () {
     );
   }
 
-  $(document).on("click", ".btn-edit-question", function () {
-    $("#add_question").hide();
-    $("#edit_question").show();
-    let id = $(this).data("id");
-    $("#question_id").val(id);
-    getQuestionById(id);
-    $("#modal-add-question").modal("show");
+  // KHI BẤM SỬA CÂU HỎI
+  $("#modal-add-question").on("shown.bs.modal", function () {
+    $(document).removeData("delete_question_image");
+    const isEditing =
+      $("#edit_question").is(":visible") || $("#question_id").val() !== "";
+
+    $(this)
+      .find(".modal-title")
+      .first()
+      .html(
+        isEditing
+          ? '<i class="fa fa-pencil-alt text-warning me-2"></i> Chỉnh sửa câu hỏi'
+          : '<i class="fa fa-plus text-success me-2"></i> Thêm câu hỏi mới'
+      );
+
+    const homeTab = $("#btabs-alt-static-home-tab");
+    homeTab.html(
+      isEditing
+        ? '<i class="fa fa-pencil-alt text-warning me-1"></i> Chỉnh sửa câu hỏi'
+        : '<i class="fa fa-edit text-primary me-1"></i> Thêm thủ công'
+    );
+
+    const fileTab = $('[data-bs-target="#btabs-alt-static-profile"]').closest(
+      ".nav-item"
+    );
+    isEditing ? fileTab.hide() : fileTab.show();
+
+    homeTab.tab("show");
   });
 
-  // Reset form for new question
-  $("#addquestionnew").click(function () {
-    $("#add_question").show();
-    $("#edit_question").hide();
-    $("#mon-hoc").val("").trigger("change");
-    $("#chuong").val("").trigger("change");
-    $("#dokho").val("").trigger("change");
-    $("#monhocfile").val("").trigger("change");
-    $("#chuongfile").val("").trigger("change");
-    $("#loaicauhoifile").val("").trigger("change");
-    CKEDITOR.instances["js-ckeditor"].setData("");
-    CKEDITOR.instances["passage-content"].setData("");
+  $(document).on("click", ".btn-edit-question", function () {
+    const id = $(this).data("id");
+
     options = [];
     readingQuestions = [];
-    questions = [];
-    $("#add_option").collapse("hide");
-    $("#add_reading_question").collapse("hide");
-    $("#list-options").html("");
-    $("#reading-questions-list").html("");
-    $("#loai-cau-hoi").val("mcq").trigger("change");
-    $("#essay-answer").val("");
-    $("#file-cau-hoi").val(null);
-    $("#preview-cau-hoi").empty().hide();
-    $("#btabs-alt-static-home-tab").tab("show");
+    $("#list-options, #reading-questions-list").html("");
+
+    $("#add_question").hide();
+    $("#edit_question").show();
+    $("#question_id").val(id);
+
+    $("#modal-add-question").modal("show");
+
+    setTimeout(() => getQuestionById(id), 150);
+  });
+
+  $("#addquestionnew").click(function () {
+    $("#mon-hoc, #chuong, #dokho, #loai-cau-hoi").val("").trigger("change");
+    $("#monhocfile, #chuongfile, #loaicauhoifile").val("").trigger("change");
+
+    CKEDITOR.instances["js-ckeditor"]?.setData("");
+    CKEDITOR.instances["passage-content"]?.setData("");
+    CKEDITOR.instances["option-content"]?.setData("");
+
+    options = [];
+    readingQuestions = [];
+    $("#list-options, #reading-questions-list").html("");
+    $("#add_option, #add_reading_question").collapse("hide");
+    $("#question-image").val("");
+    $("#question-image-preview").hide().attr("src", "");
+
+    $("#add_question").show();
+    $("#edit_question").hide();
+    $("#question_id").val("");
+    $("#file-cau-hoi").val("");
+
+    $("#modal-add-question").modal("show");
   });
 
   // Edit question
   $("#edit_question").click(function () {
-    let mamonhoc = $("#mon-hoc").val();
-    let machuong = $("#chuong").val();
-    let dokho = $("#dokho").val();
-    let noidung = CKEDITOR.instances["js-ckeditor"].getData();
-    let passage = CKEDITOR.instances["passage-content"].getData();
-    let qtype = $("#loai-cau-hoi").val();
-    let cautraloi = [];
     let id = $("#question_id").val();
+    let qtype = $("#loai-cau-hoi").val();
+    let noidung =
+      qtype === "reading"
+        ? CKEDITOR.instances["passage-content"].getData()
+        : CKEDITOR.instances["js-ckeditor"].getData();
 
-    if (qtype === "essay") {
-      let essayContent = $("#essay-answer").val() || "";
-      cautraloi = [{ content: essayContent, check: false }];
-    } else if (qtype === "reading") {
-      if (!passage || readingQuestions.length === 0) {
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng nhập đoạn ngữ liệu và ít nhất một câu hỏi!",
-        });
-        return;
-      }
-      noidung = passage;
-      cautraloi = readingQuestions;
-    } else {
-      cautraloi = options;
+    let cautraloi = qtype === "reading" ? readingQuestions : options;
+
+    let formData = new FormData();
+    formData.append("id", id);
+    formData.append("mamon", $("#mon-hoc").val());
+    formData.append("machuong", $("#chuong").val());
+    formData.append("dokho", $("#dokho").val());
+    formData.append("loai", qtype);
+    formData.append("noidung", noidung);
+    if (qtype === "reading") {
+      formData.append("doanvan_tieude", $("#passage-title").val() || "");
     }
 
-    if (
-      mamonhoc &&
-      machuong &&
-      dokho &&
-      (qtype === "reading" ? passage : noidung) &&
-      (qtype === "essay" || (cautraloi.length > 0 && checkSOption(cautraloi)))
-    ) {
-      $.ajax({
-        type: "post",
-        url: "./question/editQuesion",
-        data: {
-          id: id,
-          mamon: mamonhoc,
-          machuong: machuong,
-          dokho: dokho,
-          noidung: noidung,
-          loai: qtype,
-          cautraloi: JSON.stringify(cautraloi),
-        },
-        dataType: "json",
-        success: function (response) {
-          if (response.status === "success") {
-            Dashmix.helpers("jq-notify", {
-              type: "success",
-              icon: "fa fa-check me-1",
-              message: response.message || "Sửa câu hỏi thành công!",
-            });
-            $("#modal-add-question").modal("hide");
-            loadQuestion();
-            reloadQuestionList();
-            mainPagePagination.getPagination(
-              mainPagePagination.option,
-              mainPagePagination.valuePage.curPage
-            );
-          } else {
-            Dashmix.helpers("jq-notify", {
-              type: "danger",
-              icon: "fa fa-times me-1",
-              message: response.message || "Lỗi khi sửa câu hỏi",
-            });
+    if ($("#question-image")[0]?.files[0]) {
+      formData.append("hinhanh", $("#question-image")[0].files[0]);
+    }
+
+    let answersToSend = cautraloi.map((item) => {
+      let base = {
+        content: item.content,
+        check: item.check ? 1 : 0,
+      };
+
+      if (item.file instanceof File) {
+        base.file = item.file;
+      }
+      if (
+        item.image &&
+        typeof item.image === "string" &&
+        item.image.startsWith("data:")
+      ) {
+        base.image = item.image;
+      }
+
+      if (qtype === "reading") {
+        base.options = (item.options || []).map((opt) => {
+          let o = {
+            content: opt.content,
+            check: opt.check ? 1 : 0,
+          };
+          if (opt.file instanceof File) o.file = opt.file;
+          if (
+            opt.image &&
+            typeof opt.image === "string" &&
+            opt.image.startsWith("data:")
+          ) {
+            o.image = opt.image;
           }
-        },
-        error: function (err) {
-          console.error("Error in editQuesion:", err.responseText);
+          return o;
+        });
+      }
+      return base;
+    });
+
+    formData.append("cautraloi", JSON.stringify(answersToSend));
+
+    answersToSend.forEach((item, idx) => {
+      if (item.file instanceof File) {
+        formData.append("option_hinhanh[]", item.file);
+      }
+      if (qtype === "reading" && item.options) {
+        item.options.forEach((opt) => {
+          if (opt.file instanceof File) {
+            formData.append("option_hinhanh[]", opt.file);
+          }
+        });
+      }
+    });
+    if ($(document).data("delete_question_image") === "1") {
+      formData.append("delete_question_image", "1");
+    }
+    $.ajax({
+      url: "./question/editQuesion",
+      type: "POST",
+      data: formData,
+      contentType: false,
+      processData: false,
+      success: function (res) {
+        if (typeof res === "string") {
+          res = JSON.parse(res);
+        }
+
+        if (res.status === "success") {
+          Dashmix.helpers("jq-notify", {
+            type: "success",
+            message: "Cập nhật thành công!",
+          });
+          $("#modal-add-question").modal("hide");
+          reloadQuestionList();
+          $(document).removeData("delete_question_image");
+        } else {
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            icon: "fa fa-times me-1",
-            message: "Lỗi kết nối đến server",
+            message: res.message || "Lỗi cập nhật",
           });
-        },
-      });
-    } else {
-      if (!mamonhoc) {
+        }
+      },
+      error: function () {
         Dashmix.helpers("jq-notify", {
-          type: "error",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng chọn mã môn học",
+          type: "danger",
+          message: "Lỗi kết nối server",
         });
-        $("#mon-hoc").focus();
-      } else if (!machuong) {
-        Dashmix.helpers("jq-notify", {
-          type: "error",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng chọn mã chương",
-        });
-        $("#chuong").focus();
-      } else if (!dokho) {
-        Dashmix.helpers("jq-notify", {
-          type: "error",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng chọn độ khó",
-        });
-        $("#dokho").focus();
-      } else if (!noidung && qtype !== "reading") {
-        Dashmix.helpers("jq-notify", {
-          type: "error",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng nhập nội dung",
-        });
-        CKEDITOR.instances["js-ckeditor"].focus();
-      } else if (!passage && qtype === "reading") {
-        Dashmix.helpers("jq-notify", {
-          type: "error",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng nhập đoạn ngữ liệu",
-        });
-        CKEDITOR.instances["passage-content"].focus();
-      } else if (cautraloi.length < 1 && qtype !== "essay") {
-        Dashmix.helpers("jq-notify", {
-          type: "error",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng thêm câu trả lời",
-        });
-      } else if (!checkSOption(cautraloi) && qtype !== "essay") {
-        Dashmix.helpers("jq-notify", {
-          type: "error",
-          icon: "fa fa-times me-1",
-          message: "Vui lòng chọn đáp án đúng",
-        });
-      }
-    }
+      },
+    });
   });
+  function resetQuestionUI() {
+    // Xóa dữ liệu cũ
+    $("#js-ckeditor").val("");
+    CKEDITOR.instances["js-ckeditor"].setData("");
+    CKEDITOR.instances["passage-content"].setData("");
+    $("#question-image-preview").html(
+      "<small class='text-muted'>Không có ảnh</small>"
+    );
+    $("#list-options").html("");
+    options = [];
+    readingQuestions = [];
+  }
 
-  // Get question by ID
   function getQuestionById(id) {
+    resetQuestionUI();
+    $(document).removeData("delete_question_image");
+
     $.ajax({
       type: "post",
       url: "./question/getQuestionById",
-      data: {
-        id: id,
-      },
+      data: { id: id },
       dataType: "json",
-      success: function (response) {
-        let data = response;
-        let monhoc = data["mamonhoc"];
-        let machuong = data["machuong"];
-        let dokho = data["dokho"];
-        let noidung = data["noidung"];
-        let loai = data["loai"];
+      success: function (data) {
+        if (!data) return;
+
+        const monhoc = data.mamonhoc;
+        const machuong = data.machuong;
+        const dokho = data.dokho;
+        const noidung = data.noidung || "";
+        const loai = data.loai;
+        const tieude = data.tieude || "";
+        const qImg = data.question_image_base64 || null;
+
         $("#mon-hoc").val(monhoc).trigger("change");
         $("#dokho").val(dokho).trigger("change");
         $("#loai-cau-hoi").val(loai).trigger("change");
+        toggleQuestionType(loai);
+
+        setTimeout(() => $("#chuong").val(machuong).trigger("change"), 100);
+
         if (loai === "reading") {
           CKEDITOR.instances["passage-content"].setData(noidung);
           CKEDITOR.instances["js-ckeditor"].setData("");
+          $("#passage-title").val(tieude);
         } else {
           CKEDITOR.instances["js-ckeditor"].setData(noidung);
           CKEDITOR.instances["passage-content"].setData("");
         }
-        setTimeout(function () {
-          $("#chuong").val(machuong).trigger("change");
-        }, 100);
-      },
-      error: function (err) {
-        console.error("Error in getQuestionById:", err.responseText);
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: "Lỗi khi lấy dữ liệu câu hỏi",
+
+        updateQuestionImagePreview(qImg);
+
+        $.ajax({
+          type: "post",
+          url: "./question/getAnswerById",
+          data: { id: id },
+          dataType: "json",
+          success: function (response) {
+            options = [];
+            readingQuestions = [];
+
+            if (loai === "reading") {
+              const subMap = {};
+              response.forEach((item) => {
+                const subId = item.macauhoicon;
+                if (!subMap[subId]) {
+                  subMap[subId] = {
+                    content: item.noidung_con || "",
+                    image: item.question_image_base64 || null,
+                    file: null,
+                    options: [],
+                  };
+                }
+                subMap[subId].options.push({
+                  content: item.noidungtl || "",
+                  check: item.ladapan == 1,
+                  image: item.option_image_base64 || null,
+                  file: null,
+                });
+              });
+
+              readingQuestions = Object.values(subMap);
+              showReadingQuestions();
+            } else if (loai === "essay") {
+              $("#essay-answer").val(response[0]?.noidungtl || "");
+            } else {
+              response.forEach((opt) => {
+                options.push({
+                  content: opt.noidungtl,
+                  check: opt.ladapan == 1,
+                  image: opt.option_image_base64 || null,
+                  file: null,
+                });
+              });
+              showOptions(options);
+            }
+          },
+          error: function () {
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: "Lỗi lấy đáp án",
+            });
+          },
         });
       },
-    });
-
-    $.ajax({
-      type: "post",
-      url: "./question/getAnswerById",
-      data: {
-        id: id,
-      },
-      dataType: "json",
-      success: function (response) {
-        options = [];
-        readingQuestions = [];
-        let data = response;
-        if ($("#loai-cau-hoi").val() === "essay") {
-          $("#essay-answer").val(data[0]?.noidungtl || "");
-          $("#list-options").html("");
-        } else if ($("#loai-cau-hoi").val() === "reading") {
-          readingQuestions = data.map((q) => ({
-            content: q.noidung,
-            options: q.options.map((opt) => ({
-              content: opt.noidungtl,
-              check: opt.ladapan == 1,
-            })),
-          }));
-          showReadingQuestions();
-          $("#list-options").html("");
-        } else {
-          data.forEach((option_get) => {
-            let option = {
-              content: option_get["noidungtl"],
-              check: option_get["ladapan"] == 1,
-            };
-            options.push(option);
-          });
-          showOptions(options);
-        }
-      },
-      error: function (err) {
-        console.error("Error in getAnswerById:", err.responseText);
+      error: function () {
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: "Lỗi khi lấy đáp án",
+          message: "Lỗi lấy thông tin câu hỏi",
         });
       },
     });
   }
+
+  // XÓA ẢNH CÂU HỎI CHÍNH (khi bấm nút X)
+  $(document).on("click", ".btn-delete-question-image", function () {
+    $("#question-image-preview")
+      .html('<small class="text-muted">Không có ảnh</small>')
+      .show();
+
+    $("#question-image").val("");
+    $(document).data("delete_question_image", "1");
+
+    Dashmix.helpers("jq-notify", {
+      type: "info",
+      icon: "fa fa-info-circle me-1",
+      message: "Ảnh câu hỏi sẽ bị xóa khi lưu.",
+    });
+  });
+  // Hàm hiển thị ảnh câu hỏi chính – CÓ NÚT XÓA
+  function updateQuestionImagePreview(src = null) {
+    const $preview = $("#question-image-preview");
+
+    if (src && src.startsWith("data:")) {
+      $preview.html(`
+            <div class="position-relative d-inline-block border border-2 border-success rounded shadow-sm">
+                <img src="${src}" class="img-fluid rounded" style="max-width: 420px; max-height: 280px; object-fit: contain;">
+                <button type="button" class="btn btn-danger btn-sm rounded-circle position-absolute top-0 end-0 btn-delete-question-image"
+                        style="transform: translate(50%, -50%); width: 36px; height: 36px; z-index: 10;">
+                    <i class="fa fa-times fa-lg"></i>
+                </button>
+            </div>
+        `);
+    } else {
+      $preview.html('<small class="text-muted">Không có ảnh</small>');
+    }
+  }
+  // Khi chọn ảnh mới
+  $("#question-image").on("change", function () {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        updateQuestionImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      updateQuestionImagePreview();
+    }
+  });
+  // Xóa ảnh đáp án MCQ
+  $(document).on("click", ".btn-delete-option-image", function () {
+    const index = $(this).data("id");
+    options[index].image = null;
+    options[index].file = null;
+    showOptions(options);
+  });
+
+  // Xóa ảnh câu hỏi con Reading
+  $(document).on("click", ".btn-delete-reading-question-image", function () {
+    const index = $(this).data("id");
+    readingQuestions[index].image = null;
+    readingQuestions[index].file = null;
+    showReadingQuestions();
+  });
+
+  // Xóa ảnh đáp án con trong Reading
+  $(document).on("click", ".btn-delete-reading-option-image", function () {
+    const qid = $(this).data("qid");
+    const oid = $(this).data("oid");
+    readingQuestions[qid].options[oid].image = null;
+    readingQuestions[qid].options[oid].file = null;
+    showReadingQuestions();
+  });
 
   // Delete question
   $(document).on("click", ".btn-delete-question", function () {
@@ -1588,6 +1791,21 @@ $(document).ready(function () {
   var page = 1;
   var select = "Tất cả";
   loadQuestion();
+  // Preview ảnh khi chọn file mới
+  $("#question-image").on("change", function (e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        $("#question-image-preview")
+          .html(
+            `<img src="${e.target.result}" class="img-thumbnail" style="max-width:350px; max-height:220px; object-fit:contain; border:2px solid #28a745; border-radius:8px;">`
+          )
+          .show();
+      };
+      reader.readAsDataURL(file);
+    }
+  });
 });
 
 function reloadQuestionList() {

@@ -87,51 +87,51 @@ class view_subject extends Controller
         }
     }
     public function getQuery()
-{
-    header('Content-Type: application/json; charset=utf-8');
-    AuthCore::checkAuthentication();
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        AuthCore::checkAuthentication();
 
-    if ($_SERVER["REQUEST_METHOD"] === "POST" && AuthCore::checkPermission("hocphan", "view")) {
-        $filter = $_POST['filter'] ?? [];
-        $input = $_POST['input'] ?? '';
+        if ($_SERVER["REQUEST_METHOD"] === "POST" && AuthCore::checkPermission("hocphan", "view")) {
+            $filter = $_POST['filter'] ?? [];
+            $input = $_POST['input'] ?? '';
 
-        $queryData = $this->xemmonhocModel->getQuery($filter, $input, []);
+            $queryData = $this->xemmonhocModel->getQuery($filter, $input, []);
 
-        $stmt = $this->xemmonhocModel->con->prepare($queryData['query']);
-        if (!$stmt) {
+            $stmt = $this->xemmonhocModel->con->prepare($queryData['query']);
+            if (!$stmt) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Lỗi chuẩn bị truy vấn.'
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            if (!empty($queryData['params'])) {
+                $stmt->bind_param(...$queryData['params']);
+            }
+
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $rows = [];
+            while ($row = $result->fetch_assoc()) {
+                $rows[] = $row;
+            }
+
+            $stmt->close();
+
+            echo json_encode([
+                'success' => true,
+                'data' => $rows
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
             echo json_encode([
                 'success' => false,
-                'message' => 'Lỗi chuẩn bị truy vấn.'
+                'message' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.'
             ], JSON_UNESCAPED_UNICODE);
-            return;
         }
-
-        if (!empty($queryData['params'])) {
-            $stmt->bind_param(...$queryData['params']);
-        }
-
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        $rows = [];
-        while ($row = $result->fetch_assoc()) {
-            $rows[] = $row;
-        }
-
-        $stmt->close();
-
-        echo json_encode([
-            'success' => true,
-            'data' => $rows
-        ], JSON_UNESCAPED_UNICODE);
-    } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.'
-        ], JSON_UNESCAPED_UNICODE);
     }
-}
-     public function getNamHoc()
+    public function getNamHoc()
     {
         header('Content-Type: application/json; charset=utf-8');
         AuthCore::checkAuthentication();

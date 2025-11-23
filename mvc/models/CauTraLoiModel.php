@@ -2,40 +2,96 @@
 
 class CauTraLoiModel extends DB
 {
-    public function create($macauhoi, $noidungtl, $ladapan)
-{
-    $stmt = mysqli_prepare($this->con, 
-        "INSERT INTO cautraloi (macauhoi, noidungtl, ladapan) VALUES (?, ?, ?)"
-    );
+    public function create($macauhoi, $noidungtl, $ladapan, $hinhanh = null)
+    {
+        $sql = "INSERT INTO cautraloi (macauhoi, noidungtl, ladapan, hinhanh)
+            VALUES (?, ?, ?, ?)";
 
-    if (!$stmt) {
-        die("Prepare failed: " . mysqli_error($this->con));
+        $stmt = mysqli_prepare($this->con, $sql);
+
+        if (!$stmt) {
+            die("Prepare failed: " . mysqli_error($this->con));
+        }
+
+        $blob = null;
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "isib",
+            $macauhoi,
+            $noidungtl,
+            $ladapan,
+            $blob
+        );
+
+        // Nếu có ảnh → gửi dữ liệu binary
+        if ($hinhanh !== null) {
+            mysqli_stmt_send_long_data($stmt, 3, $hinhanh);
+        }
+
+        $result = mysqli_stmt_execute($stmt);
+
+        if (!$result) {
+            die("Execute failed: " . mysqli_error($this->con));
+        }
+
+        mysqli_stmt_close($stmt);
+        return true;
     }
 
-    // $macauhoi: int, $noidungtl: string, $ladapan: int
-    mysqli_stmt_bind_param($stmt, "isi", $macauhoi, $noidungtl, $ladapan);
-
-    $result = mysqli_stmt_execute($stmt);
-    if (!$result) {
-        die("Execute failed: " . mysqli_error($this->con));
-    }
-
-    mysqli_stmt_close($stmt);
-    return $result;
-}
 
 
-
-    public function update($macautl, $macauhoi, $noidungtl, $ladapan)
+    public function updateAnswer($macautl, $macauhoi, $noidungtl, $ladapan, $hinhanh = null)
     {
         $valid = true;
-        $sql = "UPDATE `cautraloi` SET `macauhoi`=$macauhoi,`noidungtl`='$noidungtl',`ladapan`='$ladapan' WHERE `macautl`='$macautl'";
-        $result = mysqli_query($this->con, $sql);
-        if (!$result) {
+
+        if ($hinhanh !== null) {
+            $sql = "UPDATE cautraloi 
+                SET macauhoi = ?, noidungtl = ?, ladapan = ?, hinhanh = ? 
+                WHERE macautl = ?";
+        } else {
+            $sql = "UPDATE cautraloi 
+                SET macauhoi = ?, noidungtl = ?, ladapan = ? 
+                WHERE macautl = ?";
+        }
+
+        $stmt = mysqli_prepare($this->con, $sql);
+
+        if (!$stmt) {
+            die("Prepare failed: " . mysqli_error($this->con));
+        }
+
+        if ($hinhanh !== null) {
+            mysqli_stmt_bind_param(
+                $stmt,
+                "issbi",
+                $macauhoi,
+                $noidungtl,
+                $ladapan,
+                $hinhanh,
+                $macautl
+            );
+            mysqli_stmt_send_long_data($stmt, 3, $hinhanh); // cột thứ 4 là BLOB
+        } else {
+            mysqli_stmt_bind_param(
+                $stmt,
+                "issi",
+                $macauhoi,
+                $noidungtl,
+                $ladapan,
+                $macautl
+            );
+        }
+
+        if (!mysqli_stmt_execute($stmt)) {
             $valid = false;
         }
+
+        mysqli_stmt_close($stmt);
+
         return $valid;
     }
+
 
     public function delete($macautl)
     {
@@ -73,19 +129,34 @@ class CauTraLoiModel extends DB
         }
         return $rows;
     }
-
     public function getById($macautl)
     {
-        $sql = "SELECT * FROM `cautraloi` WHERE `macautl` = $macautl";
-        $result = mysqli_query($this->con, $sql);
-        return mysqli_fetch_assoc($result);
+        $sql = "SELECT * FROM `cautraloi` WHERE `macautl` = ?";
+        $stmt = mysqli_prepare($this->con, $sql);
+        mysqli_stmt_bind_param($stmt, "i", $macautl);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+
+        // Trong getById()
+        if (!empty($row['hinhanh'])) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->buffer($row['hinhanh']) ?: 'image/jpeg';
+
+            $row['hinhanh_base64'] = 'data:' . $mime . ';base64,' . base64_encode($row['hinhanh']);
+            $row['option_image_base64'] = $row['hinhanh_base64']; // cho JS
+        } else {
+            $row['hinhanh_base64'] = null;
+            $row['option_image_base64'] = null;
+        }
+
+        return $row;
     }
 
     public function deletebyanswer($macauhoi)
     {
         $valid = true;
-        // When deleting all answers for a question, clear any student selections
-        // referencing these answers to avoid foreign key constraint failures.
         $clearSql = "UPDATE `chitietketqua` SET `dapanchon` = NULL WHERE `macauhoi` = $macauhoi";
         mysqli_query($this->con, $clearSql);
 

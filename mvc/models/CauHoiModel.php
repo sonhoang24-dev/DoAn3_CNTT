@@ -2,73 +2,167 @@
 
 class CauHoiModel extends DB
 {
-  public function create($noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai = 'mcq', $madv = null)
+    public function create($noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai = 'mcq', $madv = null, $hinhanh = null)
     {
         if ($madv !== null && $loai === 'mcq') {
             $loai = 'reading';
         }
 
-        $sql = "INSERT INTO cauhoi (noidung, dokho, mamonhoc, machuong, nguoitao, loai, madv) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO cauhoi 
+            (noidung, dokho, mamonhoc, machuong, nguoitao, loai, madv, hinhanh) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
         $stmt = mysqli_prepare($this->con, $sql);
-        mysqli_stmt_bind_param($stmt, "sissssi", $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $madv);
+
+        if (!$stmt) {
+            die("Prepare failed: " . mysqli_error($this->con));
+        }
+
+        $blob = null;
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "sissssib",
+            $noidung,
+            $dokho,
+            $mamonhoc,
+            $machuong,
+            $nguoitao,
+            $loai,
+            $madv,
+            $blob
+        );
+
+        if ($hinhanh !== null) {
+            mysqli_stmt_send_long_data($stmt, 7, $hinhanh);
+        }
+
         mysqli_stmt_execute($stmt);
+
         $id = mysqli_insert_id($this->con);
+
         mysqli_stmt_close($stmt);
 
         return $id > 0 ? $id : false;
     }
 
-    public function update($macauhoi, $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai = 'mcq', $madv = null)
+   public function update($macauhoi, $noidung, $dokho, $mamonhoc, $machuong, 
+                       $nguoitao, $loai = 'mcq', $madv = null, $hinhanh = null, 
+                       $deleteImage = false)
 {
-    $sql = "UPDATE `cauhoi` 
-            SET `noidung`=?, `dokho`=?, `mamonhoc`=?, `machuong`=?, `nguoitao`=?, `loai`=?, `madv`=? 
-            WHERE `macauhoi`=?";
-    $stmt = mysqli_prepare($this->con, $sql);
-    if ($stmt === false) {
-        die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
+    // Nếu đang update câu hỏi con của reading mà có madv
+    if ($madv !== null && $loai === 'mcq') {
+        $loai = 'reading';
     }
 
-    mysqli_stmt_bind_param($stmt, "sissssii", $noidung, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $madv, $macauhoi);
+    // TRƯỜNG HỢP 1: Người dùng bấm X → xoá ảnh
+    if ($deleteImage) {
+        $sql = "UPDATE cauhoi 
+                SET noidung = ?, dokho = ?, mamonhoc = ?, machuong = ?, 
+                    nguoitao = ?, loai = ?, madv = ?, hinhanh = NULL
+                WHERE macauhoi = ?";
+        $stmt = mysqli_prepare($this->con, $sql);
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "sisssssi",
+            $noidung,
+            $dokho,
+            $mamonhoc,
+            $machuong,
+            $nguoitao,
+            $loai,
+            $madv,
+            $macauhoi
+        );
+
+    }
+    // TRƯỜNG HỢP 2: Có upload ảnh mới (BLOB)
+    else if ($hinhanh !== null) {
+        $sql = "UPDATE cauhoi 
+                SET noidung = ?, dokho = ?, mamonhoc = ?, machuong = ?, 
+                    nguoitao = ?, loai = ?, madv = ?, hinhanh = ?
+                WHERE macauhoi = ?";
+        $stmt = mysqli_prepare($this->con, $sql);
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "sissssibi",
+            $noidung,
+            $dokho,
+            $mamonhoc,
+            $machuong,
+            $nguoitao,
+            $loai,
+            $madv,
+            $hinhanh,
+            $macauhoi
+        );
+        mysqli_stmt_send_long_data($stmt, 7, $hinhanh);
+    }
+    // TRƯỜNG HỢP 3: Không xoá, không upload → giữ nguyên ảnh cũ
+    else {
+        $sql = "UPDATE cauhoi 
+                SET noidung = ?, dokho = ?, mamonhoc = ?, machuong = ?, 
+                    nguoitao = ?, loai = ?, madv = ?
+                WHERE macauhoi = ?";
+        $stmt = mysqli_prepare($this->con, $sql);
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "sisssssi",
+            $noidung,
+            $dokho,
+            $mamonhoc,
+            $machuong,
+            $nguoitao,
+            $loai,
+            $madv,
+            $macauhoi
+        );
+    }
+
     $result = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
     return $result;
 }
-public function getSubQuestions($madv)
-{
-    $sql = "SELECT * FROM cauhoi WHERE madv = ? AND loai = 'reading' AND trangthai = '1' ORDER BY macauhoi ASC";
-    $stmt = mysqli_prepare($this->con, $sql);
-    if ($stmt === false) {
-        die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
+
+    
+    public function getSubQuestions($madv)
+    {
+        $sql = "SELECT * FROM cauhoi WHERE madv = ? AND loai = 'reading' AND trangthai = '1' ORDER BY macauhoi ASC";
+        $stmt = mysqli_prepare($this->con, $sql);
+        if ($stmt === false) {
+            die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
+        }
+        mysqli_stmt_bind_param($stmt, "i", $madv);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $rows = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $rows[] = $row;
+        }
+        mysqli_stmt_close($stmt);
+        return $rows;
     }
-    mysqli_stmt_bind_param($stmt, "i", $madv);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $rows = array();
-    while ($row = mysqli_fetch_assoc($result)) {
-        $rows[] = $row;
-    }
-    mysqli_stmt_close($stmt);
-    return $rows;
-}
-public function getWithDoanVan($macauhoi)
-{
-    $sql = "SELECT c.*, d.noidung AS doanvan_noidung, d.tieude AS doanvan_tieude
+    public function getWithDoanVan($macauhoi)
+    {
+        $sql = "SELECT c.*, d.noidung AS doanvan_noidung, d.tieude AS doanvan_tieude
             FROM cauhoi c
             LEFT JOIN doan_van d ON c.madv = d.madv
             WHERE c.macauhoi = ?";
-    $stmt = mysqli_prepare($this->con, $sql);
-    if ($stmt === false) {
-        die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
+        $stmt = mysqli_prepare($this->con, $sql);
+        if ($stmt === false) {
+            die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
+        }
+        mysqli_stmt_bind_param($stmt, "i", $macauhoi);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+        return $row;
     }
-    mysqli_stmt_bind_param($stmt, "i", $macauhoi);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    return $row;
-}
-public function createWithDoanVan($noidungCH, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $noidungDV, $tieudeDV = null)
+    public function createWithDoanVan($noidungCH, $dokho, $mamonhoc, $machuong, $nguoitao, $loai, $noidungDV, $tieudeDV = null)
     {
         // Tạo đoạn văn
         $sql = "INSERT INTO doan_van (noidung, tieude, mamonhoc, machuong, nguoitao)
@@ -86,6 +180,46 @@ public function createWithDoanVan($noidungCH, $dokho, $mamonhoc, $machuong, $ngu
 
         return $madv;
     }
+    //đề thi 
+    // Lấy ngẫu nhiên $qty câu hỏi theo môn, chương, mức độ, loại câu hỏi
+public function getRandomCauHoi($chuong, $monthi, $level, $loaicauhoi = ['mcq'], $qty = 1)
+{
+    $monthi = mysqli_real_escape_string($this->con, $monthi);
+
+    // Chuẩn bị điều kiện chương
+    $chuongArr = [];
+    foreach ($chuong as $c) {
+        $chuongArr[] = "machuong='".mysqli_real_escape_string($this->con, $c)."'";
+    }
+    $chuongCond = "(" . implode(' OR ', $chuongArr) . ")";
+
+    // Chuẩn bị điều kiện loại câu hỏi
+    $loaicauhoiArr = [];
+    foreach ($loaicauhoi as $lc) {
+        $loaicauhoiArr[] = "loaicauhoi='".mysqli_real_escape_string($this->con, $lc)."'";
+    }
+    $typeCond = "(" . implode(' OR ', $loaicauhoiArr) . ")";
+
+    $sql = "SELECT * FROM cauhoi 
+            WHERE mamonhoc='$monthi' 
+            AND dokho=$level 
+            AND trangthai!=0
+            AND $chuongCond 
+            AND $typeCond
+            ORDER BY RAND() 
+            LIMIT $qty";
+
+    $res = mysqli_query($this->con, $sql);
+    if (!$res) die("Lỗi SQL getRandomCauHoi: ".mysqli_error($this->con));
+
+    $cauhoi_list = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $cauhoi_list[] = $row;
+    }
+
+    return $cauhoi_list;
+}
+
 
 
     public function delete($macauhoi)
@@ -114,21 +248,43 @@ public function createWithDoanVan($noidungCH, $dokho, $mamonhoc, $machuong, $ngu
         }
         return $rows;
     }
-
     public function getById($macauhoi)
     {
-        $sql = "SELECT * FROM `cauhoi` WHERE `macauhoi`=?";
+        $sql = "SELECT * FROM `cauhoi` WHERE `macauhoi` = ?";
         $stmt = mysqli_prepare($this->con, $sql);
-        if ($stmt === false) {
-            die("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con));
-        }
         mysqli_stmt_bind_param($stmt, "i", $macauhoi);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
         $row = mysqli_fetch_assoc($result);
         mysqli_stmt_close($stmt);
+
+        if (!empty($row['hinhanh'])) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->buffer($row['hinhanh']);
+
+            if (!$mime) {
+                $header = substr($row['hinhanh'], 0, 12);
+                if (bin2hex(substr($header, 0, 8)) === '89504e470d0a1a0a') {
+                    $mime = 'image/png';
+                } elseif (bin2hex(substr($header, 0, 4)) === '47494638') {
+                    $mime = 'image/gif';
+                } elseif (bin2hex(substr($header, 0, 2)) === 'ffd8') {
+                    $mime = 'image/jpeg';
+                } else {
+                    $mime = 'image/jpeg';
+                }
+            }
+
+            $base64 = 'data:' . $mime . ';base64,' . base64_encode($row['hinhanh']);
+            $row['hinhanh_base64'] = $base64;
+            $row['question_image_base64'] = $base64;
+        } else {
+            $row['hinhanh_base64'] = null;
+            $row['question_image_base64'] = null;
+        }
         return $row;
     }
+
 
     public function getAllBySubject($mamonhoc)
     {
@@ -165,12 +321,11 @@ public function createWithDoanVan($noidungCH, $dokho, $mamonhoc, $machuong, $ngu
         return $data;
     }
 
-   public function getQuestionBySubject($mamonhoc, $machuong, $dokho, $content, $page)
-{
-    $limit = 10;
-    $offset = ($page - 1) * $limit;
-    // JOIN với doan_van để lấy nội dung đoạn văn
-    $sql = "SELECT 
+    public function getQuestionBySubject($mamonhoc, $machuong, $dokho, $content, $page)
+    {
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+        $sql = "SELECT 
             c.macauhoi, 
             CASE 
                 WHEN c.loai = 'reading' THEN d.noidung 
@@ -191,91 +346,91 @@ public function createWithDoanVan($noidungCH, $dokho, $mamonhoc, $machuong, $ngu
         WHERE c.mamonhoc = ? 
           AND c.trangthai = '1'
           AND (c.madv IS NULL OR c.loai = 'reading')";
-    $params = array('s', $mamonhoc);
-    
-    if ($machuong != 0) {
-        $sql .= " AND c.machuong = ?";
-        $params[0] .= 's';
-        $params[] = $machuong;
-    }
-    if ($dokho != 0) {
-        $sql .= " AND c.dokho = ?";
-        $params[0] .= 'i';
-        $params[] = $dokho;
-    }
-    if ($content != '') {
-        $sql .= " AND (c.noidung LIKE ? OR d.noidung LIKE ?)";
-        $params[0] .= 'ss';
-        $params[] = "%$content%";
-        $params[] = "%$content%";
-    }
-    $sql .= " ORDER BY c.macauhoi ASC LIMIT ?, ?";
-    $params[0] .= 'ii';
-    $params[] = $offset;
-    $params[] = $limit;
+        $params = array('s', $mamonhoc);
 
-    $stmt = mysqli_prepare($this->con, $sql);
-    if ($stmt === false) {
-        error_log("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con) . " | Truy vấn: $sql");
-        return [];
+        if ($machuong != 0) {
+            $sql .= " AND c.machuong = ?";
+            $params[0] .= 's';
+            $params[] = $machuong;
+        }
+        if ($dokho != 0) {
+            $sql .= " AND c.dokho = ?";
+            $params[0] .= 'i';
+            $params[] = $dokho;
+        }
+        if ($content != '') {
+            $sql .= " AND (c.noidung LIKE ? OR d.noidung LIKE ?)";
+            $params[0] .= 'ss';
+            $params[] = "%$content%";
+            $params[] = "%$content%";
+        }
+        $sql .= " ORDER BY c.macauhoi ASC LIMIT ?, ?";
+        $params[0] .= 'ii';
+        $params[] = $offset;
+        $params[] = $limit;
+
+        $stmt = mysqli_prepare($this->con, $sql);
+        if ($stmt === false) {
+            error_log("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con) . " | Truy vấn: $sql");
+            return [];
+        }
+        mysqli_stmt_bind_param($stmt, ...$params);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $rows = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $rows[] = $row;
+        }
+        mysqli_stmt_close($stmt);
+        return $rows;
     }
-    mysqli_stmt_bind_param($stmt, ...$params);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $rows = array();
-    while ($row = mysqli_fetch_assoc($result)) {
-        $rows[] = $row;
-    }
-    mysqli_stmt_close($stmt);
-    return $rows;
-}
 
     public function getTotalPageQuestionBySubject($mamonhoc, $machuong, $dokho, $content)
-{
-    $sql = "SELECT COUNT(*) as total 
+    {
+        $sql = "SELECT COUNT(*) as total 
         FROM cauhoi c 
         LEFT JOIN doan_van d ON c.madv = d.madv 
         WHERE c.mamonhoc = ? 
           AND c.trangthai = '1'
           AND (c.madv IS NULL OR c.loai = 'reading')";
-    $params = array('s', $mamonhoc);
-    if ($machuong != 0) {
-        $sql .= " AND c.machuong = ?";
-        $params[0] .= 's';
-        $params[] = $machuong;
-    }
-    if ($dokho != 0) {
-        $sql .= " AND c.dokho = ?";
-        $params[0] .= 'i';
-        $params[] = $dokho;
-    }
-    if ($content != '') {
-        $sql .= " AND (c.noidung LIKE ? OR d.noidung LIKE ?)";
-        $params[0] .= 'ss';
-        $params[] = "%$content%";
-        $params[] = "%$content%";
-    }
+        $params = array('s', $mamonhoc);
+        if ($machuong != 0) {
+            $sql .= " AND c.machuong = ?";
+            $params[0] .= 's';
+            $params[] = $machuong;
+        }
+        if ($dokho != 0) {
+            $sql .= " AND c.dokho = ?";
+            $params[0] .= 'i';
+            $params[] = $dokho;
+        }
+        if ($content != '') {
+            $sql .= " AND (c.noidung LIKE ? OR d.noidung LIKE ?)";
+            $params[0] .= 'ss';
+            $params[] = "%$content%";
+            $params[] = "%$content%";
+        }
 
-    $stmt = mysqli_prepare($this->con, $sql);
-    if ($stmt === false) {
-        error_log("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con) . " | Truy vấn: $sql");
-        return 0;
+        $stmt = mysqli_prepare($this->con, $sql);
+        if ($stmt === false) {
+            error_log("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con) . " | Truy vấn: $sql");
+            return 0;
+        }
+        mysqli_stmt_bind_param($stmt, ...$params);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $count = mysqli_fetch_assoc($result)['total'];
+        mysqli_stmt_close($stmt);
+        $limit = 10;
+        return ceil($count / $limit);
     }
-    mysqli_stmt_bind_param($stmt, ...$params);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $count = mysqli_fetch_assoc($result)['total'];
-    mysqli_stmt_close($stmt);
-    $limit = 10;
-    return ceil($count / $limit);
-}
-public function getQuery($filter, $input, $args)
-{
-    if ($input) {
-        return $this->getQueryWithInput($filter, $input, $args);
-    }
+    public function getQuery($filter, $input, $args)
+    {
+        if ($input) {
+            return $this->getQueryWithInput($filter, $input, $args);
+        }
 
-    $query = "
+        $query = "
         SELECT DISTINCT
             combined.macauhoi,
             combined.noidung,
@@ -330,45 +485,45 @@ public function getQuery($filter, $input, $args)
         WHERE 1=1
     ";
 
-    $params = ['ss', $args['id'], $args['id']];
+        $params = ['ss', $args['id'], $args['id']];
 
-    if (!empty($filter['mamonhoc'])) {
-        $query .= " AND combined.mamonhoc = ?";
-        $params[0] .= 's';
-        $params[] = $filter['mamonhoc'];
-    }
-    if (!empty($filter['machuong'])) {
-        $query .= " AND combined.machuong = ?";
-        $params[0] .= 's';
-        $params[] = $filter['machuong'];
-    }
-    if (!empty($filter['dokho']) && $filter['dokho'] != 0) {
-        $query .= " AND combined.dokho = ?";
-        $params[0] .= 'i';
-        $params[] = $filter['dokho'];
+        if (!empty($filter['mamonhoc'])) {
+            $query .= " AND combined.mamonhoc = ?";
+            $params[0] .= 's';
+            $params[] = $filter['mamonhoc'];
+        }
+        if (!empty($filter['machuong'])) {
+            $query .= " AND combined.machuong = ?";
+            $params[0] .= 's';
+            $params[] = $filter['machuong'];
+        }
+        if (!empty($filter['dokho']) && $filter['dokho'] != 0) {
+            $query .= " AND combined.dokho = ?";
+            $params[0] .= 'i';
+            $params[] = $filter['dokho'];
+        }
+
+        // Filter by question type (loai) for input/search path
+        if (!empty($filter['loai']) && $filter['loai'] != '0') {
+            $query .= " AND combined.loai = ?";
+            $params[0] .= 's';
+            $params[] = $filter['loai'];
+        }
+        // Filter by question type (loai) if provided and not '0' / empty
+        if (!empty($filter['loai']) && $filter['loai'] != '0') {
+            $query .= " AND combined.loai = ?";
+            $params[0] .= 's';
+            $params[] = $filter['loai'];
+        }
+
+        $query .= " ORDER BY combined.macauhoi ASC";
+
+        return ['query' => $query, 'params' => $params];
     }
 
-    // Filter by question type (loai) for input/search path
-    if (!empty($filter['loai']) && $filter['loai'] != '0') {
-        $query .= " AND combined.loai = ?";
-        $params[0] .= 's';
-        $params[] = $filter['loai'];
-    }
-    // Filter by question type (loai) if provided and not '0' / empty
-    if (!empty($filter['loai']) && $filter['loai'] != '0') {
-        $query .= " AND combined.loai = ?";
-        $params[0] .= 's';
-        $params[] = $filter['loai'];
-    }
-
-    $query .= " ORDER BY combined.macauhoi ASC";
-
-    return ['query' => $query, 'params' => $params];
-}
-
-public function getQueryWithInput($filter, $input, $args)
-{
-    $query = "
+    public function getQueryWithInput($filter, $input, $args)
+    {
+        $query = "
         SELECT DISTINCT
             combined.macauhoi,
             combined.noidung,
@@ -423,28 +578,28 @@ public function getQueryWithInput($filter, $input, $args)
         WHERE 1=1
     ";
 
-    $params = ['sss', "%$input%", "%$input%", "%$input%"];
+        $params = ['sss', "%$input%", "%$input%", "%$input%"];
 
-    if (!empty($filter['mamonhoc'])) {
-        $query .= " AND combined.mamonhoc = ?";
-        $params[0] .= 's';
-        $params[] = $filter['mamonhoc'];
+        if (!empty($filter['mamonhoc'])) {
+            $query .= " AND combined.mamonhoc = ?";
+            $params[0] .= 's';
+            $params[] = $filter['mamonhoc'];
+        }
+        if (!empty($filter['machuong'])) {
+            $query .= " AND combined.machuong = ?";
+            $params[0] .= 's';
+            $params[] = $filter['machuong'];
+        }
+        if (!empty($filter['dokho']) && $filter['dokho'] != 0) {
+            $query .= " AND combined.dokho = ?";
+            $params[0] .= 'i';
+            $params[] = $filter['dokho'];
+        }
+
+        $query .= " ORDER BY CAST(combined.macauhoi AS UNSIGNED) ASC";
+
+        return ['query' => $query, 'params' => $params];
     }
-    if (!empty($filter['machuong'])) {
-        $query .= " AND combined.machuong = ?";
-        $params[0] .= 's';
-        $params[] = $filter['machuong'];
-    }
-    if (!empty($filter['dokho']) && $filter['dokho'] != 0) {
-        $query .= " AND combined.dokho = ?";
-        $params[0] .= 'i';
-        $params[] = $filter['dokho'];
-    }
-
-    $query .= " ORDER BY CAST(combined.macauhoi AS UNSIGNED) ASC";
-
-    return ['query' => $query, 'params' => $params];
-}
 
 
 
@@ -452,33 +607,39 @@ public function getQueryWithInput($filter, $input, $args)
 
 
 
-    
+
     public function getsoluongcauhoi($chuong, $monhoc, $dokho, $loaicauhoi = ['mcq'])
-{
-    if (!is_array($chuong)) $chuong = !empty($chuong) ? [$chuong] : [];
-    if (!is_array($loaicauhoi)) $loaicauhoi = [$loaicauhoi];
+    {
+        if (!is_array($chuong)) {
+            $chuong = !empty($chuong) ? [$chuong] : [];
+        }
+        if (!is_array($loaicauhoi)) {
+            $loaicauhoi = [$loaicauhoi];
+        }
 
-    $sql = "SELECT COUNT(*) as soluong FROM cauhoi WHERE dokho = ? AND mamonhoc = ? AND loai IN (" . implode(',', array_fill(0, count($loaicauhoi), '?')) . ")";
-    $types = str_repeat('s', 2 + count($loaicauhoi)); // dokho, mamonhoc + loaicauhoi
-    $params = array_merge([(string)$dokho, $monhoc], $loaicauhoi);
+        $sql = "SELECT COUNT(*) as soluong FROM cauhoi WHERE dokho = ? AND mamonhoc = ? AND loai IN (" . implode(',', array_fill(0, count($loaicauhoi), '?')) . ")";
+        $types = str_repeat('s', 2 + count($loaicauhoi)); // dokho, mamonhoc + loaicauhoi
+        $params = array_merge([(string)$dokho, $monhoc], $loaicauhoi);
 
-    if (!empty($chuong)) {
-        $sql .= " AND machuong IN (" . implode(',', array_fill(0, count($chuong), '?')) . ")";
-        $types .= str_repeat('s', count($chuong));
-        $params = array_merge($params, $chuong);
+        if (!empty($chuong)) {
+            $sql .= " AND machuong IN (" . implode(',', array_fill(0, count($chuong), '?')) . ")";
+            $types .= str_repeat('s', count($chuong));
+            $params = array_merge($params, $chuong);
+        }
+
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            return 0;
+        }
+
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $row = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($stmt);
+
+        return (int)($row['soluong'] ?? 0);
     }
-
-    $stmt = mysqli_prepare($this->con, $sql);
-    if (!$stmt) return 0;
-
-    mysqli_stmt_bind_param($stmt, $types, ...$params);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-
-    return (int)($row['soluong'] ?? 0);
-}
 
 
 }

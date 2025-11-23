@@ -11,9 +11,9 @@ class NguoiDungModel extends DB
         $ngaysinh = mysqli_real_escape_string($this->con, $ngaysinh ?: '2004-01-01');
         $sodienthoai = $sodienthoai !== null ? (int)$sodienthoai : 'NULL';
         $password = password_hash($password, PASSWORD_DEFAULT);
-        $ngaythamgia = date('Y-m-d'); 
-        $trangthai = 1; 
-        $manhomquyen = 2; 
+        $ngaythamgia = date('Y-m-d');
+        $trangthai = 1;
+        $manhomquyen = 2;
 
         $sql = "INSERT INTO `nguoidung`(`id`, `email`, `hoten`, `gioitinh`, `ngaysinh`, `ngaythamgia`, `matkhau`, `trangthai`, `sodienthoai`, `manhomquyen`) 
                 VALUES ('$id', '$email', '$hoten', $gioitinh, '$ngaysinh', '$ngaythamgia', '$password', $trangthai, $sodienthoai, $manhomquyen)";
@@ -91,7 +91,7 @@ class NguoiDungModel extends DB
     {
         $sql = "SELECT * FROM nguoidung WHERE id = ?";
         $stmt = $this->con->prepare($sql);
-        $stmt->bind_param("s", $id); 
+        $stmt->bind_param("s", $id);
         $stmt->execute();
         $result = $stmt->get_result();
         return $result ? $result->fetch_assoc() : false;
