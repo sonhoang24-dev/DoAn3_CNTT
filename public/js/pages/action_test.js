@@ -142,10 +142,12 @@ function showGroup() {
           item.mamonhoc +
           " - " +
           item.tenmonhoc +
-          " - NH" +
-          item.namhoc +
-          " - HK" +
-          item.hocky
+          " - " +
+          "(" +
+          item.tennamhoc +
+          ")" +
+          " - " +
+          item.tenhocky
         }</option>`;
       });
       $("#nhom-hp").html(html);
@@ -576,68 +578,126 @@ $(document).ready(function () {
   $("#btn-update-test").click(function (e) {
     e.preventDefault();
 
+    // Kiểm tra form cơ bản và thời gian
     if (
       (!checkDate(infodethi.thoigianbatdau) && $(".form-taodethi").valid()) ||
       validUpdate()
     ) {
-      let loaide = $("#tudongsoande").prop("checked") ? 1 : 0;
-      let made = $(this).data("id");
-      let socaude = $("#coban").val();
-      let socautb = $("#trungbinh").val();
-      let socaukho = $("#kho").val();
+      const made = $(this).data("id");
+      const loaide = $("#tudongsoande").prop("checked") ? 1 : 0;
+
+      // --- Nhóm chọn và chương ---
+      const manhom = getGroupSelected().map((x) => parseInt(x));
+      const chuong = $("#chuong").val()
+        ? $("#chuong")
+            .map((i, el) => parseInt($(el).val()))
+            .get()
+        : [];
+
+      if (manhom.length === 0) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Chọn ít nhất một nhóm học phần!",
+        });
+        return;
+      }
+
+      // --- Lấy loại câu hỏi được chọn ---
+      const loaicauhoi = [];
+      if ($("#chk-mcq").prop("checked")) loaicauhoi.push("mcq");
+      if ($("#chk-essay").prop("checked")) loaicauhoi.push("essay");
+      if ($("#chk-reading").prop("checked")) loaicauhoi.push("reading");
+
+      if (loaicauhoi.length === 0) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Phải chọn ít nhất 1 loại câu hỏi!",
+        });
+        return;
+      }
+
+      // --- Lấy số câu theo loại + mức độ ---
+      const socau = {};
+      let valid = true;
+      const typeMap = { mcq: "mcq", essay: "essay", reading: "reading" };
+      loaicauhoi.forEach((type) => {
+        const de = parseInt($(`#${type}-de`).val()) || 0;
+        const tb = parseInt($(`#${type}-tb`).val()) || 0;
+        const kho = parseInt($(`#${type}-kho`).val()) || 0;
+
+        if (de + tb + kho === 0) {
+          valid = false;
+          const name = {
+            mcq: "Trắc nghiệm",
+            essay: "Tự luận",
+            reading: "Đọc hiểu",
+          }[type];
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: `Loại "${name}" phải có ít nhất 1 câu!`,
+          });
+        }
+
+        socau[type] = { de, tb, kho };
+      });
+
+      if (!valid) return;
+
+      // --- Gửi Ajax ---
+      const data = {
+        made: made,
+        mamonhoc: groups[$("#nhom-hp").val()].mamonhoc,
+        tende: $("#name-exam").val(),
+        thoigianthi: parseInt($("#exam-time").val()) || 0,
+        thoigianbatdau: $("#time-start").val(),
+        thoigianketthuc: $("#time-end").val(),
+        chuong: chuong,
+        loaide: loaide,
+        xemdiem: $("#xemdiem").prop("checked") ? 1 : 0,
+        xemdapan: $("#xemda").prop("checked") ? 1 : 0,
+        xembailam: $("#xembailam").prop("checked") ? 1 : 0,
+        daocauhoi: $("#daocauhoi").prop("checked") ? 1 : 0,
+        daodapan: $("#daodapan").prop("checked") ? 1 : 0,
+        tudongnop: $("#tudongnop").prop("checked") ? 1 : 0,
+        manhom: manhom,
+        socau: JSON.stringify(socau),
+        loaicauhoi: loaicauhoi,
+      };
 
       $.ajax({
         type: "post",
         url: "./test/updateTest",
-        data: {
-          made: made,
-          mamonhoc: groups[$("#nhom-hp").val()].mamonhoc,
-          tende: $("#name-exam").val(),
-          thoigianthi: $("#exam-time").val(),
-          thoigianbatdau: $("#time-start").val(),
-          thoigianketthuc: $("#time-end").val(),
-          socaude: socaude,
-          socautb: socautb,
-          socaukho: socaukho,
-          chuong: $("#chuong").val(),
-          loaide: loaide,
-          xemdiem: $("#xemdiem").prop("checked") ? 1 : 0,
-          xemdapan: $("#xemda").prop("checked") ? 1 : 0,
-          xembailam: $("#xembailam").prop("checked") ? 1 : 0,
-          daocauhoi: $("#daocauhoi").prop("checked") ? 1 : 0,
-          daodapan: $("#daodapan").prop("checked") ? 1 : 0,
-          tudongnop: $("#tudongnop").prop("checked") ? 1 : 0,
-          manhom: getGroupSelected(),
-        },
+        data: data,
+        dataType: "json",
         success: function (response) {
-          if (response) {
+          if (response && response.success) {
             Dashmix.helpers("jq-notify", {
               type: "success",
               icon: "fa fa-check me-1",
               message: "Cập nhật đề thi thành công!",
             });
-
-            setTimeout(function () {
-              if (
-                (infodethi.loaide == 1 && loaide == 0) ||
-                (loaide == 0 &&
-                  (infodethi.socaude != socaude ||
-                    infodethi.socautb != socautb ||
-                    infodethi.socaukho != socaukho))
-              ) {
-                location.href = `./test/select/${made}`;
-              } else {
-                location.href = `./test`;
-              }
-            }, 2000);
+            setTimeout(() => {
+              location.href = "./test";
+            }, 1500);
           } else {
             Dashmix.helpers("jq-notify", {
               type: "danger",
               icon: "fa fa-times me-1",
-              message: "Cập nhật đề thi không thành công!",
+              message: response.error || "Cập nhật đề thi không thành công!",
               delay: 10000,
             });
           }
+        },
+        error: function (xhr, status, error) {
+          console.error("AJAX Error:", {
+            status: xhr.status,
+            responseText: xhr.responseText,
+          });
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            icon: "fa fa-times me-1",
+            message: `Lỗi: ${xhr.responseText || error}`,
+          });
         },
       });
     }
@@ -648,45 +708,101 @@ $(document).ready(function () {
     let currentTime = new Date();
     return dateToCompare.getTime() < currentTime.getTime();
   }
+  // Hiển thị/ẩn div socau-type dựa theo checkbox
+  function toggleSocauType() {
+    $(".dang-hoi").each(function () {
+      const val = $(this).val(); // mcq / essay / reading
+      let targetId = "";
+      if (val === "mcq") targetId = "#box-tn";
+      else if (val === "essay") targetId = "#box-tl";
+      else if (val === "reading") targetId = "#box-dh";
 
+      if ($(this).prop("checked")) {
+        $(targetId).removeClass("d-none");
+      } else {
+        $(targetId).addClass("d-none");
+        $(targetId).find("input").val(0); // reset số lượng khi bỏ chọn
+      }
+    });
+  }
+
+  // Gắn sự kiện khi checkbox thay đổi
+  $(document).on("change", ".dang-hoi", toggleSocauType);
+
+  // Gọi 1 lần khi load trang
+  toggleSocauType();
+
+  function findIndexGroup(manhom) {
+    let i = 0;
+    let index = -1;
+    while (i < groups.length && index == -1) {
+      index = groups[i].nhom.findIndex((item) => item.manhom == manhom);
+      if (index == -1) i++;
+    }
+    return i;
+  }
   function showInfo(dethi) {
-    let checkD = checkDate(dethi.thoigianbatdau);
+    const checkD = checkDate(dethi.thoigianbatdau);
+
+    // --- Checkbox loại câu hỏi ---
+    $("#loai-tracnghiem").prop(
+      "checked",
+      dethi.mcq_de + dethi.mcq_tb + dethi.mcq_kho > 0
+    );
+    $("#loai-tuluan").prop(
+      "checked",
+      dethi.essay_de + dethi.essay_tb + dethi.essay_kho > 0
+    );
+    $("#loai-doc-hieu").prop(
+      "checked",
+      dethi.reading_de + dethi.reading_tb + dethi.reading_kho > 0
+    );
+
+    // --- Số lượng câu hỏi từng loại ---
+    $("#coban_tracnghiem").val(dethi.mcq_de);
+    $("#trungbinh_tracnghiem").val(dethi.mcq_tb);
+    $("#kho_tracnghiem").val(dethi.mcq_kho);
+
+    $("#coban_tuluan").val(dethi.essay_de);
+    $("#trungbinh_tuluan").val(dethi.essay_tb);
+    $("#kho_tuluan").val(dethi.essay_kho);
+
+    $("#coban_dochieu").val(dethi.reading_de);
+    $("#trungbinh_dochieu").val(dethi.reading_tb);
+    $("#kho_dochieu").val(dethi.reading_kho);
+
+    // --- Hiển thị div socau-type đúng ---
+    toggleSocauType();
+
+    // --- Các input khác ---
     $("#name-exam").val(dethi.tende);
-    $("#exam-time").val(dethi.thoigianthi);
-    $("#exam-time").prop("disabled", checkD);
+    $("#exam-time").val(dethi.thoigianthi).prop("disabled", checkD);
+
     $("#time-start").flatpickr({
       enableTime: true,
       altInput: true,
-      allowInput: checkD,
+      allowInput: !checkD,
       defaultDate: dethi.thoigianbatdau,
-      onReady: function (selectedDates, dateStr, instance) {
-        if (checkD) {
-          $(instance.input).prop("disabled", true);
-          instance._input.disabled = true;
-        }
-      },
     });
+
     $("#time-end").flatpickr({
       enableTime: true,
       altInput: true,
       allowInput: true,
       defaultDate: dethi.thoigianketthuc,
     });
-    $("#coban").val(dethi.socaude);
-    $("#coban").prop("disabled", checkD);
-    $("#trungbinh").val(dethi.socautb);
-    $("#trungbinh").prop("disabled", checkD);
-    $("#kho").val(dethi.socaukho);
-    $("#kho").prop("disabled", checkD);
-    $("#tudongsoande").prop("checked", dethi.loaide == "1");
-    $("#tudongsoande").prop("disabled", checkD);
+
+    $("#tudongsoande")
+      .prop("checked", dethi.loaide == "1")
+      .prop("disabled", checkD);
     $("#xemdiem").prop("checked", dethi.xemdiemthi == "1");
     $("#xemda").prop("checked", dethi.xemdapan == "1");
     $("#xembailam").prop("checked", dethi.hienthibailam == "1");
     $("#daocauhoi").prop("checked", dethi.troncauhoi == "1");
     $("#daodapan").prop("checked", dethi.trondapan == "1");
     $("#tudongnop").prop("checked", dethi.nopbaichuyentab == "1");
-    $("#btn-update-test").data("id", dethi.made);
+
+    // --- Load nhóm học phần và chương ---
     $.when(showGroup(), showChapter(dethi.monthi)).done(function () {
       $("#nhom-hp").val(findIndexGroup(dethi.nhom[0])).trigger("change");
       setGroup(dethi.nhom, dethi.thoigianbatdau);
@@ -713,15 +829,6 @@ $(document).ready(function () {
         $(".show-chap").hide();
       }
     });
-  }
-  function findIndexGroup(manhom) {
-    let i = 0;
-    let index = -1;
-    while (i < groups.length && index == -1) {
-      index = groups[i].nhom.findIndex((item) => item.manhom == manhom);
-      if (index == -1) i++;
-    }
-    return i;
   }
 
   function setGroup(list, date) {

@@ -65,118 +65,152 @@ class DeThiModel extends DB
 
         return ['valid' => true, 'counts' => $counts];
     }
-    public function create(
-        $monthi,
-        $nguoitao,
-        $tende,
-        $thoigianthi,
-        $thoigianbatdau,
-        $thoigianketthuc,
-        $hienthibailam,
-        $xemdiemthi,
-        $xemdapan,
-        $daocauhoi,
-        $daodapan,
-        $tudongnop,
-        $loaide,
-        $socau,
-        $chuong,
-        $nhom,
-        $loaicauhoi
-    ) {
-        try {
-            // ===== Normalize inputs =====
-            $monthi = trim($monthi);
-            $nguoitao = trim($nguoitao);
-            $tende = trim($tende);
+public function create(
+    $monthi,
+    $nguoitao,
+    $tende,
+    $thoigianthi,
+    $thoigianbatdau,
+    $thoigianketthuc,
+    $hienthibailam,
+    $xemdiemthi,
+    $xemdapan,
+    $daocauhoi,
+    $daodapan,
+    $tudongnop,
+    $loaide,
+    $socau,
+    $chuong,
+    $nhom,
+    $loaicauhoi
+) {
+    try {
+        // ===== Normalize inputs =====
+        $monthi = trim($monthi);
+        $nguoitao = trim($nguoitao);
+        $tende = trim($tende);
 
-            $thoigianthi = intval($thoigianthi);
-            $hienthibailam = intval($hienthibailam);
-            $xemdiemthi = intval($xemdiemthi);
-            $xemdapan = intval($xemdapan);
-            $daocauhoi = intval($daocauhoi);
-            $daodapan = intval($daodapan);
-            $tudongnop = intval($tudongnop);
-            $loaide = intval($loaide);
+        $thoigianthi = intval($thoigianthi);
+        $hienthibailam = intval($hienthibailam);
+        $xemdiemthi = intval($xemdiemthi);
+        $xemdapan = intval($xemdapan);
+        $daocauhoi = intval($daocauhoi);
+        $daodapan = intval($daodapan);
+        $tudongnop = intval($tudongnop);
+        $loaide = intval($loaide);
 
-            $chuong = is_array($chuong) ? array_map('intval', $chuong) : [];
-            $nhom = is_array($nhom) ? array_map('intval', $nhom) : [];
-            $loaicauhoi = is_array($loaicauhoi) ? array_filter(array_map('trim', $loaicauhoi)) : ['mcq'];
+        $chuong = is_array($chuong) ? array_map('intval', $chuong) : [];
+        $nhom = is_array($nhom) ? array_map('intval', $nhom) : [];
+        $loaicauhoi = is_array($loaicauhoi) ? array_filter(array_map('trim', $loaicauhoi)) : ['mcq'];
 
-            // ===== Tính số lượng câu theo mức độ =====
-            $socaude = $socautb = $socaukho = 0;
-            if (is_array($socau)) {
-                foreach ($socau as $type => $levels) {
-                    if (!is_array($levels)) {
-                        continue;
-                    }
-                    $socaude += intval($levels['de'] ?? 0);
-                    $socautb += intval($levels['tb'] ?? 0);
-                    $socaukho += intval($levels['kho'] ?? 0);
+        // ===== Khởi tạo số câu theo loại (chỉ loại được chọn) =====
+        $mcq_de = $mcq_tb = $mcq_kho = 0;
+        $essay_de = $essay_tb = $essay_kho = 0;
+        $reading_de = $reading_tb = $reading_kho = 0;
+
+        // Tổng số câu theo mức độ
+        $socaude = $socautb = $socaukho = 0;
+
+        if (is_array($socau)) {
+            foreach ($socau as $type => $levels) {
+                if (!in_array($type, $loaicauhoi)) continue; // chỉ tính loại được chọn
+
+                $de = intval($levels['de'] ?? 0);
+                $tb = intval($levels['tb'] ?? 0);
+                $kho = intval($levels['kho'] ?? 0);
+
+                $socaude += $de;
+                $socautb += $tb;
+                $socaukho += $kho;
+
+                if ($type === 'mcq') {
+                    $mcq_de = $de;
+                    $mcq_tb = $tb;
+                    $mcq_kho = $kho;
+                } elseif ($type === 'essay') {
+                    $essay_de = $de;
+                    $essay_tb = $tb;
+                    $essay_kho = $kho;
+                } elseif ($type === 'reading') {
+                    $reading_de = $de;
+                    $reading_tb = $tb;
+                    $reading_kho = $kho;
                 }
             }
-
-            // ===== Insert đề thi =====
-            $sql = "INSERT INTO dethi 
-                (monthi, nguoitao, tende, thoigianthi, thoigianbatdau, thoigianketthuc,
-                 hienthibailam, xemdiemthi, xemdapan, troncauhoi, trondapan, nopbaichuyentab,
-                 loaide, socaude, socautb, socaukho)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            $stmt = mysqli_prepare($this->con, $sql);
-            if (!$stmt) {
-                throw new Exception("Prepare failed: " . mysqli_error($this->con));
-            }
-
-            $types = "sssissiiiiiiiiii";
-            mysqli_stmt_bind_param(
-                $stmt,
-                $types,
-                $monthi,
-                $nguoitao,
-                $tende,
-                $thoigianthi,
-                $thoigianbatdau,
-                $thoigianketthuc,
-                $hienthibailam,
-                $xemdiemthi,
-                $xemdapan,
-                $daocauhoi,
-                $daodapan,
-                $tudongnop,
-                $loaide,
-                $socaude,
-                $socautb,
-                $socaukho
-            );
-            if (!mysqli_stmt_execute($stmt)) {
-                throw new Exception("Execute failed: " . mysqli_stmt_error($stmt));
-            }
-            $made = mysqli_insert_id($this->con);
-            mysqli_stmt_close($stmt);
-            if ($made <= 0) {
-                throw new Exception("Insert_id invalid");
-            }
-
-            // ===== Thêm chương và nhóm =====
-            if (!empty($chuong)) {
-                $this->create_chuongdethi($made, $chuong);
-            }
-            if (!empty($nhom)) {
-                $this->create_giaodethi($made, $nhom);
-            }
-
-            // ===== Auto-add questions nếu là đề tự động =====
-            if ($loaide == 1 && !empty($socau)) {
-                $this->addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi);
-            }
-
-            return $made;
-
-        } catch (\Exception $e) {
-            error_log("create exception: " . $e->getMessage());
-            return false;
         }
+
+        // ===== Giá trị mặc định =====
+        $trangthai = 1;
+
+        // ===== Insert đề thi =====
+        $sql = "INSERT INTO dethi 
+            (monthi, nguoitao, tende, thoigianthi, thoigianbatdau, thoigianketthuc,
+             hienthibailam, xemdiemthi, xemdapan, troncauhoi, trondapan, nopbaichuyentab,
+             loaide, mcq_de, mcq_tb, mcq_kho,
+             essay_de, essay_tb, essay_kho,
+             reading_de, reading_tb, reading_kho,
+             trangthai)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            throw new Exception("Prepare failed: " . mysqli_error($this->con));
+        }
+
+        $types = "sssissiiiiiiiiiiiiiiiii";
+        mysqli_stmt_bind_param(
+            $stmt,
+            $types,
+            $monthi,
+            $nguoitao,
+            $tende,
+            $thoigianthi,
+            $thoigianbatdau,
+            $thoigianketthuc,
+            $hienthibailam,
+            $xemdiemthi,
+            $xemdapan,
+            $daocauhoi,
+            $daodapan,
+            $tudongnop,
+            $loaide,
+            $mcq_de,
+            $mcq_tb,
+            $mcq_kho,
+            $essay_de,
+            $essay_tb,
+            $essay_kho,
+            $reading_de,
+            $reading_tb,
+            $reading_kho,
+            $trangthai
+        );
+
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Execute failed: " . mysqli_stmt_error($stmt));
+        }
+
+        $made = mysqli_insert_id($this->con);
+        mysqli_stmt_close($stmt);
+        if ($made <= 0) throw new Exception("Insert_id invalid");
+
+        // ===== Thêm chương và nhóm =====
+        if (!empty($chuong)) $this->create_chuongdethi($made, $chuong);
+        if (!empty($nhom)) $this->create_giaodethi($made, $nhom);
+
+        // ===== Auto-add questions nếu là đề tự động =====
+        if ($loaide == 1 && !empty($socau)) {
+            $this->addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi);
+        }
+
+        return $made;
+
+    } catch (\Exception $e) {
+        error_log("create exception: " . $e->getMessage());
+        return false;
     }
+}
+
 
 
     private function addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi)
@@ -457,86 +491,140 @@ class DeThiModel extends DB
     }
 
     public function update(
-        $made,
-        $monthi,
-        $tende,
-        $thoigianthi,
-        $thoigianbatdau,
-        $thoigianketthuc,
-        $hienthibailam,
-        $xemdiemthi,
-        $xemdapan,
-        $troncauhoi,
-        $trondapan,
-        $nopbaichuyentab,
-        $loaide,
-        $socaude,
-        $socautb,
-        $socaukho,
-        $chuong,
-        $nhom,
-        $loaicauhoi
-    ) {
-        // Nếu là đề tự động, kiểm tra đủ số lượng câu hỏi theo loại + mức độ
-        if ($loaide == 1) {
-            $check = $this->checkQuestionAvailability($monthi, $chuong, $loaicauhoi, $socaude, $socautb, $socaukho);
-            if (!$check['valid']) {
-                return $check; // trả về thông tin lỗi
-            }
-        }
+    $made,
+    $monthi,
+    $nguoitao,
+    $tende,
+    $thoigianthi,
+    $thoigianbatdau,
+    $thoigianketthuc,
+    $hienthibailam,
+    $xemdiemthi,
+    $xemdapan,
+    $daocauhoi,
+    $daodapan,
+    $tudongnop,
+    $loaide,
+    $socau,
+    $chuong,
+    $nhom,
+    $loaicauhoi
+) {
+    try {
+        // ===== Normalize =====
+        $monthi = trim($monthi);
+        $nguoitao = trim($nguoitao);
+        $tende = trim($tende);
 
-        // Cập nhật thông tin đề thi
-        $sql = "UPDATE `dethi` SET 
-                `monthi`='$monthi',
-                `tende`='$tende',
-                `thoigianthi`='$thoigianthi',
-                `thoigianbatdau`='$thoigianbatdau',
-                `thoigianketthuc`='$thoigianketthuc',
-                `hienthibailam`='$hienthibailam',
-                `xemdiemthi`='$xemdiemthi',
-                `xemdapan`='$xemdapan',
-                `troncauhoi`='$troncauhoi',
-                `trondapan`='$trondapan',
-                `nopbaichuyentab`='$nopbaichuyentab',
-                `loaide`='$loaide',
-                `socaude`='$socaude',
-                `socautb`='$socautb',
-                `socaukho`='$socaukho'
-            WHERE `made`='$made'";
+        $thoigianthi = intval($thoigianthi);
+        $hienthibailam = intval($hienthibailam);
+        $xemdiemthi = intval($xemdiemthi);
+        $xemdapan = intval($xemdapan);
+        $daocauhoi = intval($daocauhoi);
+        $daodapan = intval($daodapan);
+        $tudongnop = intval($tudongnop);
+        $loaide = intval($loaide);
 
-        $result = mysqli_query($this->con, $sql);
-        if (!$result) {
-            return ['valid' => false, 'message' => "Lỗi cập nhật dethi: ".mysqli_error($this->con)];
-        }
+        $chuong = is_array($chuong) ? array_map('intval', $chuong) : [];
+        $nhom = is_array($nhom) ? array_map('intval', $nhom) : [];
+        $loaicauhoi = is_array($loaicauhoi) ? array_filter(array_map('trim', $loaicauhoi)) : ['mcq'];
 
-        // Cập nhật nhóm và chương
-        $this->update_giaodethi($made, $nhom);
-        $this->update_chuongdethi($made, $chuong);
+        // ===== Build socau theo loại =====
+        $mcq_de = $mcq_tb = $mcq_kho = 0;
+        $essay_de = $essay_tb = $essay_kho = 0;
+        $reading_de = $reading_tb = $reading_kho = 0;
 
-        // Nếu là đề tự động, xóa các câu hỏi cũ và thêm câu hỏi mới theo loại + mức độ
-        if ($loaide == 1) {
-            // Xóa câu hỏi cũ
-            mysqli_query($this->con, "DELETE FROM chitietdethi WHERE madethi='$made'");
+        if (is_array($socau)) {
+            foreach ($socau as $type => $levels) {
+                if (!in_array($type, $loaicauhoi)) continue;
 
-            foreach ($loaicauhoi as $type) {
-                foreach ([1 => 'socaude', 2 => 'socautb', 3 => 'socaukho'] as $level => $qty_field) {
-                    $qty = $$qty_field;
-                    if ($qty <= 0) {
-                        continue;
-                    }
+                $de = intval($levels['de'] ?? 0);
+                $tb = intval($levels['tb'] ?? 0);
+                $kho = intval($levels['kho'] ?? 0);
 
-                    // Lấy ngẫu nhiên câu hỏi
-                    $ctlmodel = new CauHoiModel();
-                    $cauhoi_list = $ctlmodel->getRandomCauHoi($chuong, $monthi, $level, [$type], $qty);
-                    foreach ($cauhoi_list as $ch) {
-                        $this->addCauHoiToDeThi($made, $ch['id']);
-                    }
+                if ($type === 'mcq') {
+                    $mcq_de = $de;
+                    $mcq_tb = $tb;
+                    $mcq_kho = $kho;
+                } elseif ($type === 'essay') {
+                    $essay_de = $de;
+                    $essay_tb = $tb;
+                    $essay_kho = $kho;
+                } elseif ($type === 'reading') {
+                    $reading_de = $de;
+                    $reading_tb = $tb;
+                    $reading_kho = $kho;
                 }
             }
         }
 
-        return ['valid' => true, 'message' => "Cập nhật đề thi thành công", 'made' => $made];
+        // UPDATE không chạm trangthai
+        $sql = "UPDATE dethi SET
+            monthi=?, nguoitao=?, tende=?, thoigianthi=?, thoigianbatdau=?, thoigianketthuc=?,
+            hienthibailam=?, xemdiemthi=?, xemdapan=?, troncauhoi=?, trondapan=?, nopbaichuyentab=?,
+            loaide=?, 
+            mcq_de=?, mcq_tb=?, mcq_kho=?,
+            essay_de=?, essay_tb=?, essay_kho=?,
+            reading_de=?, reading_tb=?, reading_kho=?
+        WHERE made=?";
+
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) throw new Exception("Prepare failed: " . mysqli_error($this->con));
+
+        $types = "sssissiiiiiiiiiiiiiiii";
+        mysqli_stmt_bind_param(
+            $stmt,
+            $types,
+            $monthi,
+            $nguoitao,
+            $tende,
+            $thoigianthi,
+            $thoigianbatdau,
+            $thoigianketthuc,
+            $hienthibailam,
+            $xemdiemthi,
+            $xemdapan,
+            $daocauhoi,
+            $daodapan,
+            $tudongnop,
+            $loaide,
+            $mcq_de,
+            $mcq_tb,
+            $mcq_kho,
+            $essay_de,
+            $essay_tb,
+            $essay_kho,
+            $reading_de,
+            $reading_tb,
+            $reading_kho,
+            $made
+        );
+
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Execute failed: " . mysqli_stmt_error($stmt));
+        }
+        mysqli_stmt_close($stmt);
+
+        // ===== Update chương & nhóm =====
+        $this->update_chuongdethi($made, $chuong);
+        $this->update_giaodethi($made, $nhom);
+        if (!empty($chuong)) $this->create_chuongdethi($made, $chuong);
+        if (!empty($nhom)) $this->create_giaodethi($made, $nhom);
+
+        // ===== Nếu đề tự động → cập nhật lại câu hỏi =====
+        if ($loaide == 1) {
+            mysqli_query($this->con, "DELETE FROM chitietdethi WHERE madethi='$made'");
+            $this->addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi);
+        }
+
+        return true;
+
+    } catch (\Exception $e) {
+        error_log("update exception: " . $e->getMessage());
+        return false;
     }
+}
+
 
     public function delete($made)
     {
