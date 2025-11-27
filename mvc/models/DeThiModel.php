@@ -296,74 +296,144 @@ public function create(
         }
     }
 
-    public function create_chuongdethi($made, $chuong)
-    {
-        try {
-            $made = intval($made);
-            foreach ($chuong as $machuong) {
-                $machuong = intval($machuong);
-                $sql = "INSERT INTO dethitudong(made, machuong) VALUES (?, ?)";
-                $stmt = mysqli_prepare($this->con, $sql);
+// ===== CẬP NHẬT CHƯƠNG CỦA ĐỀ TỰ ĐỘNG =====
+public function update_chuongdethi($made, $chuong)
+{
+    try {
+        $made = (int)$made;
 
-                if (!$stmt) {
-                    error_log("Prepare create_chuongdethi failed: " . mysqli_error($this->con));
-                    continue;
-                }
-
-                mysqli_stmt_bind_param($stmt, "ii", $made, $machuong);
-                if (!mysqli_stmt_execute($stmt)) {
-                    error_log("Execute create_chuongdethi failed: " . mysqli_stmt_error($stmt));
-                }
-                mysqli_stmt_close($stmt);
-            }
-        } catch (\Exception $e) {
-            error_log("create_chuongdethi error: " . $e->getMessage());
+        // Xóa toàn bộ chương cũ (an toàn hơn dùng prepare)
+        $sql_del = "DELETE FROM dethitudong WHERE made = ?";
+        $stmt_del = mysqli_prepare($this->con, $sql_del);
+        if (!$stmt_del) {
+            error_log("Prepare delete dethitudong failed: " . mysqli_error($this->con));
+            return false;
         }
+        mysqli_stmt_bind_param($stmt_del, "i", $made);
+        mysqli_stmt_execute($stmt_del);
+        mysqli_stmt_close($stmt_del);
+
+        // Nếu không có chương mới → xóa xong là được
+        if (empty($chuong) || !is_array($chuong)) {
+            return true;
+        }
+
+        // Thêm chương mới
+        return $this->create_chuongdethi($made, $chuong);
+
+    } catch (Exception $e) {
+        error_log("update_chuongdethi error: " . $e->getMessage());
+        return false;
     }
-    public function create_giaodethi($made, $nhom)
-    {
-        try {
-            $made = intval($made);
-            $nhom = array_unique(array_map('intval', $nhom));
+}
 
-            foreach ($nhom as $manhom) {
-                $sql_check = "SELECT manhom FROM nhom WHERE manhom = ? AND trangthai != 0 LIMIT 1";
-                $stmt_check = mysqli_prepare($this->con, $sql_check);
+// ===== CẬP NHẬT NHÓM ĐƯỢC GIAO ĐỀ =====
+public function update_giaodethi($made, $nhom)
+{
+    try {
+        $made = (int)$made;
 
-                if (!$stmt_check) {
-                    error_log("Prepare check nhom failed");
-                    continue;
-                }
+        // Xóa toàn bộ nhóm cũ
+        $sql_del = "DELETE FROM giaodethi WHERE made = ?";
+        $stmt_del = mysqli_prepare($this->con, $sql_del);
+        if (!$stmt_del) {
+            error_log("Prepare delete giaodethi failed: " . mysqli_error($this->con));
+            return false;
+        }
+        mysqli_stmt_bind_param($stmt_del, "i", $made);
+        mysqli_stmt_execute($stmt_del);
+        mysqli_stmt_close($stmt_del);
 
+        // Nếu không có nhóm mới → xong
+        if (empty($nhom) || !is_array($nhom)) {
+            return true;
+        }
+
+        // Thêm nhóm mới
+        return $this->create_giaodethi($made, $nhom);
+
+    } catch (Exception $e) {
+        error_log("update_giaodethi error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ===== TẠO MỚI CHƯƠNG CHO ĐỀ =====
+public function create_chuongdethi($made, $chuong)
+{
+    try {
+        $made = (int)$made;
+        $chuong = array_unique(array_map('intval', $chuong)); // loại trùng + ép kiểu
+
+        $sql = "INSERT IGNORE INTO dethitudong (made, machuong) VALUES (?, ?)";
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            error_log("Prepare create_chuongdethi failed: " . mysqli_error($this->con));
+            return false;
+        }
+
+        foreach ($chuong as $machuong) {
+            mysqli_stmt_bind_param($stmt, "ii", $made, $machuong);
+            if (!mysqli_stmt_execute($stmt)) {
+                error_log("Insert dethitudong failed (made=$made, machuong=$machuong): " . mysqli_stmt_error($stmt));
+                // Không return false ngay → vẫn cố insert các cái còn lại
+            }
+        }
+
+        mysqli_stmt_close($stmt);
+        return true;
+
+    } catch (Exception $e) {
+        error_log("create_chuongdethi error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// ===== TẠO MỚI NHÓM ĐƯỢC GIAO ĐỀ =====
+public function create_giaodethi($made, $nhom)
+{
+    try {
+        $made = (int)$made;
+        $nhom = array_unique(array_map('intval', $nhom));
+
+        $sql_check = "SELECT manhom FROM nhom WHERE manhom = ? AND trangthai != 0 LIMIT 1";
+        $stmt_check = mysqli_prepare($this->con, $sql_check);
+
+        $sql_insert = "INSERT IGNORE INTO giaodethi (made, manhom) VALUES (?, ?)";
+        $stmt_insert = mysqli_prepare($this->con, $sql_insert);
+        if (!$stmt_insert) {
+            error_log("Prepare insert giaodethi failed");
+            return false;
+        }
+
+        foreach ($nhom as $manhom) {
+            // Kiểm tra nhóm có tồn tại và đang hoạt động
+            if ($stmt_check) {
                 mysqli_stmt_bind_param($stmt_check, "i", $manhom);
                 mysqli_stmt_execute($stmt_check);
-                $result_check = mysqli_stmt_get_result($stmt_check);
-                mysqli_stmt_close($stmt_check);
-
-                if (mysqli_num_rows($result_check) == 0) {
-                    error_log("Nhóm $manhom không tồn tại");
-                    continue;
+                $result = mysqli_stmt_get_result($stmt_check);
+                if (mysqli_num_rows($result) == 0) {
+                    error_log("Nhóm $manhom không tồn tại hoặc đã bị xóa");
+                    continue; // bỏ qua nhóm không hợp lệ
                 }
-
-                $sql = "INSERT INTO giaodethi(made, manhom) VALUES (?, ?)";
-                $stmt = mysqli_prepare($this->con, $sql);
-
-                if (!$stmt) {
-                    error_log("Prepare giaodethi failed");
-                    continue;
-                }
-
-                mysqli_stmt_bind_param($stmt, "ii", $made, $manhom);
-                if (!mysqli_stmt_execute($stmt)) {
-                    error_log("Execute giaodethi failed: " . mysqli_stmt_error($stmt));
-                }
-                mysqli_stmt_close($stmt);
+                mysqli_free_result($result);
             }
 
-        } catch (\Exception $e) {
-            error_log("create_giaodethi error: " . $e->getMessage());
+            // Insert
+            mysqli_stmt_bind_param($stmt_insert, "ii", $made, $manhom);
+            mysqli_stmt_execute($stmt_insert);
         }
+
+        if ($stmt_check) mysqli_stmt_close($stmt_check);
+        mysqli_stmt_close($stmt_insert);
+
+        return true;
+
+    } catch (Exception $e) {
+        error_log("create_giaodethi error: " . $e->getMessage());
+        return false;
     }
+}
     public function create_dethi_auto($made, $monhoc, $chuong, $socaude, $socautb, $socaukho, $loai_cauhoi = [])
     {
         // Lấy thông tin đề thi
@@ -462,35 +532,9 @@ public function create(
     }
 
 
-    public function update_chuongdethi($made, $chuong)
-    {
-        $valid = true;
-        $sql = "DELETE FROM `dethitudong` WHERE `made`='$made'";
-        $result_del = mysqli_query($this->con, $sql);
-        if ($result_del) {
-            $result_update = $this->create_chuongdethi($made, $chuong);
-        } else {
-            $valid = false;
-        }
-        return $valid;
-    }
 
 
-
-    public function update_giaodethi($made, $nhom)
-    {
-        $valid = true;
-        $sql = "DELETE FROM `giaodethi` WHERE `made`='$made'";
-        $result_del = mysqli_query($this->con, $sql);
-        if ($result_del) {
-            $result_update = $this->create_giaodethi($made, $nhom);
-        } else {
-            $valid = false;
-        }
-        return $valid;
-    }
-
-    public function update(
+   public function update(
     $made,
     $monthi,
     $nguoitao,
@@ -505,126 +549,120 @@ public function create(
     $daodapan,
     $tudongnop,
     $loaide,
-    $socau,
+    $socau_json,          // <-- nhận JSON string từ JS
     $chuong,
     $nhom,
     $loaicauhoi
 ) {
     try {
-        // ===== Normalize =====
-        $monthi = trim($monthi);
-        $nguoitao = trim($nguoitao);
-        $tende = trim($tende);
+        // ===== Chuẩn hóa dữ liệu đầu vào =====
+        $monthi           = trim($monthi);
+        $nguoitao         = trim($nguoitao);
+        $tende            = trim($tende);
+        $thoigianthi      = (int)$thoigianthi;
+        $hienthibailam    = (int)$hienthibailam;
+        $xemdiemthi       = (int)$xemdiemthi;
+        $xemdapan         = (int)$xemdapan;
+        $daocauhoi        = (int)$daocauhoi;
+        $daodapan         = (int)$daodapan;
+        $tudongnop        = (int)$tudongnop;
+        $loaide           = (int)$loaide;
+        $made             = (int)$made;
 
-        $thoigianthi = intval($thoigianthi);
-        $hienthibailam = intval($hienthibailam);
-        $xemdiemthi = intval($xemdiemthi);
-        $xemdapan = intval($xemdapan);
-        $daocauhoi = intval($daocauhoi);
-        $daodapan = intval($daodapan);
-        $tudongnop = intval($tudongnop);
-        $loaide = intval($loaide);
+        $chuong     = is_array($chuong) ? array_map('intval', $chuong) : [];
+        $nhom       = is_array($nhom)   ? array_map('intval', $nhom)   : [];
+        $loaicauhoi = is_array($loaicauhoi) ? array_unique(array_map('trim', $loaicauhoi)) : [];
 
-        $chuong = is_array($chuong) ? array_map('intval', $chuong) : [];
-        $nhom = is_array($nhom) ? array_map('intval', $nhom) : [];
-        $loaicauhoi = is_array($loaicauhoi) ? array_filter(array_map('trim', $loaicauhoi)) : ['mcq'];
+        // Nếu không có loại câu hỏi nào → mặc định mcq (để tránh lỗi)
+        if (empty($loaicauhoi)) $loaicauhoi = ['mcq'];
 
-        // ===== Build socau theo loại =====
+        // ===== Xử lý socau (JS gửi JSON string) =====
+        $socau = json_decode($socau_json, true);
+        if (!is_array($socau)) $socau = [];
+
+        // Khởi tạo giá trị mặc định
         $mcq_de = $mcq_tb = $mcq_kho = 0;
         $essay_de = $essay_tb = $essay_kho = 0;
         $reading_de = $reading_tb = $reading_kho = 0;
 
-        if (is_array($socau)) {
-            foreach ($socau as $type => $levels) {
-                if (!in_array($type, $loaicauhoi)) continue;
+        foreach ($loaicauhoi as $type) {
+            if (!isset($socau[$type])) continue;
 
-                $de = intval($levels['de'] ?? 0);
-                $tb = intval($levels['tb'] ?? 0);
-                $kho = intval($levels['kho'] ?? 0);
+            $de  = (int)($socau[$type]['de'] ?? 0);
+            $tb  = (int)($socau[$type]['tb'] ?? 0);
+            $kho = (int)($socau[$type]['kho'] ?? 0);
 
-                if ($type === 'mcq') {
-                    $mcq_de = $de;
-                    $mcq_tb = $tb;
-                    $mcq_kho = $kho;
-                } elseif ($type === 'essay') {
-                    $essay_de = $de;
-                    $essay_tb = $tb;
-                    $essay_kho = $kho;
-                } elseif ($type === 'reading') {
-                    $reading_de = $de;
-                    $reading_tb = $tb;
-                    $reading_kho = $kho;
-                }
+            if ($type === 'mcq') {
+                $mcq_de = $de;   $mcq_tb = $tb;   $mcq_kho = $kho;
+            } elseif ($type === 'essay') {
+                $essay_de = $de; $essay_tb = $tb; $essay_kho = $kho;
+            } elseif ($type === 'reading') {
+                $reading_de = $de; $reading_tb = $tb; $reading_kho = $kho;
             }
         }
 
-        // UPDATE không chạm trangthai
+        // ===== Cập nhật bảng dethi =====
         $sql = "UPDATE dethi SET
-            monthi=?, nguoitao=?, tende=?, thoigianthi=?, thoigianbatdau=?, thoigianketthuc=?,
-            hienthibailam=?, xemdiemthi=?, xemdapan=?, troncauhoi=?, trondapan=?, nopbaichuyentab=?,
-            loaide=?, 
-            mcq_de=?, mcq_tb=?, mcq_kho=?,
-            essay_de=?, essay_tb=?, essay_kho=?,
-            reading_de=?, reading_tb=?, reading_kho=?
-        WHERE made=?";
+                    monthi=?, nguoitao=?, tende=?, thoigianthi=?, thoigianbatdau=?, thoigianketthuc=?,
+                    hienthibailam=?, xemdiemthi=?, xemdapan=?, troncauhoi=?, trondapan=?, nopbaichuyentab=?,
+                    loaide=?,
+                    mcq_de=?, mcq_tb=?, mcq_kho=?,
+                    essay_de=?, essay_tb=?, essay_kho=?,
+                    reading_de=?, reading_tb=?, reading_kho=?
+                WHERE made=?";
 
         $stmt = mysqli_prepare($this->con, $sql);
         if (!$stmt) throw new Exception("Prepare failed: " . mysqli_error($this->con));
+       $types = "sssissiiiiiiiiiiiiiiiii"; 
+mysqli_stmt_bind_param(
+    $stmt,
+    $types,
+    $monthi,
+    $nguoitao,
+    $tende,
+    $thoigianthi,
+    $thoigianbatdau,
+    $thoigianketthuc,
+    $hienthibailam,
+    $xemdiemthi,
+    $xemdapan,
+    $daocauhoi,
+    $daodapan,
+    $tudongnop,
+    $loaide,
+    $mcq_de, $mcq_tb, $mcq_kho,
+    $essay_de, $essay_tb, $essay_kho,
+    $reading_de, $reading_tb, $reading_kho,
+    $made
+);
 
-        $types = "sssissiiiiiiiiiiiiiiii";
-        mysqli_stmt_bind_param(
-            $stmt,
-            $types,
-            $monthi,
-            $nguoitao,
-            $tende,
-            $thoigianthi,
-            $thoigianbatdau,
-            $thoigianketthuc,
-            $hienthibailam,
-            $xemdiemthi,
-            $xemdapan,
-            $daocauhoi,
-            $daodapan,
-            $tudongnop,
-            $loaide,
-            $mcq_de,
-            $mcq_tb,
-            $mcq_kho,
-            $essay_de,
-            $essay_tb,
-            $essay_kho,
-            $reading_de,
-            $reading_tb,
-            $reading_kho,
-            $made
-        );
 
         if (!mysqli_stmt_execute($stmt)) {
             throw new Exception("Execute failed: " . mysqli_stmt_error($stmt));
         }
         mysqli_stmt_close($stmt);
 
-        // ===== Update chương & nhóm =====
-        $this->update_chuongdethi($made, $chuong);
-        $this->update_giaodethi($made, $nhom);
-        if (!empty($chuong)) $this->create_chuongdethi($made, $chuong);
-        if (!empty($nhom)) $this->create_giaodethi($made, $nhom);
+        // ===== Cập nhật chương & nhóm học phần =====
+        if (!$this->update_chuongdethi($made, $chuong)) {
+            throw new Exception("Cập nhật chương thất bại");
+        }
+        if (!$this->update_giaodethi($made, $nhom)) {
+            throw new Exception("Cập nhật nhóm học phần thất bại");
+        }
 
-        // ===== Nếu đề tự động → cập nhật lại câu hỏi =====
+        // ===== Nếu là đề tự động → xóa cũ và tạo lại câu hỏi =====
         if ($loaide == 1) {
-            mysqli_query($this->con, "DELETE FROM chitietdethi WHERE madethi='$made'");
+            mysqli_query($this->con, "DELETE FROM chitietdethi WHERE madethi = " . (int)$made);
             $this->addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi);
         }
 
-        return true;
+        return ['success' => true];
 
-    } catch (\Exception $e) {
-        error_log("update exception: " . $e->getMessage());
-        return false;
+    } catch (Exception $e) {
+        error_log("updateTest error: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
     }
 }
-
 
     public function delete($made)
     {
@@ -974,78 +1012,82 @@ public function getQuestionByUser($made, $user)
     }
 
     public function getQuestionTestAuto($made)
-    {
-        $sql_dethi = "SELECT * FROM dethi WHERE made = '$made'";
-        $data_dethi = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
+{
+    $sql_dethi = "SELECT * FROM dethi WHERE made = '$made'";
+    $data_dethi = mysqli_fetch_assoc(mysqli_query($this->con, $sql_dethi));
 
-        $socaude = $data_dethi['socaude'];
-        $socautb = $data_dethi['socautb'];
-        $socaukho = $data_dethi['socaukho'];
-        $mamonhoc = $data_dethi['monthi'];
-        $troncauhoi = $data_dethi['troncauhoi'];
+    // Lấy đúng cột theo CSDL
+    $socaude   = $data_dethi['mcq_de'];
+    $socautb   = $data_dethi['mcq_tb'];
+    $socaukho  = $data_dethi['mcq_kho'];
+    $mamonhoc  = $data_dethi['monthi'];
+    $troncauhoi = $data_dethi['troncauhoi'];
 
-        // Sử dụng ORDER BY cố định nếu troncauhoi = 0
-        $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
+    // Nếu không xáo trộn thì ORDER BY cố định
+    $orderBy = $troncauhoi == 1 ? "ORDER BY RAND()" : "ORDER BY ch.macauhoi ASC";
 
-        $sql_cd = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
-        FROM dethitudong dttd 
-        JOIN cauhoi ch ON dttd.machuong = ch.machuong 
-        WHERE ch.dokho = 1 
-            AND dttd.made = '$made' 
-            AND ch.mamonhoc = '$mamonhoc' 
-            AND ch.trangthai != 0
-        $orderBy 
+    // Câu dễ
+    $sql_cd = "SELECT ch.macauhoi, ch.noidung, ch.dokho
+        FROM dethitudong dttd
+        JOIN cauhoi ch ON dttd.machuong = ch.machuong
+        WHERE ch.dokho = 1
+        AND dttd.made = '$made'
+        AND ch.mamonhoc = '$mamonhoc'
+        AND ch.trangthai != 0
+        $orderBy
         LIMIT $socaude";
 
-        $sql_ctb = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
-        FROM dethitudong dttd 
-        JOIN cauhoi ch ON dttd.machuong = ch.machuong 
-        WHERE ch.dokho = 2 
-            AND dttd.made = '$made' 
-            AND ch.mamonhoc = '$mamonhoc' 
-            AND ch.trangthai != 0
-        $orderBy 
+    // Trung bình
+    $sql_ctb = "SELECT ch.macauhoi, ch.noidung, ch.dokho
+        FROM dethitudong dttd
+        JOIN cauhoi ch ON dttd.machuong = ch.machuong
+        WHERE ch.dokho = 2
+        AND dttd.made = '$made'
+        AND ch.mamonhoc = '$mamonhoc'
+        AND ch.trangthai != 0
+        $orderBy
         LIMIT $socautb";
 
-        $sql_ck = "SELECT ch.macauhoi, ch.noidung, ch.dokho 
-        FROM dethitudong dttd 
-        JOIN cauhoi ch ON dttd.machuong = ch.machuong 
-        WHERE ch.dokho = 3 
-            AND dttd.made = '$made' 
-            AND ch.mamonhoc = '$mamonhoc' 
-            AND ch.trangthai != 0
-        $orderBy 
+    // Khó
+    $sql_ck = "SELECT ch.macauhoi, ch.noidung, ch.dokho
+        FROM dethitudong dttd
+        JOIN cauhoi ch ON dttd.machuong = ch.machuong
+        WHERE ch.dokho = 3
+        AND dttd.made = '$made'
+        AND ch.mamonhoc = '$mamonhoc'
+        AND ch.trangthai != 0
+        $orderBy
         LIMIT $socaukho";
 
-        $result_cd = mysqli_query($this->con, $sql_cd);
-        $result_tb = mysqli_query($this->con, $sql_ctb);
-        $result_ck = mysqli_query($this->con, $sql_ck);
+    $result_cd = mysqli_query($this->con, $sql_cd);
+    $result_tb = mysqli_query($this->con, $sql_ctb);
+    $result_ck = mysqli_query($this->con, $sql_ck);
 
-        $result = array();
-        while ($row = mysqli_fetch_assoc($result_cd)) {
-            $result[] = $row;
-        }
-        while ($row = mysqli_fetch_assoc($result_tb)) {
-            $result[] = $row;
-        }
-        while ($row = mysqli_fetch_assoc($result_ck)) {
-            $result[] = $row;
-        }
+    // Gom kết quả
+    $result = [];
+    while ($row = mysqli_fetch_assoc($result_cd)) $result[] = $row;
+    while ($row = mysqli_fetch_assoc($result_tb)) $result[] = $row;
+    while ($row = mysqli_fetch_assoc($result_ck)) $result[] = $row;
 
-        // Chỉ xáo trộn nếu troncauhoi = 1
-        if ($troncauhoi == 1) {
-            shuffle($result);
-        }
-
-        $rows = array();
-        $ctlmodel = new CauTraLoiModel();
-        foreach ($result as $row) {
-            $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-            $rows[] = $row;
-        }
-
-        return $rows;
+    // Chỉ xáo trộn khi bật
+    if ($troncauhoi == 1) {
+        shuffle($result);
     }
+
+    // Lấy đáp án
+    $rows = [];
+    $ctlmodel = new CauTraLoiModel();
+
+    foreach ($result as $row) {
+        $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+        $rows[] = $row;
+    }
+
+    return $rows;
+}
+
+
+
     public function getNameGroup($manhom)
     {
         $sql = "SELECT * FROM `nhom` WHERE manhom=$manhom";

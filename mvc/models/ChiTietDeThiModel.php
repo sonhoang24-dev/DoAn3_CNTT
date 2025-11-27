@@ -84,4 +84,17 @@ class ChiTietDeThiModel extends DB
         }
         return $valid;
     }
+    public function countByMade($made)
+    {
+        if (empty($made)) return 0;
+        $made = $this->con->real_escape_string($made);
+        $sql = "SELECT COUNT(*) as cnt FROM `chitietdethi` WHERE `made` = '$made'";
+        $result = mysqli_query($this->con, $sql);
+        if (!$result) {
+            error_log("ChiTietDeThiModel::countByMade SQL error: " . mysqli_error($this->con) . " for made=$made");
+            return 0;
+        }
+        $row = mysqli_fetch_assoc($result);
+        return isset($row['cnt']) ? (int)$row['cnt'] : 0;
+    }
 }

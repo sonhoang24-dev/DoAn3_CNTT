@@ -586,14 +586,8 @@ $(document).ready(function () {
       const made = $(this).data("id");
       const loaide = $("#tudongsoande").prop("checked") ? 1 : 0;
 
-      // --- Nhóm chọn và chương ---
+      // --- Nhóm học phần ---
       const manhom = getGroupSelected().map((x) => parseInt(x));
-      const chuong = $("#chuong").val()
-        ? $("#chuong")
-            .map((i, el) => parseInt($(el).val()))
-            .get()
-        : [];
-
       if (manhom.length === 0) {
         Dashmix.helpers("jq-notify", {
           type: "danger",
@@ -602,11 +596,8 @@ $(document).ready(function () {
         return;
       }
 
-      // --- Lấy loại câu hỏi được chọn ---
-      const loaicauhoi = [];
-      if ($("#chk-mcq").prop("checked")) loaicauhoi.push("mcq");
-      if ($("#chk-essay").prop("checked")) loaicauhoi.push("essay");
-      if ($("#chk-reading").prop("checked")) loaicauhoi.push("reading");
+      // --- Lấy loại câu hỏi được chọn (dùng chung hàm đã có) ---
+      const loaicauhoi = getSelectedQuestionTypes(); // ← quan trọng!
 
       if (loaicauhoi.length === 0) {
         Dashmix.helpers("jq-notify", {
@@ -616,25 +607,45 @@ $(document).ready(function () {
         return;
       }
 
-      // --- Lấy số câu theo loại + mức độ ---
+      // --- Lấy số câu theo loại + mức độ (đúng với ID thực tế của bạn) ---
       const socau = {};
       let valid = true;
-      const typeMap = { mcq: "mcq", essay: "essay", reading: "reading" };
-      loaicauhoi.forEach((type) => {
-        const de = parseInt($(`#${type}-de`).val()) || 0;
-        const tb = parseInt($(`#${type}-tb`).val()) || 0;
-        const kho = parseInt($(`#${type}-kho`).val()) || 0;
 
-        if (de + tb + kho === 0) {
+      loaicauhoi.forEach((type) => {
+        let de = 0,
+          tb = 0,
+          kho = 0;
+
+        if (type === "mcq") {
+          // Trắc nghiệm
+          de = parseInt($("#coban_tracnghiem").val()) || 0;
+          tb = parseInt($("#trungbinh_tracnghiem").val()) || 0;
+          kho = parseInt($("#kho_tracnghiem").val()) || 0;
+        } else if (type === "essay") {
+          // Tự luận
+          de = parseInt($("#coban_tuluan").val()) || 0;
+          tb = parseInt($("#trungbinh_tuluan").val()) || 0;
+          kho = parseInt($("#kho_tuluan").val()) || 0;
+        } else if (type === "reading") {
+          // Đọc hiểu
+          de = parseInt($("#coban_dochieu").val()) || 0;
+          tb = parseInt($("#trungbinh_dochieu").val()) || 0;
+          kho = parseInt($("#kho_dochieu").val()) || 0;
+        }
+
+        const total = de + tb + kho;
+
+        if (total === 0) {
           valid = false;
-          const name = {
+          const tenLoai = {
             mcq: "Trắc nghiệm",
             essay: "Tự luận",
             reading: "Đọc hiểu",
           }[type];
+
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            message: `Loại "${name}" phải có ít nhất 1 câu!`,
+            message: `Loại "${tenLoai}" phải có ít nhất 1 câu!`,
           });
         }
 
@@ -645,13 +656,13 @@ $(document).ready(function () {
 
       // --- Gửi Ajax ---
       const data = {
-        made: made,
+        made: infodethi.made,
         mamonhoc: groups[$("#nhom-hp").val()].mamonhoc,
         tende: $("#name-exam").val(),
         thoigianthi: parseInt($("#exam-time").val()) || 0,
         thoigianbatdau: $("#time-start").val(),
         thoigianketthuc: $("#time-end").val(),
-        chuong: chuong,
+        chuong: getSelectedChapters(), // dùng hàm có sẵn cho chắc
         loaide: loaide,
         xemdiem: $("#xemdiem").prop("checked") ? 1 : 0,
         xemdapan: $("#xemda").prop("checked") ? 1 : 0,
@@ -689,10 +700,7 @@ $(document).ready(function () {
           }
         },
         error: function (xhr, status, error) {
-          console.error("AJAX Error:", {
-            status: xhr.status,
-            responseText: xhr.responseText,
-          });
+          console.error("AJAX Error:", xhr.status, xhr.responseText);
           Dashmix.helpers("jq-notify", {
             type: "danger",
             icon: "fa fa-times me-1",

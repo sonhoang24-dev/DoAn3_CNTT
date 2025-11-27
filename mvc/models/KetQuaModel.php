@@ -171,6 +171,19 @@ class KetQuaModel extends DB
         $result = mysqli_query($this->con, $sql);
         return mysqli_fetch_assoc($result);
     }
+    public function countQuestionsByMakq($makq)
+    {
+        $makq = intval($makq);
+        if ($makq <= 0) return 0;
+        $sql = "SELECT COUNT(*) as cnt FROM chitietketqua WHERE makq = '$makq'";
+        $res = mysqli_query($this->con, $sql);
+        if (!$res) {
+            error_log("KetQuaModel::countQuestionsByMakq SQL error: " . mysqli_error($this->con));
+            return 0;
+        }
+        $row = mysqli_fetch_assoc($res);
+        return isset($row['cnt']) ? (int)$row['cnt'] : 0;
+    }
 
     // Lấy điểm để thống kê
     public function getStatictical($made, $manhom)

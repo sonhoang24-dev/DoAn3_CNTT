@@ -100,13 +100,52 @@ class Test extends Controller
         }
     }
 
-    public function start($made)
+   public function start($made)
     {
         if (filter_var($made, FILTER_VALIDATE_INT) !== false) {
             $dethi = $this->dethimodel->getById($made);
             $check_allow = $this->dethimodel->checkStudentAllowed($_SESSION['user_id'], $made);
             if (isset($dethi)) {
                 if (AuthCore::checkPermission("tgthi", "join") && $check_allow) {
+                    try {
+                        if (isset($dethi['loaide']) && (int)$dethi['loaide'] === 0) {
+                            $mcq_de = isset($dethi['mcq_de']) ? (int)$dethi['mcq_de'] : 0;
+                            $mcq_tb = isset($dethi['mcq_tb']) ? (int)$dethi['mcq_tb'] : 0;
+                            $mcq_kho = isset($dethi['mcq_kho']) ? (int)$dethi['mcq_kho'] : 0;
+
+                            $essay_de = isset($dethi['essay_de']) ? (int)$dethi['essay_de'] : 0;
+                            $essay_tb = isset($dethi['essay_tb']) ? (int)$dethi['essay_tb'] : 0;
+                            $essay_kho = isset($dethi['essay_kho']) ? (int)$dethi['essay_kho'] : 0;
+
+                            $reading_de = isset($dethi['reading_de']) ? (int)$dethi['reading_de'] : 0;
+                            $reading_tb = isset($dethi['reading_tb']) ? (int)$dethi['reading_tb'] : 0;
+                            $reading_kho = isset($dethi['reading_kho']) ? (int)$dethi['reading_kho'] : 0;
+
+                            $socaude_sum = $mcq_de + $essay_de + $reading_de;
+                            $socautb_sum = $mcq_tb + $essay_tb + $reading_tb;
+                            $socaukho_sum = $mcq_kho + $essay_kho + $reading_kho;
+
+                            $totalFromCols = $socaude_sum + $socautb_sum + $socaukho_sum;
+
+                            if ($totalFromCols > 0) {
+                                $dethi['socaude'] = $socaude_sum;
+                                $dethi['socautb'] = $socautb_sum;
+                                $dethi['socaukho'] = $socaukho_sum;
+                                error_log("Test::start used per-type columns for made=$made: de={$dethi['socaude']}, tb={$dethi['socautb']}, kho={$dethi['socaukho']}");
+                            } else {
+                                $cnt = $this->chitietde->countByMade($made);
+                                if ($cnt > 0) {
+                                    $dethi['socaude'] = $cnt;
+                                    error_log("Test::start fallback countByMade applied: made=$made, total_questions=$cnt");
+                                } else {
+                                    error_log("Test::start no question rows found for made=$made (countByMade=0)");
+                                }
+                            }
+                        }
+                    } catch (Throwable $e) {
+                        error_log("Test::start auto-count error for made=$made: " . $e->getMessage());
+                    }
+
                     $this->view("main_layout", [
                         "Page" => "vao_thi",
                         "Title" => "Bắt đầu thi",
@@ -127,6 +166,8 @@ class Test extends Controller
             $this->view("single_layout", ["Page" => "error/page_404", "Title" => "Lỗi !"]);
         }
     }
+
+
 
     public function detail($made)
     {
@@ -352,127 +393,100 @@ class Test extends Controller
         exit;
     }
 }
+
+// ...existing code...
 public function updateTest()
 {
     header('Content-Type: application/json; charset=utf-8');
 
+    // phương thức + quyền
     if ($_SERVER["REQUEST_METHOD"] != "POST" || !AuthCore::checkPermission("dethi", "update")) {
         http_response_code(403);
-        echo json_encode([
-            'success' => false,
-            'error' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.'
-        ]);
+        echo json_encode(['success' => false, 'error' => 'Yêu cầu không hợp lệ hoặc không có quyền.']);
         exit;
     }
 
+    if (session_status() === PHP_SESSION_NONE) session_start();
+
+    // debug input
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    error_log("---- updateTest called ----");
+    error_log("RAW POST: " . print_r($_POST, true));
+    $raw = file_get_contents('php://input');
+    if ($raw) error_log("RAW INPUT: " . $raw);
+    error_log("SESSION: " . print_r($_SESSION, true));
+
     try {
-        $made = (int)($_POST['made'] ?? 0);
+        $made = isset($_POST['made']) ? intval($_POST['made']) : 0;
         if ($made <= 0) {
-            throw new Exception("Mã đề thi không hợp lệ.");
+            throw new Exception("Mã đề (made) không hợp lệ hoặc không gửi lên (made={$made}).");
         }
 
-        $mamonhoc = trim($_POST['mamonhoc'] ?? '');
+        $monthi = trim($_POST['mamonhoc'] ?? '');
         $tende = trim($_POST['tende'] ?? '');
         $thoigianthi = (int)($_POST['thoigianthi'] ?? 0);
+        $thoigianbatdau = trim($_POST['thoigianbatdau'] ?? '');
+        $thoigianketthuc = trim($_POST['thoigianketthuc'] ?? '');
 
-        $thoigianbatdau = !empty($_POST['thoigianbatdau'])
-            ? date('Y-m-d H:i:s', strtotime($_POST['thoigianbatdau'])) : null;
-
-        $thoigianketthuc = !empty($_POST['thoigianketthuc'])
-            ? date('Y-m-d H:i:s', strtotime($_POST['thoigianketthuc'])) : null;
-
-        $chuong = isset($_POST['chuong']) && is_array($_POST['chuong'])
-            ? array_map('intval', $_POST['chuong'])
-            : [];
-
-        $nhom = isset($_POST['manhom']) && is_array($_POST['manhom'])
-            ? array_map('intval', $_POST['manhom'])
-            : [];
-
-        $loaide = (int)($_POST['loaide'] ?? 0);
-
-        $xembailam = (int)($_POST['xembailam'] ?? 0);
+        $hienthibailam = (int)($_POST['xembailam'] ?? 0);
         $xemdiemthi = (int)($_POST['xemdiem'] ?? 0);
         $xemdapan = (int)($_POST['xemdapan'] ?? 0);
         $daocauhoi = (int)($_POST['daocauhoi'] ?? 0);
         $daodapan = (int)($_POST['daodapan'] ?? 0);
         $tudongnop = (int)($_POST['tudongnop'] ?? 0);
+        $loaide = (int)($_POST['loaide'] ?? 0);
 
-        $loaicauhoi = isset($_POST['loaicauhoi']) && is_array($_POST['loaicauhoi'])
-            ? $_POST['loaicauhoi']
-            : ['mcq'];
+        $nguoitao = $_SESSION['user_id'] ?? 'unknown';
 
-        // --- SOCÂU ---
-        $socau = [];
-        if (!empty($_POST['socau'])) {
-            $socau = json_decode($_POST['socau'], true);
-            if (!is_array($socau)) {
-                throw new Exception("Dữ liệu số câu không hợp lệ.");
-            }
-        }
+        $chuong = isset($_POST['chuong']) ? (is_array($_POST['chuong']) ? $_POST['chuong'] : [$_POST['chuong']]) : [];
+        $nhom = isset($_POST['manhom']) ? (is_array($_POST['manhom']) ? $_POST['manhom'] : [$_POST['manhom']]) : [];
+        $loaicauhoi = isset($_POST['loaicauhoi']) ? (is_array($_POST['loaicauhoi']) ? $_POST['loaicauhoi'] : [$_POST['loaicauhoi']]) : ['mcq'];
 
-        // --- VALIDATE ---
-        if (!$mamonhoc) throw new Exception("Vui lòng chọn môn học.");
-        if (!$tende) throw new Exception("Vui lòng nhập tên đề thi.");
-        if ($thoigianthi <= 0) throw new Exception("Thời gian thi phải lớn hơn 0.");
-        if (!$thoigianbatdau || !$thoigianketthuc)
-            throw new Exception("Vui lòng chọn thời gian bắt đầu và kết thúc.");
-        if (strtotime($thoigianketthuc) <= strtotime($thoigianbatdau))
-            throw new Exception("Thời gian kết thúc phải sau thời gian bắt đầu.");
-        if (empty($nhom)) throw new Exception("Vui lòng chọn ít nhất một nhóm học phần.");
+        $socau_json = isset($_POST['socau']) ? $_POST['socau'] : '{}';
 
-        // --- Kiểm tra số lượng câu hỏi ---
-        if ($loaide == 1 && !empty($socau)) {
-            $cauHoiModel = new CauHoiModel($this->dethimodel->con);
+        error_log("updateTest parsed: made=$made, monthi=$monthi, nguoitao=$nguoitao, socau_json=$socau_json, chuong=" . json_encode($chuong) . ", nhom=" . json_encode($nhom));
 
-            foreach ($socau as $type => $levels) {
-                foreach (['de' => 1, 'tb' => 2, 'kho' => 3] as $key => $levelNum) {
-                    $qty = intval($levels[$key] ?? 0);
-                    if ($qty <= 0) continue;
-
-                    $available = $cauHoiModel->getsoluongcauhoi($chuong, $mamonhoc, $levelNum, [$type]);
-                    if ($available < $qty) {
-                        throw new Exception(
-                            "Không đủ câu hỏi loại $type mức độ $key: Có $available, yêu cầu $qty."
-                        );
-                    }
-                }
-            }
-        }
-
-        // --- GỌI UPDATE Y HỆT CREATE ---
-        $result = $this->dethimodel->update(
+        // gọi model update
+        $res = $this->dethimodel->update(
             $made,
-            $mamonhoc,
+            $monthi,
+            $nguoitao,
             $tende,
             $thoigianthi,
             $thoigianbatdau,
             $thoigianketthuc,
-            $xembailam,
+            $hienthibailam,
             $xemdiemthi,
             $xemdapan,
             $daocauhoi,
             $daodapan,
             $tudongnop,
             $loaide,
-            $socau,
+            $socau_json,
             $chuong,
             $nhom,
             $loaicauhoi
         );
 
-        if ($result) {
-            echo json_encode(['success' => true]);
+        if (is_array($res) && isset($res['success']) && $res['success']) {
+            echo json_encode(['success' => true, 'made' => $made]);
+            exit;
         } else {
-            throw new Exception("Lỗi hệ thống khi cập nhật đề thi.");
+            $msg = is_array($res) && isset($res['error']) ? $res['error'] : json_encode($res);
+            error_log("updateTest model returned error: " . $msg);
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Update failed: ' . $msg]);
+            exit;
         }
-
-    } catch (\Exception $e) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    } catch (Throwable $e) {
+        error_log("updateTest exception: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
+        exit;
     }
 }
-
+// ...existing code...
 
     public function getDetail()
     {

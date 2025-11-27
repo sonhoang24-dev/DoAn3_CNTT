@@ -34,15 +34,65 @@ $(document).ready(function () {
       },
       dataType: "json",
       success: function (response) {
-        showTestDetail(response);
+        // The server returns { success: true, data: [...] }.
+        // Accept either the wrapped form or a raw array for backward-compatibility.
+        let questions = response;
+        console.debug("getResultDetail raw response:", response);
+        try {
+          if (
+            response &&
+            typeof response === "object" &&
+            response.hasOwnProperty("data")
+          ) {
+            questions = response.data;
+          }
+        } catch (err) {
+          console.error(
+            "Error while parsing getResultDetail response",
+            err,
+            response
+          );
+        }
+
+        // If server returned an object (associative) instead of an array, coerce to array
+        if (
+          !Array.isArray(questions) &&
+          questions &&
+          typeof questions === "object"
+        ) {
+          questions = Object.values(questions);
+        }
+
+        if (!Array.isArray(questions)) {
+          console.error(
+            "getResultDetail returned unexpected payload, expected array of questions",
+            response
+          );
+          $("#content-file").html(
+            '<div class="alert alert-warning">Không có chi tiết bài làm để hiển thị.</div>'
+          );
+          return;
+        }
+
+        showTestDetail(questions);
       },
     });
   });
 
   function showTestDetail(questions) {
+    if (!Array.isArray(questions)) {
+      console.error("showTestDetail expected array, got:", questions);
+      $("#content-file").html(
+        '<div class="alert alert-warning">Dữ liệu không hợp lệ.</div>'
+      );
+      return;
+    }
+
     let data = ``;
     questions.forEach((item, index) => {
-      let dadung = item.cautraloi.find((op) => op.ladapan == 1);
+      // Defensive: ensure answers array exists
+      item.cautraloi = Array.isArray(item.cautraloi) ? item.cautraloi : [];
+      let dadung = item.cautraloi.find((op) => op.ladapan == 1) || null;
       data += `<div class="question rounded border mb-3">
             <div class="question-top p-3">
                 <p class="question-content fw-bold mb-3">${index + 1}. ${
@@ -68,12 +118,23 @@ $(document).ready(function () {
           i + 65
         )}</button>`;
       });
-      data +=
-        dadung != null && dadung.macautl == item.dapanchon
-          ? `<span class="h2 mb-0 ms-1"><i class="fa fa-check" style="color:#76BB68;"></i></span>`
-          : `<span class="h2 mb-0 ms-1"><i class="fa fa-xmark" style="color:#FF5A5F;"></i></span><span class="mx-2 text-white">Đáp án đúng: ${String.fromCharCode(
-              item.cautraloi.indexOf(dadung) + 65
-            )}</span>`;
+      if (dadung != null && dadung.macautl == item.dapanchon) {
+        data += `<span class="h2 mb-0 ms-1"><i class="fa fa-check" style="color:#76BB68;"></i></span>`;
+      } else {
+        // compute index safely
+        let correctIndex = -1;
+        if (dadung != null) {
+          correctIndex = item.cautraloi.findIndex(
+            (o) => o.macautl == dadung.macautl
+          );
+        }
+        data += `<span class="h2 mb-0 ms-1"><i class="fa fa-xmark" style="color:#FF5A5F;"></i></span>`;
+        if (correctIndex >= 0) {
+          data += `<span class="mx-2 text-white">Đáp án đúng: ${String.fromCharCode(
+            correctIndex + 65
+          )}</span>`;
+        }
+      }
       data += `</div></div>`;
     });
     $("#content-file").html(data);

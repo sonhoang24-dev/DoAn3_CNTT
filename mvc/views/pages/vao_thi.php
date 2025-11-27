@@ -46,6 +46,11 @@
     <div class="col-lg-6 col-md-12 bg-white p-4 rounded shadow-sm">
         <h4 class="text-center mb-4 text-primary fw-bold"><?php echo $data["Test"]["tende"]; ?></h4>
         <div class="exam-info mb-4 border-top pt-3">
+            <?php
+                // Safely prepare formatted start/end strings to avoid passing null to date_create()/strtotime()
+                $startFormatted = !empty($data['Test']['thoigianbatdau']) ? date_format(date_create($data['Test']['thoigianbatdau']), "H:i d/m/Y") : 'Chưa đặt';
+                $endFormatted = !empty($data['Test']['thoigianketthuc']) ? date_format(date_create($data['Test']['thoigianketthuc']), "H:i d/m/Y") : 'Chưa đặt';
+            ?>
             <div class="row mb-3 align-items-center">
                 <div class="col-6">
                     <span class="text-primary"><i class="far fa-clock me-2"></i></span><span class="fw-medium">Thời gian làm bài</span>
@@ -59,7 +64,7 @@
                     <span class="text-primary"><i class="far fa-calendar-days me-2"></i></span><span class="fw-medium">Thời gian mở đề</span>
                 </div>
                 <div class="col-6 text-end">
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo date_format(date_create($data["Test"]["thoigianbatdau"]), "H:i d/m/Y"); ?></span>
+                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $startFormatted; ?></span>
                 </div>
             </div>
             <div class="row mb-3 align-items-center">
@@ -67,7 +72,7 @@
                     <span class="text-primary"><i class="far fa-calendar-xmark me-2"></i></span><span class="fw-medium">Thời gian kết thúc</span>
                 </div>
                 <div class="col-6 text-end">
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo date_format(date_create($data["Test"]["thoigianketthuc"]), "H:i d/m/Y"); ?></span>
+                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $endFormatted; ?></span>
                 </div>
             </div>
             <div class="row mb-3 align-items-center">
@@ -75,7 +80,34 @@
                     <span class="text-primary"><i class="far fa-circle-question me-2"></i></span><span class="fw-medium">Số lượng câu hỏi</span>
                 </div>
                 <div class="col-6 text-end">
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $data["Test"]["socaude"] + $data["Test"]["socautb"] + $data["Test"]["socaukho"]; ?></span>
+                    <?php
+                        // Prefer per-type stored columns when available; fallback to totals set by controller
+                        $mcq_de = isset($data['Test']['mcq_de']) ? (int)$data['Test']['mcq_de'] : 0;
+                        $mcq_tb = isset($data['Test']['mcq_tb']) ? (int)$data['Test']['mcq_tb'] : 0;
+                        $mcq_kho = isset($data['Test']['mcq_kho']) ? (int)$data['Test']['mcq_kho'] : 0;
+
+                        $essay_de = isset($data['Test']['essay_de']) ? (int)$data['Test']['essay_de'] : 0;
+                        $essay_tb = isset($data['Test']['essay_tb']) ? (int)$data['Test']['essay_tb'] : 0;
+                        $essay_kho = isset($data['Test']['essay_kho']) ? (int)$data['Test']['essay_kho'] : 0;
+
+                        $reading_de = isset($data['Test']['reading_de']) ? (int)$data['Test']['reading_de'] : 0;
+                        $reading_tb = isset($data['Test']['reading_tb']) ? (int)$data['Test']['reading_tb'] : 0;
+                        $reading_kho = isset($data['Test']['reading_kho']) ? (int)$data['Test']['reading_kho'] : 0;
+
+                        $socaude = $mcq_de + $essay_de + $reading_de;
+                        $socautb = $mcq_tb + $essay_tb + $reading_tb;
+                        $socaukho = $mcq_kho + $essay_kho + $reading_kho;
+
+                        // If controller already populated totals (fallback), use them when per-type sums are zero
+                        if ($socaude + $socautb + $socaukho <= 0) {
+                            $socaude = isset($data["Test"]["socaude"]) ? (int)$data["Test"]["socaude"] : 0;
+                            $socautb = isset($data["Test"]["socautb"]) ? (int)$data["Test"]["socautb"] : 0;
+                            $socaukho = isset($data["Test"]["socaukho"]) ? (int)$data["Test"]["socaukho"] : 0;
+                        }
+
+                        $total = $socaude + $socautb + $socaukho;
+                    ?>
+                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $total; ?></span>
                 </div>
             </div>
             <div class="row mb-3 align-items-center">
@@ -90,30 +122,43 @@
         <?php
         date_default_timezone_set('Asia/Ho_Chi_Minh');
         $now = time();
-        $start = strtotime($data["Test"]["thoigianbatdau"]);
-        $end = strtotime($data["Test"]["thoigianketthuc"]);
+        // Use safe defaults for start/end to avoid passing null to strtotime()
+        $start = !empty($data["Test"]["thoigianbatdau"]) ? strtotime($data["Test"]["thoigianbatdau"]) : 0;
+        $end = !empty($data["Test"]["thoigianketthuc"]) ? strtotime($data["Test"]["thoigianketthuc"]) : PHP_INT_MAX;
 
-        if (isset($data["Check"]['diemthi']) && $data["Check"]['diemthi'] !== '') {
-            if ($data["Test"]['hienthibailam'] == 1) {
-                echo "<button class='btn btn-success w-100 rounded-pill py-2' data-bs-toggle='collapse' data-bs-target='#xemkq' role='button'>Xem kết quả</button>";
+            // Determine user/test status flags
+            $makq = isset($data['Check']['makq']) ? $data['Check']['makq'] : null;
+            $hasMakq = !empty($makq);
+            $diemthi = isset($data['Check']['diemthi']) ? $data['Check']['diemthi'] : null;
+            $hasDiem = ($diemthi !== null && $diemthi !== '');
+            $canViewScore = isset($data['Test']['xemdiemthi']) && (int)$data['Test']['xemdiemthi'] === 1;
+
+            if ($hasMakq && $hasDiem) {
+                // Student completed and a score exists
+                if ($canViewScore) {
+                    if ($data["Test"]['hienthibailam'] == 1) {
+                        echo "<button class='btn btn-success w-100 rounded-pill py-2' data-bs-toggle='collapse' data-bs-target='#xemkq' role='button'>Xem kết quả</button>";
+                    } else {
+                        echo "<button class='btn btn-primary w-100 rounded-pill py-2' type='button' data-id='" . $makq . "' id='show-exam-detail'>Xem kết quả của tôi</button>";
+                    }
+                } else {
+                    // Completed but not allowed to view score: show disabled 'Đã hoàn thành'
+                    echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button' disabled>Đã hoàn thành</button>";
+                }
+            } elseif ($hasMakq && !$hasDiem) {
+                // Has an attempt but no score yet — show 'Đã hoàn thành' instead of 'Tiếp tục thi'
+                echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button' disabled>Đã hoàn thành</button>";
+            
             } else {
-                echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button'>Đã hoàn thành</button>";
+                // No attempt yet
+                if ($now < $start) {
+                    echo "<button class='btn btn-light w-100 rounded-pill py-2' role='button'>Chưa tới thời gian mở đề</button>";
+                } elseif ($now > $end) {
+                    echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button'>Bài thi quá hạn</button>";
+                } else {
+                    echo "<button name='start-test' id='start-test' data-id='" . $data['Test']['made'] . "' class='btn btn-info w-100 rounded-pill py-2 text-white btn-st' role='button'>Bắt đầu thi <i class='fa fa-angle-right ms-2'></i></button>";
+                }
             }
-        } elseif (isset($data["Check"]['makq']) && $data["Check"]['diemthi'] === '') {
-            if ($now >= $start && $now <= $end) {
-                echo "<a class='btn btn-info w-100 rounded-pill py-2 text-white btn-st' href='./test/taketest/".$data['Test']['made']."'>Tiếp tục thi <i class='fa fa-angle-right ms-2'></i></a>";
-            } else {
-                echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button'>Bài thi quá hạn</button>";
-            }
-        } else {
-            if ($now < $start) {
-                echo "<button class='btn btn-light w-100 rounded-pill py-2' role='button'>Chưa tới thời gian mở đề</button>";
-            } elseif ($now > $end) {
-                echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button'>Bài thi quá hạn</button>";
-            } else {
-                echo "<button name='start-test' id='start-test' data-id='".$data['Test']['made']."' class='btn btn-info w-100 rounded-pill py-2 text-white btn-st' role='button'>Bắt đầu thi <i class='fa fa-angle-right ms-2'></i></button>";
-            }
-        }
         ?>
     </div>
 </div>
@@ -146,7 +191,7 @@
                     </div>
                     <div class="col-6 text-end">
                         <span class="badge bg-primary-subtle text-primary fw-medium">
-                            <?php echo isset($data["Check"]["thoigianvaothi"]) ? date_format(date_create($data["Check"]["thoigianvaothi"]), "H:i d/m/Y") : 'Chưa vào thi'; ?>
+                            <?php echo !empty($data["Check"]["thoigianvaothi"]) ? date_format(date_create($data["Check"]["thoigianvaothi"]), "H:i d/m/Y") : 'Chưa vào thi'; ?>
                         </span>
                     </div>
                 </div>
@@ -164,10 +209,45 @@
                     <div class="col-6">
                         <span class="text-primary"><i class="far fa-circle-question me-2"></i></span><span class="fw-medium">Tổng số câu hỏi</span>
                     </div>
-                    <div class="col-6 text-end">
-                        <span class="badge bg-primary-subtle text-primary fw-medium">
-                            <?php echo $data["Test"]["socaude"] + $data["Test"]["socautb"] + $data["Test"]["socaukho"]; ?>
-                        </span>
+                        <div class="col-6 text-end">
+                        <?php
+                            // If we have a makq (a saved attempt), prefer counting recorded questions
+                            // from `chitietketqua` for accuracy. Fallback to per-type columns or totals.
+                            $t_total = 0;
+                            if (!empty($data['Check']['makq'])) {
+                                $makqCount = (new KetQuaModel())->countQuestionsByMakq($data['Check']['makq']);
+                                $t_total = $makqCount;
+                            }
+
+                            if ($t_total <= 0) {
+                                // Compute from per-type stored columns
+                                $mcq_de = isset($data['Test']['mcq_de']) ? (int)$data['Test']['mcq_de'] : 0;
+                                $mcq_tb = isset($data['Test']['mcq_tb']) ? (int)$data['Test']['mcq_tb'] : 0;
+                                $mcq_kho = isset($data['Test']['mcq_kho']) ? (int)$data['Test']['mcq_kho'] : 0;
+
+                                $essay_de = isset($data['Test']['essay_de']) ? (int)$data['Test']['essay_de'] : 0;
+                                $essay_tb = isset($data['Test']['essay_tb']) ? (int)$data['Test']['essay_tb'] : 0;
+                                $essay_kho = isset($data['Test']['essay_kho']) ? (int)$data['Test']['essay_kho'] : 0;
+
+                                $reading_de = isset($data['Test']['reading_de']) ? (int)$data['Test']['reading_de'] : 0;
+                                $reading_tb = isset($data['Test']['reading_tb']) ? (int)$data['Test']['reading_tb'] : 0;
+                                $reading_kho = isset($data['Test']['reading_kho']) ? (int)$data['Test']['reading_kho'] : 0;
+
+                                $t_de = $mcq_de + $essay_de + $reading_de;
+                                $t_tb = $mcq_tb + $essay_tb + $reading_tb;
+                                $t_kho = $mcq_kho + $essay_kho + $reading_kho;
+
+                                // If per-type sums are zero, fall back to any totals provided by controller
+                                if ($t_de + $t_tb + $t_kho <= 0) {
+                                    $t_de = isset($data['Test']['socaude']) ? (int)$data['Test']['socaude'] : 0;
+                                    $t_tb = isset($data['Test']['socautb']) ? (int)$data['Test']['socautb'] : 0;
+                                    $t_kho = isset($data['Test']['socaukho']) ? (int)$data['Test']['socaukho'] : 0;
+                                }
+
+                                $t_total = $t_de + $t_tb + $t_kho;
+                            }
+                        ?>
+                        <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $t_total; ?></span>
                     </div>
                 </div>
             </div>

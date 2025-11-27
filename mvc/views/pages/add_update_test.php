@@ -381,7 +381,7 @@
                     <i class="fa fa-plus-circle text-white"></i> Tạo đề
                 </button>
             <?php elseif ($data["Action"] == "update"): ?>
-                <button type="submit" class="btn btn-hero btn-primary" id="btn-update-test">
+                <button type="submit" class="btn btn-hero btn-primary" id="btn-update-test" >
                     <i class="fa fa-save text-white"></i> Cập nhật đề
                 </button>
             <?php endif; ?>
