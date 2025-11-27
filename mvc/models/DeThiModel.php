@@ -1084,45 +1084,34 @@ public function getQuestionByUser($made, $user)
                 case "getUserTestSchedule":
                     $query = "SELECT T1.*, T2.diemthi, T2.dathi, T2.xemdiemthi
               FROM (
-                  SELECT 
-                      DT.made, 
-                      DT.tende, 
-                      DT.thoigianbatdau, 
-                      DT.thoigianketthuc, 
-                      CTN.manhom,
-                      N.tennhom, 
-                      MH.tenmonhoc, 
-                      NH.tennamhoc, 
-                      HK.tenhocky
-                  FROM chitietnhom CTN
-                  JOIN giaodethi GDT ON CTN.manhom = GDT.manhom
-                  JOIN dethi DT ON DT.made = GDT.made
-                  JOIN monhoc MH ON MH.mamonhoc = DT.monthi
-                  JOIN nhom N ON N.manhom = CTN.manhom
-                  JOIN namhoc NH ON N.namhoc = NH.manamhoc
-                  JOIN hocky HK ON N.hocky = HK.mahocky
+                  SELECT DT.made, tende, thoigianbatdau, thoigianketthuc, CTN.manhom,
+                         tennhom, tenmonhoc, namhoc, hocky
+                  FROM chitietnhom CTN, giaodethi GDT, dethi DT, monhoc MH, nhom N
                   WHERE N.trangthai != 0
-                    AND CTN.manguoidung = '" . $args['manguoidung'] . "'
+                    AND N.manhom = CTN.manhom
+                    AND CTN.manhom = GDT.manhom
+                    AND DT.made = GDT.made
+                    AND MH.mamonhoc = DT.monthi
                     AND DT.trangthai = 1
+                    AND manguoidung = '" . $args['manguoidung'] . "'
               ) T1
               LEFT JOIN (
-                  SELECT DISTINCT 
-                      DT.made,
-                      CASE WHEN DT.xemdiemthi = 1 THEN KQ.diemthi ELSE NULL END AS diemthi,
-                      CASE WHEN KQ.manguoidung IS NOT NULL THEN 1 ELSE 0 END AS dathi,
-                      DT.xemdiemthi
-                  FROM chitietnhom CTN
-                  JOIN giaodethi GDT ON CTN.manhom = GDT.manhom
-                  JOIN dethi DT ON DT.made = GDT.made
-                  JOIN monhoc MH ON MH.mamonhoc = DT.monthi
-                  JOIN nhom N ON N.manhoc = NH.manamhoc
-                  JOIN hocky HK ON N.hocky = HK.mahocky
-                  JOIN ketqua KQ ON KQ.made = DT.made
-                  WHERE KQ.manguoidung = '" . $args['manguoidung'] . "'
+                  SELECT DISTINCT DT.made,
+                         CASE WHEN DT.xemdiemthi = 1 THEN KQ.diemthi ELSE NULL END AS diemthi,
+                         CASE WHEN KQ.manguoidung IS NOT NULL THEN 1 ELSE 0 END AS dathi,
+                         DT.xemdiemthi
+                  FROM chitietnhom CTN, giaodethi GDT, dethi DT,
+                       monhoc MH, nhom N, ketqua KQ
+                  WHERE N.manhom = CTN.manhom
+                    AND CTN.manhom = GDT.manhom
+                    AND DT.made = GDT.made
+                    AND MH.mamonhoc = DT.monthi
+                    AND KQ.made = DT.made
                     AND DT.trangthai = 1
-              ) T2 ON T1.made = T2.made
-              WHERE 1
-              ORDER BY T1.made DESC";
+                    AND KQ.manguoidung = '" . $args['manguoidung'] . "'
+              ) T2
+              ON T1.made = T2.made
+              WHERE 1";
 
                     if (isset($filter)) {
                         switch ($filter) {
