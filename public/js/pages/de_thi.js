@@ -112,22 +112,21 @@ $(document).ready(function () {
       });
       html += `</div></div>`;
 
-      // Phần hiển thị đáp án đã chọn của người dùng
       html += `
         <div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
             <p class="mb-0 text-white me-4">Đáp án của bạn:</p>
             <div>`;
 
       question.cautraloi.forEach((ctl, i) => {
-        const isChecked = userChosenId === ctl.macautl; // So sánh an toàn
+        const isChecked = String(userChosenId) === String(ctl.macautl); // compare as strings
         const checkedAttr = isChecked ? "checked" : "";
 
         html += `
             <input type="radio" class="btn-check" name="options-c${index + 1}"
                    id="ctl-${ctl.macautl}" autocomplete="off"
-                   data-index="${index + 1}" data-macautl=" $${
+                   data-index="${index + 1}" data-macautl="${
           ctl.macautl
-        }" ${checkedAttr}>
+        }" value="${ctl.macautl}" ${checkedAttr}>
             <label class="btn btn-light rounded-pill me-2 btn-answer ${
               isChecked ? "btn-warning" : ""
             }"
@@ -230,10 +229,12 @@ $(document).ready(function () {
     $(".answer").html(html);
   }
 
-  $(document).on("click", ".btn-check", function () {
+  $(document).on("change", ".btn-check", function () {
     const quesIndex = $(this).data("index");
     const macautl = $(this).data("macautl");
-    const label = $(this).next("label").text().trim();
+    const label = $("label[for='" + $(this).attr("id") + "']")
+      .text()
+      .trim();
 
     changeAnswer(quesIndex - 1, macautl);
 
@@ -242,13 +243,20 @@ $(document).ready(function () {
     const listAns = JSON.parse(localStorage.getItem(cautraloi));
 
     showBtnSideBar(listQues, listAns);
-    $(this)
-      .next("label")
+    $("label[for='" + $(this).attr("id") + "']")
       .addClass("btn-warning")
       .siblings("label")
       .removeClass("btn-warning");
 
     showAnswerToast(quesIndex, label);
+  });
+
+  $(document).on("click", ".btn-answer", function () {
+    const forId = $(this).attr("for");
+    const $input = $("#" + forId);
+    if ($input.length) {
+      $input.prop("checked", true).trigger("change");
+    }
   });
 
   $(document).on("click", ".answer-item-link", function () {

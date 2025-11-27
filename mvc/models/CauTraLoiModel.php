@@ -108,63 +108,63 @@ class CauTraLoiModel extends DB
         return $valid;
     }
 
-public function getAll($macauhoi)
-{
-    $macauhoi = mysqli_real_escape_string($this->con, $macauhoi);
+    public function getAll($macauhoi)
+    {
+        $macauhoi = mysqli_real_escape_string($this->con, $macauhoi);
 
-    $sql = "SELECT macautl, macauhoi, noidungtl, ladapan, hinhanh 
+        $sql = "SELECT macautl, macauhoi, noidungtl, ladapan, hinhanh 
             FROM `cautraloi` 
             WHERE `macauhoi` = '$macauhoi' 
             ORDER BY macautl ASC";
 
-    $result = mysqli_query($this->con, $sql);
-    if (!$result) {
-        die("Query Error: " . mysqli_error($this->con));
+        $result = mysqli_query($this->con, $sql);
+        if (!$result) {
+            die("Query Error: " . mysqli_error($this->con));
+        }
+
+        $rows = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $row['hinhanh'] = $row['hinhanh'];
+            $row['noidungtl'] = $row['noidungtl'] ?? '';
+            $row['ladapan']   = $row['ladapan'] ?? 0;
+
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
-    $rows = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $row['hinhanh'] = $row['hinhanh'];   
-        $row['noidungtl'] = $row['noidungtl'] ?? '';
-        $row['ladapan']   = $row['ladapan'] ?? 0;
 
-        $rows[] = $row;
-    }
-
-    return $rows;
-}
-
-
-public function getAllWithoutAnswer($macauhoi)
-{
-    $sql = "SELECT `macautl`, `noidungtl`, `hinhanh`
+    public function getAllWithoutAnswer($macauhoi)
+    {
+        $sql = "SELECT `macautl`, `noidungtl`, `hinhanh`
             FROM `cautraloi`
             WHERE `macauhoi` = " . intval($macauhoi);
 
-    $result = mysqli_query($this->con, $sql);
-    $rows = [];
+        $result = mysqli_query($this->con, $sql);
+        $rows = [];
 
-    while ($row = mysqli_fetch_assoc($result)) {
+        while ($row = mysqli_fetch_assoc($result)) {
 
-        // Xử lý ảnh đáp án
-        if (!empty($row['hinhanh'])) {
-            $row['hinhanhtl'] = base64_encode($row['hinhanh']); 
-        } else {
-            $row['hinhanhtl'] = "";
+            // Xử lý ảnh đáp án
+            if (!empty($row['hinhanh'])) {
+                $row['hinhanhtl'] = base64_encode($row['hinhanh']);
+            } else {
+                $row['hinhanhtl'] = "";
+            }
+
+            unset($row['hinhanh']);
+            $rows[] = $row;
         }
 
-        unset($row['hinhanh']);
-        $rows[] = $row;
+        return $rows;
     }
 
-    return $rows;
-}
 
 
 
 
 
-   
 
     public function getById($macautl)
     {

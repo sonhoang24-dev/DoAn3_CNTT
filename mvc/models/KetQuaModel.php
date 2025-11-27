@@ -56,28 +56,52 @@ class KetQuaModel extends DB
 
     public function submit($made, $nguoidung, $list, $thoigian)
     {
+        // // Debug: log submit entry for diagnosis
+        // error_log("KetQuaModel::submit called with made=" . print_r($made, true) . ", nguoidung=" . print_r($nguoidung, true));
+        // error_log("KetQuaModel::submit list payload: " . print_r($list, true));
+
         $sql_ketqua = "Select * from ketqua where made = '$made' and manguoidung = '$nguoidung'";
         $result_ketqua = mysqli_query($this->con, $sql_ketqua);
+        if (!$result_ketqua) {
+            error_log("KetQuaModel::submit select ketqua failed: " . mysqli_error($this->con));
+            return false;
+        }
         $data = mysqli_fetch_assoc($result_ketqua);
+        if (!$data) {
+            error_log("KetQuaModel::submit: no ketqua row found for made=$made user=$nguoidung");
+            return false;
+        }
+
         $thoigianvaolam = strtotime($data['thoigianvaothi']);
         $thoigianlambai = strtotime($thoigian) - $thoigianvaolam;
         $valid = true;
         $socaudung = $this->socaudung($list);
         $socau = count($list);
-        $diem = round((10 / $socau * $socaudung), 2);
+        $diem = $socau > 0 ? round((10 / $socau * $socaudung), 2) : 0;
         $sql = "UPDATE `ketqua` SET `diemthi`='$diem',`thoigianlambai`='$thoigianlambai',`socaudung`='$socaudung' WHERE manguoidung = '$nguoidung' and made = '$made'";
         $result = mysqli_query($this->con, $sql);
         if (!$result) {
+            error_log("KetQuaModel::submit update ketqua failed: " . mysqli_error($this->con) . "; SQL=" . $sql);
             $valid = false;
         }
         $makq = $data['makq'];
+
         foreach ($list as $ct) {
             $macauhoi = $ct['macauhoi'];
             $cautraloi = $ct['cautraloi'];
             $sql = "UPDATE `chitietketqua` SET `dapanchon`='$cautraloi' WHERE `makq`='$makq' AND `macauhoi`='$macauhoi'";
             $insertCt = mysqli_query($this->con, $sql);
             if (!$insertCt) {
+                error_log("KetQuaModel::submit update chitietketqua failed: " . mysqli_error($this->con) . "; SQL=" . $sql);
                 $valid = false;
+            } else {
+                $affected = mysqli_affected_rows($this->con);
+                if ($affected === 0) {
+                    error_log("KetQuaModel::submit update affected 0 rows for makq={$makq}, macauhoi={$macauhoi}; SQL=" . $sql);
+                    $valid = false;
+                } else {
+                    error_log("KetQuaModel::submit updated chitietketqua for makq={$makq}, macauhoi={$macauhoi}, dapanchon={$cautraloi}; affected={$affected}");
+                }
             }
         }
         return $valid;
@@ -174,7 +198,9 @@ class KetQuaModel extends DB
     public function countQuestionsByMakq($makq)
     {
         $makq = intval($makq);
-        if ($makq <= 0) return 0;
+        if ($makq <= 0) {
+            return 0;
+        }
         $sql = "SELECT COUNT(*) as cnt FROM chitietketqua WHERE makq = '$makq'";
         $res = mysqli_query($this->con, $sql);
         if (!$res) {

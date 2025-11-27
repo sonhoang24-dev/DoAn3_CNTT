@@ -73,7 +73,7 @@ class ChiTietDeThiModel extends DB
 
         return ['valid' => $valid, 'error' => $error];
     }
-    
+
     public function delete($made)
     {
         $valid = true;
@@ -86,7 +86,9 @@ class ChiTietDeThiModel extends DB
     }
     public function countByMade($made)
     {
-        if (empty($made)) return 0;
+        if (empty($made)) {
+            return 0;
+        }
         $made = $this->con->real_escape_string($made);
         $sql = "SELECT COUNT(*) as cnt FROM `chitietdethi` WHERE `made` = '$made'";
         $result = mysqli_query($this->con, $sql);
