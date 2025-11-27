@@ -653,7 +653,7 @@ class NhomModel extends DB
     {
         $query = "SELECT ND.id, avatar, hoten, email, gioitinh, ngaysinh, SUBSTRING_INDEX(hoten, ' ', -1) AS firstname FROM chitietnhom CTN, nguoidung ND WHERE CTN.manguoidung = ND.id AND CTN.manhom = " . $args['manhom'];
         if ($input) {
-            $query .= " AND (ND.hoten LIKE N'%${input}%' OR CTN.manguoidung LIKE N'%${input}%')";
+            $query .= " AND (ND.hoten LIKE N'%{$input}%' OR CTN.manguoidung LIKE N'%{$input}%')";
         }
         $query .= " ORDER BY firstname $order";
         return $query;
@@ -663,7 +663,7 @@ class NhomModel extends DB
     {
         $query = "SELECT ND.id, avatar, hoten, email, gioitinh, ngaysinh FROM chitietnhom CTN, nguoidung ND WHERE CTN.manguoidung = ND.id AND CTN.manhom = " . $args['manhom'];
         if ($input) {
-            $query .= " AND (ND.hoten LIKE N'%${input}%' OR CTN.manguoidung LIKE N'%${input}%')";
+            $query .= " AND (ND.hoten LIKE N'%{$input}%' OR CTN.manguoidung LIKE N'%{$input}%')";
         }
         if ($input) {
             $input = addslashes($input);

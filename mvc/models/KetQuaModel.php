@@ -284,7 +284,7 @@ class KetQuaModel extends DB
         }
 
         if ($input) {
-            $query = "SELECT * FROM ($query) AS combined_results WHERE (hoten LIKE N'%${input}%' OR manguoidung LIKE '%${input}%')";
+            $query = "SELECT * FROM ($query) AS combined_results WHERE (hoten LIKE N'%{$input}%' OR manguoidung LIKE '%{$input}%')";
         }
 
         $query .= " $order_by";
@@ -319,7 +319,7 @@ class KetQuaModel extends DB
             }
         }
         if ($input) {
-            $query .= " AND (hoten LIKE N'%${input}%' OR CTN.manguoidung LIKE '%${input}%')";
+            $query .= " AND (hoten LIKE N'%{$input}%' OR CTN.manguoidung LIKE '%{$input}%')";
         }
         if (isset($args["custom"]["function"])) {
             $function = $args["custom"]["function"];

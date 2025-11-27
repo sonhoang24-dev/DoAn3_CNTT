@@ -246,7 +246,7 @@ class PhanCongModel extends DB
                 case "monhoc":
                     $query = "SELECT * FROM `monhoc` WHERE trangthai = 1";
                     if ($input) {
-                        $query .= " AND (monhoc.tenmonhoc LIKE N'%${input}%' OR monhoc.mamonhoc LIKE '%${input}%')";
+                        $query .= " AND (monhoc.tenmonhoc LIKE N'%{$input}%' OR monhoc.mamonhoc LIKE '%{$input}%')";
                     }
                     return $query;
                 default:
@@ -285,7 +285,7 @@ class PhanCongModel extends DB
 
         // Tìm kiếm theo tên môn hoặc tên giảng viên
         if ($input) {
-            $query .= " AND (mh.tenmonhoc LIKE N'%${input}%' OR ng.hoten LIKE N'%${input}%')";
+            $query .= " AND (mh.tenmonhoc LIKE N'%{$input}%' OR ng.hoten LIKE N'%{$input}%')";
         }
 
         return $query;

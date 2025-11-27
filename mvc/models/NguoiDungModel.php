@@ -403,7 +403,7 @@ class NguoiDungModel extends DB
             $query .= " AND ND.manhomquyen = " . $filter['role'];
         }
         if ($input) {
-            $query = $query . " AND (ND.hoten LIKE N'%${input}%' OR ND.id LIKE '%${input}%')";
+            $query = $query . " AND (ND.hoten LIKE N'%{$input}%' OR ND.id LIKE '%{$input}%')";
         }
         $query = $query . " ORDER BY id ASC";
         return $query;
