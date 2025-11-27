@@ -652,7 +652,7 @@ mysqli_stmt_bind_param(
 
         // ===== Nếu là đề tự động → xóa cũ và tạo lại câu hỏi =====
         if ($loaide == 1) {
-            mysqli_query($this->con, "DELETE FROM chitietdethi WHERE madethi = " . (int)$made);
+            mysqli_query($this->con, "DELETE FROM chitietdethi WHERE made = " . (int)$made);
             $this->addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi);
         }
 

@@ -377,8 +377,42 @@ class Test extends Controller
         if (!$made || $made <= 0) {
             throw new Exception("Lỗi hệ thống khi tạo đề thi.");
         }
+$link = "./test/start/$made";
+
+$content_raw = '<span style="text-decoration: underline; color: blue; cursor: pointer;" 
+onclick="window.open(\'' . $link . '\', \'_blank\')">' 
+. $tende . ' – Môn ' . $tenmonhoc . '</span>';
+
+$content = mysqli_real_escape_string($this->dethimodel->con, $content_raw);
+
+$thoigiantao = date("Y-m-d H:i:s");
+
+$sql = "INSERT INTO thongbao(noidung, thoigiantao, nguoitao, is_auto) 
+        VALUES ('$content', '$thoigiantao', '$nguoitao', 1)";
+$matb = $this->dethimodel->insertAndGetId($sql);
+
+// Gán nhóm nhận thông báo
+foreach ($manhom as $nhom) {
+    $sql = "INSERT INTO chitietthongbao(matb, manhom) VALUES ('$matb', '$nhom')";
+    $this->dethimodel->executeQuery($sql);
+}
+
+// Gán người nhận thông báo
+foreach ($manhom as $nhom) {
+    $res = $this->dethimodel->executeQuery(
+        "SELECT DISTINCT manguoidung FROM chitietnhom WHERE manhom = '$nhom'"
+    );
+
+    while ($row = mysqli_fetch_assoc($res)) {
+        $id = $row['manguoidung'];
+        $this->dethimodel->executeQuery(
+            "INSERT INTO trangthaithongbao(matb, manguoidung) VALUES ('$matb', '$id')"
+        );
+    }
+}
 
         echo json_encode(['success' => true, 'made' => $made]);
+
         exit;
 
     } catch (\Exception $e) {
