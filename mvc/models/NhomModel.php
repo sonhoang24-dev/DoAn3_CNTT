@@ -374,46 +374,79 @@ class NhomModel extends DB
 
 
     public function getBySubject($nguoitao, $hienthi)
-    {
-        $sht = $hienthi == 2 ? "" : "AND nhom.hienthi = $hienthi";
-        $sql = "SELECT monhoc.mamonhoc, monhoc.tenmonhoc, nhom.namhoc, nhom.hocky, nhom.manhom, nhom.tennhom, nhom.ghichu, nhom.siso, nhom.hienthi
-        FROM nhom, monhoc
-        WHERE nhom.mamonhoc = monhoc.mamonhoc AND nhom.giangvien = '$nguoitao' AND nhom.trangthai = 1 $sht";
-        $result = mysqli_query($this->con, $sql);
-        $rows = [];
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row;
-        }
-        $newArray = [];
-        foreach ($rows as $item) {
-            $foundIndex = -1;
-            foreach ($newArray as $key => $newItem) {
-                if ($newItem["mamonhoc"] == $item["mamonhoc"] && $newItem["namhoc"] == $item["namhoc"] && $newItem["hocky"] == $item["hocky"]) {
-                    $foundIndex = $key;
-                    break;
-                }
-            }
-            $detail_group = [
-                "manhom" => $item["manhom"],
-                "tennhom" => $item["tennhom"],
-                "ghichu" => $item["ghichu"],
-                "siso" => $item["siso"],
-                "hienthi" => $item["hienthi"]
-            ];
-            if ($foundIndex == -1) {
-                $newArray[] = [
-                    "mamonhoc" => $item["mamonhoc"],
-                    "tenmonhoc" => $item["tenmonhoc"],
-                    "namhoc" => $item["namhoc"],
-                    "hocky" => $item["hocky"],
-                    "nhom" => [$detail_group],
-                ];
-            } else {
-                $newArray[$foundIndex]['nhom'][] = $detail_group;
-            }
-        }
-        return $newArray;
+{
+    $sht = $hienthi == 2 ? "" : "AND nhom.hienthi = $hienthi";
+
+    $sql = "SELECT 
+                monhoc.mamonhoc, 
+                monhoc.tenmonhoc, 
+                namhoc.manamhoc AS manamhoc,
+                namhoc.tennamhoc,
+                hocky.mahocky,
+                hocky.tenhocky,
+                hocky.sohocky,
+
+                nhom.manhom, 
+                nhom.tennhom, 
+                nhom.ghichu, 
+                nhom.siso, 
+                nhom.hienthi
+            FROM nhom
+            JOIN monhoc ON nhom.mamonhoc = monhoc.mamonhoc
+            JOIN hocky ON nhom.hocky = hocky.mahocky
+            JOIN namhoc ON hocky.manamhoc = namhoc.manamhoc
+            WHERE nhom.giangvien = '$nguoitao' 
+              AND nhom.trangthai = 1 
+              ";
+
+    $result = mysqli_query($this->con, $sql);
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $rows[] = $row;
     }
+
+    // Gom nhóm theo môn + năm học + học kỳ
+    $newArray = [];
+    foreach ($rows as $item) {
+        $foundIndex = -1;
+        foreach ($newArray as $key => $newItem) {
+            if (
+                $newItem["mamonhoc"] == $item["mamonhoc"]
+                && $newItem["manamhoc"] == $item["manamhoc"]
+                && $newItem["mahocky"] == $item["mahocky"]
+            ) {
+                $foundIndex = $key;
+                break;
+            }
+        }
+
+        $detail_group = [
+            "manhom" => $item["manhom"],
+            "tennhom" => $item["tennhom"],
+            "ghichu" => $item["ghichu"],
+            "siso" => $item["siso"],
+            "hienthi" => $item["hienthi"]
+        ];
+
+        if ($foundIndex == -1) {
+            $newArray[] = [
+                "mamonhoc"   => $item["mamonhoc"],
+                "tenmonhoc"  => $item["tenmonhoc"],
+                "manamhoc"   => $item["manamhoc"],
+                "tennamhoc"  => $item["tennamhoc"],
+                "mahocky"    => $item["mahocky"],
+                "tenhocky"   => $item["tenhocky"],
+                "sohocky"    => $item["sohocky"],
+                "nhom"       => [$detail_group],
+            ];
+        } else {
+            $newArray[$foundIndex]['nhom'][] = $detail_group;
+        }
+    }
+
+    return $newArray;
+}
+
 
     public function updateInvitedCode($manhom)
     {

@@ -84,8 +84,8 @@ $(document).ready(function () {
             <h4 class="mb-0 fw-bold text-primary" id="${d++}">
               <span class="mamonhoc">${item.mamonhoc}</span> - 
               <span class="tenmonhoc">${item.tenmonhoc}</span> - 
-              NH <span class="namhoc">${item.namhoc}</span> - 
-              HK <span class="hocky">${item.hocky}</span>
+              <span class="namhoc">(${item.tennamhoc})</span> - 
+              <span class="hocky">${item.tenhocky}</span>
             </h4>
             ${htmlbtnhide}
           </div>
