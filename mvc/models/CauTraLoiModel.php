@@ -108,27 +108,71 @@ class CauTraLoiModel extends DB
         return $valid;
     }
 
-    public function getAll($macauhoi)
-    {
-        $sql = "SELECT * FROM `cautraloi` WHERE `macauhoi` = $macauhoi";
-        $result = mysqli_query($this->con, $sql);
-        $rows = array();
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row;
-        }
-        return $rows;
+public function getAll($macauhoi)
+{
+    $macauhoi = mysqli_real_escape_string($this->con, $macauhoi);
+
+    // Lấy các trường cần thiết, trong đó hinhanh là BLOB
+    $sql = "SELECT macautl, macauhoi, noidungtl, ladapan, hinhanh 
+            FROM `cautraloi` 
+            WHERE `macauhoi` = '$macauhoi' 
+            ORDER BY macautl ASC";
+
+    $result = mysqli_query($this->con, $sql);
+    if (!$result) {
+        die("Query Error: " . mysqli_error($this->con));
     }
 
-    public function getAllWithoutAnswer($macauhoi)
-    {
-        $sql = "SELECT `macautl`, `noidungtl` FROM `cautraloi` WHERE `macauhoi` = $macauhoi";
-        $result = mysqli_query($this->con, $sql);
-        $rows = array();
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row;
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        // Chuyển BLOB sang base64 nếu có dữ liệu
+        if (!empty($row['hinhanh'])) {
+            $base64 = base64_encode($row['hinhanh']);
+            $row['hinhanh'] = 'data:image/jpeg;base64,' . $base64;
+            // Nếu ảnh PNG, dùng 'data:image/png;base64,' thay thế
+        } else {
+            $row['hinhanh'] = '';
         }
-        return $rows;
+
+        $row['noidungtl'] = $row['noidungtl'] ?? '';
+        $row['ladapan']   = $row['ladapan'] ?? 0;
+        $rows[] = $row;
     }
+
+    return $rows;
+}
+
+public function getAllWithoutAnswer($macauhoi)
+{
+    $sql = "SELECT `macautl`, `noidungtl`, `hinhanh`
+            FROM `cautraloi`
+            WHERE `macauhoi` = " . intval($macauhoi);
+
+    $result = mysqli_query($this->con, $sql);
+    $rows = [];
+
+    while ($row = mysqli_fetch_assoc($result)) {
+
+        // Xử lý ảnh đáp án
+        if (!empty($row['hinhanh'])) {
+            $row['hinhanhtl'] = base64_encode($row['hinhanh']); 
+        } else {
+            $row['hinhanhtl'] = "";
+        }
+
+        unset($row['hinhanh']);
+        $rows[] = $row;
+    }
+
+    return $rows;
+}
+
+
+
+
+
+   
+
     public function getById($macautl)
     {
         $sql = "SELECT * FROM `cautraloi` WHERE `macautl` = ?";

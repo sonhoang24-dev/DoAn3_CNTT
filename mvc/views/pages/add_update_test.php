@@ -215,8 +215,6 @@
     </div>
 
     <div class="block-content">
-
-        <!-- CHỌN LOẠI CÂU HỎI -->
         
 
         <!-- TÊN ĐỀ KIỂM TRA -->
@@ -258,7 +256,9 @@
                 <div class="block-header block-header-default">
                     <h3 class="block-title"><i class="fa fa-users text-success"></i> Giao cho</h3>
                     <div class="block-option">
-                        <select class="js-select2 form-select" id="nhom-hp" name="manhom" style="width: 100%;" data-placeholder="Chọn nhóm học phần giảng dạy..." <?php if ($data["Action"] == "update") { echo "disabled"; } ?>></select>
+                        <select class="js-select2 form-select" id="nhom-hp" name="manhom" style="width: 100%;" data-placeholder="Chọn nhóm học phần giảng dạy..." <?php if ($data["Action"] == "update") {
+                            echo "disabled";
+                        } ?>></select>
                         <input type="hidden" name="mamonhoc" id="mamonhoc" value="">
                     </div>
                 </div>
@@ -279,20 +279,21 @@
             </label>
             <div id="chuong" class="d-flex flex-column gap-2"></div>
         </div>
+        <!-- LOẠI CÂU HỎI -->
         <div class="mb-4" id="loaicauhoi-container">
             <div class="col-md-6 form-section">
                 <label class="form-label section-title"> <i class="fa fa-list-check text-primary me-2"></i>Loại câu hỏi</label>
                 <div class="d-flex justify-content-between">
                     <div class="form-check d-flex align-items-center">
-                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tracnghiem" name="loai_cau_hoi[]" value="tracnghiem" checked>
+                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tracnghiem" name="loai_cau_hoi[]" value="mcq" checked>
                         <label class="form-check-label mb-0" for="loai-tracnghiem">Trắc nghiệm</label>
                     </div>
                     <div class="form-check d-flex align-items-center">
-                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tuluan" name="loai_cau_hoi[]" value="tuluan">
+                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tuluan" name="loai_cau_hoi[]" value="essay">
                         <label class="form-check-label mb-0" for="loai-tuluan">Tự luận</label>
                     </div>
                     <div class="form-check d-flex align-items-center">
-                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-doc-hieu" name="loai_cau_hoi[]" value="dochieu">
+                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-doc-hieu" name="loai_cau_hoi[]" value="reading">
                         <label class="form-check-label mb-0" for="loai-doc-hieu">Đọc hiểu</label>
                     </div>
                 </div>

@@ -927,184 +927,192 @@ class Question extends Controller
         }
     }
 
-   public function editQuesion()
-{
-    if (!AuthCore::checkPermission("cauhoi", "update")) {
-        echo json_encode(["status" => "error", "message" => "Không có quyền chỉnh sửa"]);
-        return;
-    }
-
-    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-        echo json_encode(["status" => "error", "message" => "Invalid request"]);
-        return;
-    }
-
-    $id           = $_POST['id'] ?? null;
-    $mamon        = $_POST['mamon'] ?? null;
-    $machuong     = $_POST['machuong'] ?? null;
-    $dokho        = $_POST['dokho'] ?? null;
-    $nguoitao     = $_SESSION['user_id'];
-    $loai         = $_POST['loai'] ?? 'mcq';
-    $cautraloi_json = $_POST['cautraloi'] ?? '[]';
-    $tieudeDV     = trim(strip_tags($_POST['doanvan_tieude'] ?? ''));
-
-    // THÊM DÒNG NÀY: Xử lý xóa ảnh câu hỏi chính
-    $delete_question_image = (!empty($_POST['delete_question_image']) && $_POST['delete_question_image'] == '1');
-
-    $noidungRaw   = $_POST['noidung'] ?? '';
-
-    // Xử lý ảnh mới (nếu có upload)
-    $hinhanhFile  = $_FILES['hinhanh']['tmp_name'] ?? null;
-    $hinhanh      = null;
-    if ($hinhanhFile && $_FILES['hinhanh']['error'] === UPLOAD_ERR_OK) {
-        $hinhanh = file_get_contents($hinhanhFile);
-    }
-
-    $cautraloi = json_decode($cautraloi_json, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        echo json_encode(["status" => "error", "message" => "Dữ liệu đáp án không hợp lệ"]);
-        return;
-    }
-
-    if (!$id || !$mamon || !$machuong || !$dokho) {
-        echo json_encode(["status" => "error", "message" => "Thiếu thông tin bắt buộc"]);
-        return;
-    }
-
-    try {
-        $question = $this->cauHoiModel->getById($id);
-        if (!$question) {
-            echo json_encode(["status" => "error", "message" => "Câu hỏi không tồn tại"]);
+    public function editQuesion()
+    {
+        if (!AuthCore::checkPermission("cauhoi", "update")) {
+            echo json_encode(["status" => "error", "message" => "Không có quyền chỉnh sửa"]);
             return;
         }
 
-        // XỬ LÝ ẢNH CÂU HỎI CHÍNH TRƯỚC KHI UPDATE
-        if ($delete_question_image) {
-            $hinhanh = null;
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            echo json_encode(["status" => "error", "message" => "Invalid request"]);
+            return;
         }
-       
 
-        if ($loai === 'reading') {
-            $madv = $question['madv'];
+        $id           = $_POST['id'] ?? null;
+        $mamon        = $_POST['mamon'] ?? null;
+        $machuong     = $_POST['machuong'] ?? null;
+        $dokho        = $_POST['dokho'] ?? null;
+        $nguoitao     = $_SESSION['user_id'];
+        $loai         = $_POST['loai'] ?? 'mcq';
+        $cautraloi_json = $_POST['cautraloi'] ?? '[]';
+        $tieudeDV     = trim(strip_tags($_POST['doanvan_tieude'] ?? ''));
 
-            $noidungDV = trim(strip_tags($noidungRaw));
-            if ($noidungDV === '') {
-                echo json_encode(["status" => "error", "message" => "Vui lòng nhập nội dung đoạn văn"]);
+        // THÊM DÒNG NÀY: Xử lý xóa ảnh câu hỏi chính
+        $delete_question_image = (!empty($_POST['delete_question_image']) && $_POST['delete_question_image'] == '1');
+
+        $noidungRaw   = $_POST['noidung'] ?? '';
+
+        // Xử lý ảnh mới (nếu có upload)
+        $hinhanhFile  = $_FILES['hinhanh']['tmp_name'] ?? null;
+        $hinhanh      = null;
+        if ($hinhanhFile && $_FILES['hinhanh']['error'] === UPLOAD_ERR_OK) {
+            $hinhanh = file_get_contents($hinhanhFile);
+        }
+
+        $cautraloi = json_decode($cautraloi_json, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            echo json_encode(["status" => "error", "message" => "Dữ liệu đáp án không hợp lệ"]);
+            return;
+        }
+
+        if (!$id || !$mamon || !$machuong || !$dokho) {
+            echo json_encode(["status" => "error", "message" => "Thiếu thông tin bắt buộc"]);
+            return;
+        }
+
+        try {
+            $question = $this->cauHoiModel->getById($id);
+            if (!$question) {
+                echo json_encode(["status" => "error", "message" => "Câu hỏi không tồn tại"]);
                 return;
             }
-            if (empty($cautraloi)) {
-                echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 câu hỏi con"]);
-                return;
+
+            // XỬ LÝ ẢNH CÂU HỎI CHÍNH TRƯỚC KHI UPDATE
+            if ($delete_question_image) {
+                $hinhanh = null;
             }
 
-            $sql = "UPDATE doan_van SET noidung = ?, tieude = ?, mamonhoc = ?, machuong = ?, nguoitao = ? WHERE madv = ?";
-            $stmt = $this->cauHoiModel->con->prepare($sql);
-            $stmt->bind_param("sssssi", $noidungDV, $tieudeDV, $mamon, $machuong, $nguoitao, $madv);
-            $stmt->execute();
-            $stmt->close();
 
-            $subQuestions = $this->cauHoiModel->getSubQuestions($madv);
-            foreach ($subQuestions as $sub) {
-                $this->cauTraLoiModel->deletebyanswer($sub['macauhoi']);
-                $this->cauHoiModel->delete($sub['macauhoi']);
-            }
+            if ($loai === 'reading') {
+                $madv = $question['madv'];
 
-            foreach ($cautraloi as $subQ) {
-                $subContent = trim(strip_tags($subQ['content'] ?? ''));
-                if ($subContent === '') continue;
-
-                $subHinhanh = null;
-                if (!empty($subQ['file'])) {
-                    $subHinhanh = file_get_contents($subQ['file']);
+                $noidungDV = trim(strip_tags($noidungRaw));
+                if ($noidungDV === '') {
+                    echo json_encode(["status" => "error", "message" => "Vui lòng nhập nội dung đoạn văn"]);
+                    return;
+                }
+                if (empty($cautraloi)) {
+                    echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 câu hỏi con"]);
+                    return;
                 }
 
-                $subId = $this->cauHoiModel->create(
-                    $subContent,
-                    $dokho,
-                    $mamon,
-                    $machuong,
-                    $nguoitao,
-                    'mcq',
-                    $madv,
-                    $subHinhanh
-                );
+                $sql = "UPDATE doan_van SET noidung = ?, tieude = ?, mamonhoc = ?, machuong = ?, nguoitao = ? WHERE madv = ?";
+                $stmt = $this->cauHoiModel->con->prepare($sql);
+                $stmt->bind_param("sssssi", $noidungDV, $tieudeDV, $mamon, $machuong, $nguoitao, $madv);
+                $stmt->execute();
+                $stmt->close();
 
-                if (!$subId) throw new Exception("Lỗi tạo câu hỏi con");
+                $subQuestions = $this->cauHoiModel->getSubQuestions($madv);
+                foreach ($subQuestions as $sub) {
+                    $this->cauTraLoiModel->deletebyanswer($sub['macauhoi']);
+                    $this->cauHoiModel->delete($sub['macauhoi']);
+                }
 
-                foreach ($subQ['options'] as $opt) {
-                    $optContent = trim(strip_tags($opt['content'] ?? ''));
-                    if ($optContent === '') continue;
-
-                    $optHinhanh = null;
-                    if (!empty($opt['image']) && strpos($opt['image'], 'data:image') === 0) {
-                        $optHinhanh = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $opt['image']));
-                    } elseif (!empty($opt['file'])) {
-                        $optHinhanh = file_get_contents($opt['file']);
+                foreach ($cautraloi as $subQ) {
+                    $subContent = trim(strip_tags($subQ['content'] ?? ''));
+                    if ($subContent === '') {
+                        continue;
                     }
 
-                    $isCorrect = (!empty($opt['check']) && ($opt['check'] == 1 || $opt['check'] === 'true')) ? 1 : 0;
-                    $this->cauTraLoiModel->create($subId, $optContent, $isCorrect, $optHinhanh);
+                    $subHinhanh = null;
+                    if (!empty($subQ['file'])) {
+                        $subHinhanh = file_get_contents($subQ['file']);
+                    }
+
+                    $subId = $this->cauHoiModel->create(
+                        $subContent,
+                        $dokho,
+                        $mamon,
+                        $machuong,
+                        $nguoitao,
+                        'mcq',
+                        $madv,
+                        $subHinhanh
+                    );
+
+                    if (!$subId) {
+                        throw new Exception("Lỗi tạo câu hỏi con");
+                    }
+
+                    foreach ($subQ['options'] as $opt) {
+                        $optContent = trim(strip_tags($opt['content'] ?? ''));
+                        if ($optContent === '') {
+                            continue;
+                        }
+
+                        $optHinhanh = null;
+                        if (!empty($opt['image']) && strpos($opt['image'], 'data:image') === 0) {
+                            $optHinhanh = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $opt['image']));
+                        } elseif (!empty($opt['file'])) {
+                            $optHinhanh = file_get_contents($opt['file']);
+                        }
+
+                        $isCorrect = (!empty($opt['check']) && ($opt['check'] == 1 || $opt['check'] === 'true')) ? 1 : 0;
+                        $this->cauTraLoiModel->create($subId, $optContent, $isCorrect, $optHinhanh);
+                    }
+                }
+
+                // CẬP NHẬT CÂU HỎI CHÍNH
+                $this->cauHoiModel->update($id, '', $dokho, $mamon, $machuong, $nguoitao, $loai, $madv, $hinhanh);
+
+            } else {
+                $noidung = trim(strip_tags($noidungRaw));
+                if ($noidung === '') {
+                    echo json_encode(["status" => "error", "message" => "Vui lòng nhập nội dung câu hỏi"]);
+                    return;
+                }
+
+                if ($loai === 'mcq' && empty($cautraloi)) {
+                    echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 đáp án"]);
+                    return;
+                }
+
+                $validAnswers = [];
+                foreach ($cautraloi as $ans) {
+                    $content = trim(strip_tags($ans['content'] ?? ''));
+                    if ($content === '') {
+                        continue;
+                    }
+
+                    $isCorrect = (!empty($ans['check']) && ($ans['check'] == 1 || $Swal['check'] === 'true')) ? 1 : 0;
+
+                    $optImage = null;
+                    if (!empty($ans['image']) && strpos($ans['image'], 'data:image') === 0) {
+                        $optImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $ans['image']));
+                    } elseif (!empty($ans['file'])) {
+                        $optImage = file_get_contents($ans['file']);
+                    }
+
+                    $validAnswers[] = [
+                        'content' => $content,
+                        'check'   => $isCorrect,
+                        'image'   => $optImage
+                    ];
+                }
+
+                if ($loai === 'mcq' && empty($validAnswers)) {
+                    echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 đáp án hợp lệ"]);
+                    return;
+                }
+
+                // CẬP NHẬT CÂU HỎI THƯỜNG → có xử lý ảnh
+                $this->cauHoiModel->update($id, $noidung, $dokho, $mamon, $machuong, $nguoitao, $loai, null, $hinhanh, $delete_question_image);
+
+                $this->cauTraLoiModel->deletebyanswer($id);
+                foreach ($validAnswers as $ans) {
+                    $this->cauTraLoiModel->create($id, $ans['content'], $ans['check'], $ans['image']);
                 }
             }
 
-            // CẬP NHẬT CÂU HỎI CHÍNH 
-            $this->cauHoiModel->update($id, '', $dokho, $mamon, $machuong, $nguoitao, $loai, $madv, $hinhanh);
+            echo json_encode(["status" => "success", "message" => "Cập nhật câu hỏi thành công"]);
 
-        } else {
-            $noidung = trim(strip_tags($noidungRaw));
-            if ($noidung === '') {
-                echo json_encode(["status" => "error", "message" => "Vui lòng nhập nội dung câu hỏi"]);
-                return;
-            }
-
-            if ($loai === 'mcq' && empty($cautraloi)) {
-                echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 đáp án"]);
-                return;
-            }
-
-            $validAnswers = [];
-            foreach ($cautraloi as $ans) {
-                $content = trim(strip_tags($ans['content'] ?? ''));
-                if ($content === '') continue;
-
-                $isCorrect = (!empty($ans['check']) && ($ans['check'] == 1 || $Swal['check'] === 'true')) ? 1 : 0;
-
-                $optImage = null;
-                if (!empty($ans['image']) && strpos($ans['image'], 'data:image') === 0) {
-                    $optImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $ans['image']));
-                } elseif (!empty($ans['file'])) {
-                    $optImage = file_get_contents($ans['file']);
-                }
-
-                $validAnswers[] = [
-                    'content' => $content,
-                    'check'   => $isCorrect,
-                    'image'   => $optImage
-                ];
-            }
-
-            if ($loai === 'mcq' && empty($validAnswers)) {
-                echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 đáp án hợp lệ"]);
-                return;
-            }
-
-            // CẬP NHẬT CÂU HỎI THƯỜNG → có xử lý ảnh
-            $this->cauHoiModel->update($id, $noidung, $dokho, $mamon, $machuong, $nguoitao, $loai, null, $hinhanh, $delete_question_image);
-
-            $this->cauTraLoiModel->deletebyanswer($id);
-            foreach ($validAnswers as $ans) {
-                $this->cauTraLoiModel->create($id, $ans['content'], $ans['check'], $ans['image']);
-            }
+        } catch (Exception $e) {
+            error_log("Edit question error: " . $e->getMessage());
+            echo json_encode(["status" => "error", "message" => "Lỗi hệ thống: " . $e->getMessage()]);
         }
-
-        echo json_encode(["status" => "success", "message" => "Cập nhật câu hỏi thành công"]);
-
-    } catch (Exception $e) {
-        error_log("Edit question error: " . $e->getMessage());
-        echo json_encode(["status" => "error", "message" => "Lỗi hệ thống: " . $e->getMessage()]);
     }
-}
-      public function delete()
+    public function delete()
     {
         if (AuthCore::checkPermission("cauhoi", "delete")) {
             if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -1167,87 +1175,91 @@ class Question extends Controller
         echo json_encode($result);
     }
 
-   public function getAnswerById()
-{
-    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-        exit(json_encode([]));
-    }
+    public function getAnswerById()
+    {
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            exit(json_encode([]));
+        }
 
-    $id = $_POST['id'] ?? null;
-    if (!$id) exit(json_encode([]));
+        $id = $_POST['id'] ?? null;
+        if (!$id) {
+            exit(json_encode([]));
+        }
 
-    $question = $this->cauHoiModel->getById($id);
-    if (!$question) exit(json_encode([]));
+        $question = $this->cauHoiModel->getById($id);
+        if (!$question) {
+            exit(json_encode([]));
+        }
 
-    // READING
-    if ($question['loai'] === 'reading') {
-        $madv = $question['madv'];
-        $subQuestions = $this->cauHoiModel->getSubQuestions($madv);
+        // READING
+        if ($question['loai'] === 'reading') {
+            $madv = $question['madv'];
+            $subQuestions = $this->cauHoiModel->getSubQuestions($madv);
 
+            $result = [];
+
+            foreach ($subQuestions as $sub) {
+                $answers = $this->cauTraLoiModel->getAll($sub['macauhoi']);
+
+                foreach ($answers as $ans) {
+                    $item = [
+                        'macauhoicon' => $sub['macauhoi'],      // ID câu hỏi con
+                        'noidung_con' => $sub['noidung'],       // Nội dung câu hỏi con
+                        'noidungtl'   => $ans['noidungtl'],     // Nội dung đáp án
+                        'ladapan'     => $ans['ladapan']        // 1/0
+                    ];
+
+                    // Ảnh câu hỏi con
+                    if (!empty($sub['hinhanh'])) {
+                        $finfo = new finfo(FILEINFO_MIME_TYPE);
+                        $mime = $finfo->buffer($sub['hinhanh']) ?: 'image/jpeg';
+                        $item['question_image_base64'] = "data:$mime;base64," . base64_encode($sub['hinhanh']);
+                    } else {
+                        $item['question_image_base64'] = null;
+                    }
+
+                    // Ảnh đáp án
+                    if (!empty($ans['hinhanh'])) {
+                        $finfo = new finfo(FILEINFO_MIME_TYPE);
+                        $mime = $finfo->buffer($ans['hinhanh']) ?: 'image/jpeg';
+                        $item['option_image_base64'] = "data:$mime;base64," . base64_encode($ans['hinhanh']);
+                    } else {
+                        $item['option_image_base64'] = null;
+                    }
+
+                    $result[] = $item;
+                }
+            }
+
+            echo json_encode($result);
+            return;
+        }
+
+        // MCQ / ESSAY
+        $answers = $this->cauTraLoiModel->getAll($id);
         $result = [];
 
-        foreach ($subQuestions as $sub) {
-            $answers = $this->cauTraLoiModel->getAll($sub['macauhoi']);
+        foreach ($answers as $ans) {
+            $item = [
+                'macautl'  => $ans['macautl'],
+                'noidungtl' => $ans['noidungtl'],
+                'ladapan'  => $ans['ladapan'],
+                'macauhoi' => $ans['macauhoi']
+            ];
 
-            foreach ($answers as $ans) {
-                $item = [
-                    'macauhoicon' => $sub['macauhoi'],      // ID câu hỏi con
-                    'noidung_con' => $sub['noidung'],       // Nội dung câu hỏi con
-                    'noidungtl'   => $ans['noidungtl'],     // Nội dung đáp án
-                    'ladapan'     => $ans['ladapan']        // 1/0
-                ];
-
-                // Ảnh câu hỏi con
-                if (!empty($sub['hinhanh'])) {
-                    $finfo = new finfo(FILEINFO_MIME_TYPE);
-                    $mime = $finfo->buffer($sub['hinhanh']) ?: 'image/jpeg';
-                    $item['question_image_base64'] = "data:$mime;base64," . base64_encode($sub['hinhanh']);
-                } else {
-                    $item['question_image_base64'] = null;
-                }
-
-                // Ảnh đáp án
-                if (!empty($ans['hinhanh'])) {
-                    $finfo = new finfo(FILEINFO_MIME_TYPE);
-                    $mime = $finfo->buffer($ans['hinhanh']) ?: 'image/jpeg';
-                    $item['option_image_base64'] = "data:$mime;base64," . base64_encode($ans['hinhanh']);
-                } else {
-                    $item['option_image_base64'] = null;
-                }
-
-                $result[] = $item;
+            if (!empty($ans['hinhanh'])) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->buffer($ans['hinhanh']) ?: 'image/jpeg';
+                $item['option_image_base64'] = "data:$mime;base64," . base64_encode($ans['hinhanh']);
+            } else {
+                $item['option_image_base64'] = null;
             }
+
+            $result[] = $item;
         }
 
         echo json_encode($result);
-        return;
     }
-
-    // MCQ / ESSAY
-    $answers = $this->cauTraLoiModel->getAll($id);
-    $result = [];
-
-    foreach ($answers as $ans) {
-        $item = [
-            'macautl'  => $ans['macautl'],
-            'noidungtl'=> $ans['noidungtl'],
-            'ladapan'  => $ans['ladapan'],
-            'macauhoi' => $ans['macauhoi']
-        ];
-
-        if (!empty($ans['hinhanh'])) {
-            $finfo = new finfo(FILEINFO_MIME_TYPE);
-            $mime = $finfo->buffer($ans['hinhanh']) ?: 'image/jpeg';
-            $item['option_image_base64'] = "data:$mime;base64," . base64_encode($ans['hinhanh']);
-        } else {
-            $item['option_image_base64'] = null;
-        }
-
-        $result[] = $item;
-    }
-
-    echo json_encode($result);
-}
 
 
     public function getTotalPage()
@@ -1303,12 +1315,26 @@ class Question extends Controller
 
     public function getsoluongcauhoi()
     {
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            $chuong = isset($_POST['chuong']) ? $_POST['chuong'] : array();
-            $monhoc = $_POST['monhoc'];
-            $dokho = $_POST['dokho'];
-            $result = $this->cauHoiModel->getsoluongcauhoi($chuong, $monhoc, $dokho);
-            echo $result;
+        if ($_SERVER["REQUEST_METHOD"] != "POST" || !AuthCore::checkPermission("cauhoi", "view")) {
+            echo json_encode(['success' => false, 'error' => 'Yêu cầu không hợp lệ hoặc không có quyền truy cập.']);
+            return;
         }
+
+        $chuong = isset($_POST['chuong']) ? (array)$_POST['chuong'] : [];
+        $monhoc = $_POST['monhoc'] ?? '';
+        $loaicauhoi = !empty($_POST['loaicauhoi']) ? (array)$_POST['loaicauhoi'] : ['mcq'];
+
+        $result = [];
+
+        foreach ($loaicauhoi as $type) {
+            $result[$type] = [
+                'de' => $this->cauHoiModel->getsoluongcauhoi($chuong, $monhoc, 1, $type),
+                'tb' => $this->cauHoiModel->getsoluongcauhoi($chuong, $monhoc, 2, $type),
+                'kho' => $this->cauHoiModel->getsoluongcauhoi($chuong, $monhoc, 3, $type),
+            ];
+        }
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => true, 'data' => $result]);
     }
 }

@@ -100,24 +100,35 @@ $(document).ready(function () {
 
   function showListQuestion(questions) {
     let html = ``;
+
     questions.forEach((question, index) => {
       html += `<div class="question rounded border mb-3 bg-white" id="c${
         index + 1
       }">
-        <div class="question-top p-3">
-            <p class="question-content fw-bold mb-3">${index + 1}. ${
+      <div class="question-top p-3">
+        <p class="question-content fw-bold mb-3">${index + 1}. ${
         question.noidung
       }</p>
-            <div class="row">`;
+        <div class="row">`;
+
       question.cautraloi.forEach((ctl, i) => {
+        let content = "";
+
+        // Nếu có hình ảnh
+        if (ctl.hinhanh && ctl.hinhanh.trim() !== "") {
+          content = `<img src="${ctl.hinhanh}" alt="Hình ảnh đáp án" class="img-fluid">`;
+        } else {
+          content = ctl.noidungtl; // hiển thị text
+        }
+
         html += `<div class="col-6 mb-1">
-                <p class="mb-1"><b>${String.fromCharCode(i + 65)}.</b> ${
-          ctl.noidungtl
-        }</p>
-            </div>`;
+          <p class="mb-1"><b>${String.fromCharCode(i + 65)}.</b> ${content}</p>
+        </div>`;
       });
+
       html += `</div></div></div>`;
     });
+
     $("#list-question").html(html);
   }
 
@@ -155,43 +166,72 @@ $(document).ready(function () {
 
   // Hiển thị đề kiểm tra đáp án + câu trả lời của thí sinh đó
   function showTestDetail(questions) {
-    let data = ``;
+    let html = "";
+
     questions.forEach((item, index) => {
       let dadung = item.cautraloi.find((op) => op.ladapan == 1);
-      data += `<div class="question rounded border mb-3">
-            <div class="question-top p-3">
-                <p class="question-content fw-bold mb-3">${index + 1}. ${
-        item.noidung
-      } </p>
-                <div class="row">`;
+      let dapanchon = item.dapanchon || null;
+
+      // Câu hỏi
+      html += `<div class="question rounded border mb-3">
+      <div class="question-top p-3">
+        <p class="fw-bold mb-3">${index + 1}. ${item.noidung}</p>
+        <div class="row">`;
+
+      // Hiển thị đáp án
       item.cautraloi.forEach((op, i) => {
-        data += `<div class="col-6 mb-1">
-                <p class="mb-1"><b>${String.fromCharCode(i + 65)}.</b> ${
-          op.noidungtl
-        }</p></div>`;
+        let label = String.fromCharCode(65 + i);
+        let cls = "";
+
+        // Highlight đáp án đúng/sai
+        if (op.ladapan == 1) cls = "text-success fw-bold";
+        if (dapanchon == op.macautl) {
+          cls =
+            op.ladapan == 1
+              ? "bg-success text-white fw-bold"
+              : "bg-danger text-white fw-bold";
+        }
+
+        // Nếu có hình ảnh BLOB (đã chuyển Base64), hiển thị ảnh
+        let content = "";
+        if (op.hinhanh && op.hinhanh.trim() !== "") {
+          content = `<img src="${op.hinhanh}" alt="Hình ảnh đáp án" class="img-fluid">`;
+        } else {
+          content = op.noidungtl;
+        }
+
+        html += `<div class="col-6 mb-1">
+        <p class="${cls}"><b>${label}.</b> ${content}</p>
+      </div>`;
       });
-      data += `</div></div>`;
-      data += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center"><p class="mb-0 text-white me-4">Đáp án của bạn:</p>`;
-      item.cautraloi.forEach((op, i) => {
-        let check =
-          item.dapanchon == op.macautl
-            ? op.ladapan == 1
-              ? "btn-answer-true"
-              : "btn-answer-false"
-            : "";
-        data += `<button class="btn btn-light rounded-pill me-2 btn-answer-question ${check}" for="option-c${index}_${i}">${String.fromCharCode(
-          i + 65
-        )}</button>`;
-      });
-      data +=
-        dadung.macautl == item.dapanchon
-          ? `<span class="h2 mb-0 ms-1"><i class="fa fa-check" style="color:#76BB68;"></i></span>`
-          : `<span class="h2 mb-0 ms-1"><i class="fa fa-xmark" style="color:#FF5A5F;"></i></span><span class="mx-2 text-white">Đáp án đúng: ${String.fromCharCode(
-              item.cautraloi.indexOf(dadung) + 65
-            )}</span>`;
-      data += `</div></div>`;
+
+      html += `</div></div>`; // đóng question-top
+
+      // Phần kết quả
+      html += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
+      <p class="mb-0 text-white me-4">Đáp án của bạn:</p>`;
+
+      if (dapanchon === null) {
+        html += `<span class="text-white">Chưa làm</span>`;
+      } else if (dadung && dadung.macautl == dapanchon) {
+        html += `<span class="h2 mb-0 ms-1">
+                 <i class="fa fa-check" style="color:#76BB68;"></i>
+               </span>`;
+      } else if (dadung) {
+        html += `<span class="h2 mb-0 ms-1">
+                 <i class="fa fa-xmark" style="color:#FF5A5F;"></i>
+               </span>
+               <span class="mx-2 text-white">
+                 Đáp án đúng: ${String.fromCharCode(
+                   item.cautraloi.indexOf(dadung) + 65
+                 )}
+               </span>`;
+      }
+
+      html += `</div></div>`; // đóng test-ans và question
     });
-    $("#content-file").html(data);
+
+    $("#content-file").html(html);
   }
 
   // Khai báo SweetAlert2 instance dùng chung
@@ -207,37 +247,48 @@ $(document).ready(function () {
 
   // Xử lý sự kiện khi click nút xem chi tiết bài thi
   $(document).on("click", ".show-exam-detail", function () {
-    let makq = $(this).data("id");
-    if (makq === "" || mainPagePagination.option.filter === "interrupted") {
-      e.fire({
+    const makq = $(this).data("id");
+    if (!makq || mainPagePagination.option.filter === "interrupted") {
+      Swal.fire({
         icon: "warning",
         title: "Không thể xem. Thí sinh chưa làm bài thi !",
-        confirmButtonText: "Đóng",
       });
-    } else {
-      $.ajax({
-        type: "post",
-        url: "./test/getResultDetail",
-        data: {
-          makq: makq,
-          made: made,
-        },
-        dataType: "json",
-        success: function (response) {
-          showTestDetail(response);
-          $("#modal-show-test").modal("show"); // Đưa vào callback để đảm bảo dữ liệu đã load xong
-        },
-        error: function () {
-          e.fire({
-            icon: "error",
-            title: "Lỗi khi tải kết quả",
-            confirmButtonText: "Thử lại",
-          });
-        },
-      });
+      return;
     }
-  });
 
+    const modal = new bootstrap.Modal(
+      document.getElementById("modal-show-test")
+    );
+    modal.show();
+
+    $.post(
+      "./test/getResultDetail",
+      { makq: makq, made: made },
+      function (res) {
+        console.log("Full response:", res);
+
+        let questions = res;
+        if (res.data) questions = res.data;
+        if (res.questions) questions = res.questions;
+        if (res.result) questions = res.result;
+
+        if (!Array.isArray(questions)) {
+          console.error("Không tìm thấy mảng câu hỏi!", res);
+          Swal.fire({ icon: "error", title: "Lỗi định dạng dữ liệu!" });
+          return;
+        }
+
+        // Chắc chắn hiện
+        setTimeout(() => {
+          showTestDetail(questions);
+        }, 250);
+      },
+      "json"
+    ).fail(function () {
+      modal.hide();
+      Swal.fire({ icon: "error", title: "Lỗi server!" });
+    });
+  });
   function resetSortIcons() {
     document.querySelectorAll(".col-sort").forEach((column) => {
       column.dataset.sortOrder = "default";

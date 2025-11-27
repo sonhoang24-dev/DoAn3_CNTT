@@ -46,88 +46,96 @@ class CauHoiModel extends DB
         return $id > 0 ? $id : false;
     }
 
-   public function update($macauhoi, $noidung, $dokho, $mamonhoc, $machuong, 
-                       $nguoitao, $loai = 'mcq', $madv = null, $hinhanh = null, 
-                       $deleteImage = false)
-{
-    // Nếu đang update câu hỏi con của reading mà có madv
-    if ($madv !== null && $loai === 'mcq') {
-        $loai = 'reading';
-    }
+    public function update(
+        $macauhoi,
+        $noidung,
+        $dokho,
+        $mamonhoc,
+        $machuong,
+        $nguoitao,
+        $loai = 'mcq',
+        $madv = null,
+        $hinhanh = null,
+        $deleteImage = false
+    ) {
+        // Nếu đang update câu hỏi con của reading mà có madv
+        if ($madv !== null && $loai === 'mcq') {
+            $loai = 'reading';
+        }
 
-    // TRƯỜNG HỢP 1: Người dùng bấm X → xoá ảnh
-    if ($deleteImage) {
-        $sql = "UPDATE cauhoi 
+        // TRƯỜNG HỢP 1: Người dùng bấm X → xoá ảnh
+        if ($deleteImage) {
+            $sql = "UPDATE cauhoi 
                 SET noidung = ?, dokho = ?, mamonhoc = ?, machuong = ?, 
                     nguoitao = ?, loai = ?, madv = ?, hinhanh = NULL
                 WHERE macauhoi = ?";
-        $stmt = mysqli_prepare($this->con, $sql);
+            $stmt = mysqli_prepare($this->con, $sql);
 
-        mysqli_stmt_bind_param(
-            $stmt,
-            "sisssssi",
-            $noidung,
-            $dokho,
-            $mamonhoc,
-            $machuong,
-            $nguoitao,
-            $loai,
-            $madv,
-            $macauhoi
-        );
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sisssssi",
+                $noidung,
+                $dokho,
+                $mamonhoc,
+                $machuong,
+                $nguoitao,
+                $loai,
+                $madv,
+                $macauhoi
+            );
 
-    }
-    // TRƯỜNG HỢP 2: Có upload ảnh mới (BLOB)
-    else if ($hinhanh !== null) {
-        $sql = "UPDATE cauhoi 
+        }
+        // TRƯỜNG HỢP 2: Có upload ảnh mới (BLOB)
+        elseif ($hinhanh !== null) {
+            $sql = "UPDATE cauhoi 
                 SET noidung = ?, dokho = ?, mamonhoc = ?, machuong = ?, 
                     nguoitao = ?, loai = ?, madv = ?, hinhanh = ?
                 WHERE macauhoi = ?";
-        $stmt = mysqli_prepare($this->con, $sql);
+            $stmt = mysqli_prepare($this->con, $sql);
 
-        mysqli_stmt_bind_param(
-            $stmt,
-            "sissssibi",
-            $noidung,
-            $dokho,
-            $mamonhoc,
-            $machuong,
-            $nguoitao,
-            $loai,
-            $madv,
-            $hinhanh,
-            $macauhoi
-        );
-        mysqli_stmt_send_long_data($stmt, 7, $hinhanh);
-    }
-    // TRƯỜNG HỢP 3: Không xoá, không upload → giữ nguyên ảnh cũ
-    else {
-        $sql = "UPDATE cauhoi 
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sissssibi",
+                $noidung,
+                $dokho,
+                $mamonhoc,
+                $machuong,
+                $nguoitao,
+                $loai,
+                $madv,
+                $hinhanh,
+                $macauhoi
+            );
+            mysqli_stmt_send_long_data($stmt, 7, $hinhanh);
+        }
+        // TRƯỜNG HỢP 3: Không xoá, không upload → giữ nguyên ảnh cũ
+        else {
+            $sql = "UPDATE cauhoi 
                 SET noidung = ?, dokho = ?, mamonhoc = ?, machuong = ?, 
                     nguoitao = ?, loai = ?, madv = ?
                 WHERE macauhoi = ?";
-        $stmt = mysqli_prepare($this->con, $sql);
+            $stmt = mysqli_prepare($this->con, $sql);
 
-        mysqli_stmt_bind_param(
-            $stmt,
-            "sisssssi",
-            $noidung,
-            $dokho,
-            $mamonhoc,
-            $machuong,
-            $nguoitao,
-            $loai,
-            $madv,
-            $macauhoi
-        );
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sisssssi",
+                $noidung,
+                $dokho,
+                $mamonhoc,
+                $machuong,
+                $nguoitao,
+                $loai,
+                $madv,
+                $macauhoi
+            );
+        }
+
+        $result = mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        return $result;
     }
 
-    $result = mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
-    return $result;
-}
 
-    
     public function getSubQuestions($madv)
     {
         $sql = "SELECT * FROM cauhoi WHERE madv = ? AND loai = 'reading' AND trangthai = '1' ORDER BY macauhoi ASC";
@@ -180,45 +188,23 @@ class CauHoiModel extends DB
 
         return $madv;
     }
-    //đề thi 
+    //đề thi
     // Lấy ngẫu nhiên $qty câu hỏi theo môn, chương, mức độ, loại câu hỏi
-public function getRandomCauHoi($chuong, $monthi, $level, $loaicauhoi = ['mcq'], $qty = 1)
-{
-    $monthi = mysqli_real_escape_string($this->con, $monthi);
+    public function getRandomCauHoi($chuong, $monthi, $level, $types, $qty)
+    {
+        $listChuong = implode(',', array_map('intval', $chuong));
+        $typesIn = implode(',', array_map(function ($t) { return "'" . $t . "'"; }, $types));
 
-    // Chuẩn bị điều kiện chương
-    $chuongArr = [];
-    foreach ($chuong as $c) {
-        $chuongArr[] = "machuong='".mysqli_real_escape_string($this->con, $c)."'";
+        $sql = "SELECT * FROM cauhoi WHERE monthi='$monthi' AND loai IN ($typesIn) AND machuong IN ($listChuong) 
+                AND level=$level AND trangthai!=0 ORDER BY RAND() LIMIT $qty";
+        $res = mysqli_query($this->con, $sql);
+
+        $data = [];
+        while ($row = mysqli_fetch_assoc($res)) {
+            $data[] = $row;
+        }
+        return $data;
     }
-    $chuongCond = "(" . implode(' OR ', $chuongArr) . ")";
-
-    // Chuẩn bị điều kiện loại câu hỏi
-    $loaicauhoiArr = [];
-    foreach ($loaicauhoi as $lc) {
-        $loaicauhoiArr[] = "loaicauhoi='".mysqli_real_escape_string($this->con, $lc)."'";
-    }
-    $typeCond = "(" . implode(' OR ', $loaicauhoiArr) . ")";
-
-    $sql = "SELECT * FROM cauhoi 
-            WHERE mamonhoc='$monthi' 
-            AND dokho=$level 
-            AND trangthai!=0
-            AND $chuongCond 
-            AND $typeCond
-            ORDER BY RAND() 
-            LIMIT $qty";
-
-    $res = mysqli_query($this->con, $sql);
-    if (!$res) die("Lỗi SQL getRandomCauHoi: ".mysqli_error($this->con));
-
-    $cauhoi_list = [];
-    while ($row = mysqli_fetch_assoc($res)) {
-        $cauhoi_list[] = $row;
-    }
-
-    return $cauhoi_list;
-}
 
 
 
@@ -601,13 +587,6 @@ public function getRandomCauHoi($chuong, $monthi, $level, $loaicauhoi = ['mcq'],
         return ['query' => $query, 'params' => $params];
     }
 
-
-
-
-
-
-
-
     public function getsoluongcauhoi($chuong, $monhoc, $dokho, $loaicauhoi = ['mcq'])
     {
         if (!is_array($chuong)) {
@@ -617,12 +596,16 @@ public function getRandomCauHoi($chuong, $monthi, $level, $loaicauhoi = ['mcq'],
             $loaicauhoi = [$loaicauhoi];
         }
 
-        $sql = "SELECT COUNT(*) as soluong FROM cauhoi WHERE dokho = ? AND mamonhoc = ? AND loai IN (" . implode(',', array_fill(0, count($loaicauhoi), '?')) . ")";
-        $types = str_repeat('s', 2 + count($loaicauhoi)); // dokho, mamonhoc + loaicauhoi
+        // Prepare placeholders cho IN (...)
+        $placeholdersLoai = implode(',', array_fill(0, count($loaicauhoi), '?'));
+        $sql = "SELECT COUNT(*) as soluong FROM cauhoi WHERE dokho = ? AND mamonhoc = ? AND loai IN ($placeholdersLoai)";
+
+        $types = str_repeat('s', 2 + count($loaicauhoi)); // dokho + mamonhoc + loaicauhoi
         $params = array_merge([(string)$dokho, $monhoc], $loaicauhoi);
 
         if (!empty($chuong)) {
-            $sql .= " AND machuong IN (" . implode(',', array_fill(0, count($chuong), '?')) . ")";
+            $placeholdersChuong = implode(',', array_fill(0, count($chuong), '?'));
+            $sql .= " AND machuong IN ($placeholdersChuong)";
             $types .= str_repeat('s', count($chuong));
             $params = array_merge($params, $chuong);
         }
@@ -640,6 +623,41 @@ public function getRandomCauHoi($chuong, $monthi, $level, $loaicauhoi = ['mcq'],
 
         return (int)($row['soluong'] ?? 0);
     }
+
+    public function getQuestions($chuong, $monthi, $dokho, $types = [], $qty = 1)
+    {
+        $chuongList = implode(',', array_map('intval', $chuong));
+        $typeList = implode(',', array_map(function ($t) { return "'".trim($t)."'"; }, $types));
+
+        $sql = "SELECT macauhoi FROM cauhoi 
+            WHERE mamonhoc = ? 
+              AND dokho = ? 
+              AND loai IN ($typeList)
+              AND machuong IN ($chuongList)
+            LIMIT ?";
+
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            error_log("Prepare failed: " . mysqli_error($this->con) . " | SQL: $sql");
+            return false;
+        }
+
+        mysqli_stmt_bind_param($stmt, "sii", $monthi, $dokho, $qty);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        if (!$res) {
+            return false;
+        }
+
+        $questions = [];
+        while ($row = mysqli_fetch_assoc($res)) {
+            $questions[] = $row;
+        }
+
+        mysqli_stmt_close($stmt);
+        return $questions;
+    }
+
 
 
 }

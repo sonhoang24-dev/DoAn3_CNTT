@@ -73,6 +73,7 @@ class ChiTietDeThiModel extends DB
 
         return ['valid' => $valid, 'error' => $error];
     }
+    
     public function delete($made)
     {
         $valid = true;

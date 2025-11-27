@@ -9,6 +9,36 @@
     .btn-st, .btn-primary, .btn-danger, .btn-light {
         font-weight: 500;
     }
+/* layout */
+.question { border-radius:8px; overflow:hidden; }
+.question-top { padding:18px; }
+.question-image { max-width: 420px; max-height: 260px; object-fit: contain; display:block; margin: 0 auto 16px; }
+.answers-grid { margin-top:8px; }
+.answer-card { display:flex; align-items:flex-start; gap:12px; padding:8px 0; }
+
+/* answer image */
+.img-answer { width:120px; height:100px; object-fit:cover; border-radius:8px; }
+
+/* bottom answer bar */
+.test-ans { background:#0b63c9; color:#fff; padding:12px 16px; display:flex; align-items:center; gap:12px; border-radius:0 0 8px 8px; }
+.test-ans .label-title { font-weight:600; margin-right:10px; }
+
+/* circle buttons for choices */
+.choice-circle {
+  width:48px; height:48px; border-radius:50%; background:#fff; color:#000; display:inline-flex; align-items:center; justify-content:center; font-weight:700;
+  box-shadow:0 2px 0 rgba(0,0,0,0.08);
+  margin-right:12px;
+}
+/* highlight selected circle */
+.choice-circle.active { background:#ffd; border:4px solid #0b63c9; }
+
+/* small responsive tweaks */
+@media (max-width: 767px) {
+  .img-answer { width:100px; height:80px; }
+  .question-image { max-width: 100%; max-height: 180px; }
+}
+
+
 </style>
 </head>
 <body>
