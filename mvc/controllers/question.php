@@ -1175,91 +1175,80 @@ class Question extends Controller
         echo json_encode($result);
     }
 
-    public function getAnswerById()
-    {
-        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-            exit(json_encode([]));
-        }
+   public function getAnswerById()
+{
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+        exit(json_encode([]));
+    }
 
-        $id = $_POST['id'] ?? null;
-        if (!$id) {
-            exit(json_encode([]));
-        }
+    $id = $_POST['id'] ?? null;
+    if (!$id) {
+        exit(json_encode([]));
+    }
 
-        $question = $this->cauHoiModel->getById($id);
-        if (!$question) {
-            exit(json_encode([]));
-        }
+    $question = $this->cauHoiModel->getById($id);
+    if (!$question) {
+        exit(json_encode([]));
+    }
 
-        // READING
-        if ($question['loai'] === 'reading') {
-            $madv = $question['madv'];
-            $subQuestions = $this->cauHoiModel->getSubQuestions($madv);
+    // Hàm convert ảnh sang base64
+    $encodeImage = function ($binary) {
+        if (empty($binary)) return null;
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->buffer($binary);
+        if (!$mime) $mime = "image/jpeg";
+        return "data:$mime;base64," . base64_encode($binary);
+    };
 
-            $result = [];
+    // ============================
+    //   XỬ LÝ CÂU HỎI READING
+    // ============================
+    if ($question['loai'] === 'reading') {
 
-            foreach ($subQuestions as $sub) {
-                $answers = $this->cauTraLoiModel->getAll($sub['macauhoi']);
+        $madv = $question['madv'];
+        $subQuestions = $this->cauHoiModel->getSubQuestions($madv);
 
-                foreach ($answers as $ans) {
-                    $item = [
-                        'macauhoicon' => $sub['macauhoi'],      // ID câu hỏi con
-                        'noidung_con' => $sub['noidung'],       // Nội dung câu hỏi con
-                        'noidungtl'   => $ans['noidungtl'],     // Nội dung đáp án
-                        'ladapan'     => $ans['ladapan']        // 1/0
-                    ];
-
-                    // Ảnh câu hỏi con
-                    if (!empty($sub['hinhanh'])) {
-                        $finfo = new finfo(FILEINFO_MIME_TYPE);
-                        $mime = $finfo->buffer($sub['hinhanh']) ?: 'image/jpeg';
-                        $item['question_image_base64'] = "data:$mime;base64," . base64_encode($sub['hinhanh']);
-                    } else {
-                        $item['question_image_base64'] = null;
-                    }
-
-                    // Ảnh đáp án
-                    if (!empty($ans['hinhanh'])) {
-                        $finfo = new finfo(FILEINFO_MIME_TYPE);
-                        $mime = $finfo->buffer($ans['hinhanh']) ?: 'image/jpeg';
-                        $item['option_image_base64'] = "data:$mime;base64," . base64_encode($ans['hinhanh']);
-                    } else {
-                        $item['option_image_base64'] = null;
-                    }
-
-                    $result[] = $item;
-                }
-            }
-
-            echo json_encode($result);
-            return;
-        }
-
-        // MCQ / ESSAY
-        $answers = $this->cauTraLoiModel->getAll($id);
         $result = [];
 
-        foreach ($answers as $ans) {
-            $item = [
-                'macautl'  => $ans['macautl'],
-                'noidungtl' => $ans['noidungtl'],
-                'ladapan'  => $ans['ladapan'],
-                'macauhoi' => $ans['macauhoi']
-            ];
+        foreach ($subQuestions as $sub) {
 
-            if (!empty($ans['hinhanh'])) {
-                $finfo = new finfo(FILEINFO_MIME_TYPE);
-                $mime = $finfo->buffer($ans['hinhanh']) ?: 'image/jpeg';
-                $item['option_image_base64'] = "data:$mime;base64," . base64_encode($ans['hinhanh']);
-            } else {
-                $item['option_image_base64'] = null;
+            $answers = $this->cauTraLoiModel->getAll($sub['macauhoi']);
+
+            foreach ($answers as $ans) {
+                $result[] = [
+                    'macauhoicon'         => $sub['macauhoi'],
+                    'noidung_con'         => $sub['noidung'],
+                    'noidungtl'           => $ans['noidungtl'],
+                    'ladapan'             => $ans['ladapan'],
+                    'question_image_base64' => $encodeImage($sub['hinhanh'] ?? null),
+                    'option_image_base64'   => $encodeImage($ans['hinhanh'] ?? null)
+                ];
             }
-
-            $result[] = $item;
         }
 
         echo json_encode($result);
+        return;
     }
+
+    // ============================
+    //   XỬ LÝ CÂU HỎI MCQ / ESSAY
+    // ============================
+    $answers = $this->cauTraLoiModel->getAll($id);
+    $result = [];
+
+    foreach ($answers as $ans) {
+        $result[] = [
+            'macautl'            => $ans['macautl'],
+            'noidungtl'          => $ans['noidungtl'],
+            'ladapan'            => $ans['ladapan'],
+            'macauhoi'           => $ans['macauhoi'],
+            'option_image_base64' => $encodeImage($ans['hinhanh'] ?? null)
+        ];
+    }
+
+    echo json_encode($result);
+}
+
 
 
     public function getTotalPage()

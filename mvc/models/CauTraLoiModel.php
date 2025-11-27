@@ -112,7 +112,6 @@ public function getAll($macauhoi)
 {
     $macauhoi = mysqli_real_escape_string($this->con, $macauhoi);
 
-    // Lấy các trường cần thiết, trong đó hinhanh là BLOB
     $sql = "SELECT macautl, macauhoi, noidungtl, ladapan, hinhanh 
             FROM `cautraloi` 
             WHERE `macauhoi` = '$macauhoi' 
@@ -125,22 +124,16 @@ public function getAll($macauhoi)
 
     $rows = [];
     while ($row = mysqli_fetch_assoc($result)) {
-        // Chuyển BLOB sang base64 nếu có dữ liệu
-        if (!empty($row['hinhanh'])) {
-            $base64 = base64_encode($row['hinhanh']);
-            $row['hinhanh'] = 'data:image/jpeg;base64,' . $base64;
-            // Nếu ảnh PNG, dùng 'data:image/png;base64,' thay thế
-        } else {
-            $row['hinhanh'] = '';
-        }
-
+        $row['hinhanh'] = $row['hinhanh'];   
         $row['noidungtl'] = $row['noidungtl'] ?? '';
         $row['ladapan']   = $row['ladapan'] ?? 0;
+
         $rows[] = $row;
     }
 
     return $rows;
 }
+
 
 public function getAllWithoutAnswer($macauhoi)
 {
