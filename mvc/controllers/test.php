@@ -581,21 +581,29 @@ public function getQuestion()
         }
     }
 
- public function getResultDetail()
+    
+
+public function getResultDetail()
 {
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        header('Content-Type: application/json; charset=utf-8');
+
         if (empty($_POST['makq'])) {
-            echo "makq missing"; // Debug
+            echo json_encode(['success' => false, 'error' => 'Missing makq']);
             exit;
         }
 
         $makq = $_POST['makq'];
-        $result = $this->dethimodel->getResultDetail($makq);
 
-        echo "<pre>";  // Format dễ đọc
-        print_r($result); // In ra mảng dữ liệu
-        echo "</pre>";
-        exit; // Dừng PHP tại đây để xem output
+        try {
+            $result = $this->dethimodel->getResultDetail($makq);
+            echo json_encode(['success' => true, 'data' => $result]);
+        } catch (\Throwable $e) {
+            error_log('getResultDetail error: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'error' => 'Lỗi server khi lấy chi tiết bài làm']);
+        }
+
+        exit;
     }
 }
 
