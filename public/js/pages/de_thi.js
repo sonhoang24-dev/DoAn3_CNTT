@@ -122,153 +122,91 @@ $(document).ready(function () {
         const fileInputId = `fileinput_${index + 1}`;
 
         html += `
-    <div class="test-ans bg-light text-dark p-4 rounded-bottom">
-      <p class="mb-3 fw-bold fs-5">Đáp án của bạn:</p>
+  <div class="test-ans bg-light text-dark p-4 rounded-bottom">
+    <p class="mb-3 fw-bold fs-5">Đáp án của bạn:</p>
 
-      <!-- CKEditor -->
-      <div id="${editorId}" class="mb-4">${userEssayText || ""}</div>
+    <div id="${editorId}" class="mb-4">${userEssayText || ""}</div>
 
-      <!-- Upload ảnh -->
-      <div class="mb-3">
-        <label class="form-label">Hình ảnh (tùy chọn)</label>
-        <input type="file" class="form-control" id="${fileInputId}" accept="image/*" multiple>
-      </div>
-
-      <!-- Khu vực preview ảnh -->
-      <div id="${thumbId}" class="image-preview-container border rounded p-3 bg-white">
-        <small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>
-      </div>
+    <div class="mb-3">
+      <label class="form-label">Hình ảnh (tùy chọn)</label>
+      <input type="file" class="form-control" 
+             id="${fileInputId}" accept="image/*" multiple>
     </div>
-  `;
+
+    <div id="${thumbId}" class="image-preview-container border rounded p-3 bg-white">
+      <small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>
+    </div>
+  </div>`;
 
         setTimeout(() => {
-          // === CKEditor (giữ nguyên) ===
-          if (window["ckeditor_" + editorId]) {
-            window["ckeditor_" + editorId].destroy().catch(() => {});
-          }
-
-          ClassicEditor.create(document.getElementById(editorId), {
-            toolbar: [
-              "heading",
-              "|",
-              "bold",
-              "italic",
-              "underline",
-              "|",
-              "bulletedList",
-              "numberedList",
-              "|",
-              "insertTable",
-              "blockQuote",
-              "|",
-              "undo",
-              "redo",
-            ],
-            placeholder: "Nhập câu trả lời của bạn tại đây...",
-          })
-            .then((editor) => {
-              window["ckeditor_" + editorId] = editor;
-              editor.ui.view.editable.element.style.minHeight = "200px";
-
-              editor.model.document.on("change:data", () => {
-                answers[index] = answers[index] || {};
-                answers[index].noidungtl = editor.getData();
-                localStorage.setItem(answerKey, JSON.stringify(answers));
-                showBtnSideBar(questions, answers);
-                saveEssayAnswer(index, editor.getData());
-              });
-            })
-            .catch((err) => console.error(err));
-
-          // === UPLOAD & PREVIEW ẢNH (đã fix chồng ảnh) ===
+          const editorDiv = document.getElementById(editorId);
           const fileInput = document.getElementById(fileInputId);
           const previewContainer = document.getElementById(thumbId);
 
-          // Hàm vẽ lại toàn bộ preview (chỉ gọi 1 lần duy nhất)
-          const renderImages = () => {
-            const images = answers[index]?.images || [];
+          // CKEditor
+          ClassicEditor.create(editorDiv).then((editor) => {
+            window["ckeditor_" + editorId] = editor;
 
-            // Xóa hết nội dung cũ
-            previewContainer.innerHTML = "";
+            if (userEssayText) editor.setData(userEssayText);
 
-            if (images.length === 0) {
-              previewContainer.innerHTML = `<small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>`;
-              return;
-            }
+            const renderImages = () => {
+              const imgs = answers[index]?.images || [];
+              previewContainer.innerHTML = "";
 
-            images.forEach((base64, i) => {
-              const wrapper = document.createElement("div");
-              wrapper.className = "position-relative d-inline-block me-3 mb-3";
-
-              const img = document.createElement("img");
-              img.src = base64;
-              img.className = "img-thumbnail rounded";
-              img.style.cssText =
-                "max-height: 150px; max-width: 200px; object-fit: cover; cursor: pointer;";
-
-              // Nút xóa
-              const btnDelete = document.createElement("button");
-              btnDelete.className =
-                "btn btn-danger btn-sm rounded-circle position-absolute";
-              btnDelete.style.cssText =
-                "top: 5px; right: 5px; width: 28px; height: 28px; font-size: 16px; line-height: 1;";
-              btnDelete.innerHTML = "×";
-              btnDelete.onclick = (e) => {
-                e.stopPropagation();
-                answers[index].images.splice(i, 1);
-                if (answers[index].images.length === 0)
-                  delete answers[index].images;
-                localStorage.setItem(answerKey, JSON.stringify(answers));
-                renderImages(); // vẽ lại
-              };
-
-              wrapper.appendChild(img);
-              wrapper.appendChild(btnDelete);
-              previewContainer.appendChild(wrapper);
-            });
-          };
-
-          // Khi người dùng chọn file
-          fileInput.addEventListener("change", function (e) {
-            const files = Array.from(e.target.files);
-            if (files.length === 0) return;
-
-            answers[index] = answers[index] || {};
-            answers[index].images = answers[index].images || [];
-
-            let loadedCount = 0;
-            const total = files.length;
-
-            files.forEach((file) => {
-              // Kiểm tra dung lượng (tùy chọn, ví dụ dưới 10MB)
-              if (file.size > 10 * 1024 * 1024) {
-                alert(`Ảnh "${file.name}" quá lớn (tối đa 10MB)`);
-                loadedCount++;
-                if (loadedCount === total) renderImages();
+              if (imgs.length === 0) {
+                previewContainer.innerHTML = `<small class="text-muted">Chưa có ảnh nào được chọn</small>`;
                 return;
               }
 
-              const reader = new FileReader();
-              reader.onload = function (ev) {
-                answers[index].images.push(ev.target.result); // base64
-                loadedCount++;
+              imgs.forEach((src, i) => {
+                const wrap = document.createElement("div");
+                wrap.className = "position-relative d-inline-block me-2";
 
-                // Chỉ render lại khi tất cả ảnh đã đọc xong → không bị chồng
-                if (loadedCount === total) {
+                const img = document.createElement("img");
+                img.src = src;
+                img.className = "img-thumbnail rounded";
+                img.style.cssText = "max-width:150px; max-height:150px;";
+
+                const del = document.createElement("button");
+                del.className = "btn btn-danger btn-sm position-absolute";
+                del.style = "top:5px; right:5px;";
+                del.innerHTML = "×";
+
+                del.onclick = () => {
+                  answers[index].images.splice(i, 1);
                   localStorage.setItem(answerKey, JSON.stringify(answers));
                   renderImages();
-                }
-              };
-              reader.readAsDataURL(file);
+                };
+
+                wrap.appendChild(img);
+                wrap.appendChild(del);
+                previewContainer.appendChild(wrap);
+              });
+            };
+
+            // Upload ảnh
+            fileInput.addEventListener("change", (e) => {
+              const files = Array.from(e.target.files);
+
+              answers[index] = answers[index] || {};
+              answers[index].images = answers[index].images || [];
+
+              files.forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  answers[index].images.push(ev.target.result);
+                  localStorage.setItem(answerKey, JSON.stringify(answers));
+                  renderImages();
+                };
+                reader.readAsDataURL(file);
+              });
+
+              fileInput.value = "";
             });
 
-            // Reset input để có thể chọn lại cùng file nếu cần
-            this.value = "";
+            renderImages();
           });
-
-          // Load lại ảnh đã lưu từ lần trước
-          renderImages();
-        }, 50);
+        }, 100);
       } else {
         // ================= MCQ =================
         html += `<div class="row">`;
@@ -336,16 +274,19 @@ $(document).ready(function () {
 
   // ================= Khởi tạo và render lần đầu =================
   $.when(getQuestion()).done(() => {
-    let listQues, listAns;
+    let savedQ = localStorage.getItem(dethiKey);
+    let savedA = localStorage.getItem(answerKey);
 
-    if (localStorage.getItem(dethiKey) && localStorage.getItem(answerKey)) {
-      listQues = JSON.parse(localStorage.getItem(dethiKey));
-      listAns = JSON.parse(localStorage.getItem(answerKey));
+    if (savedQ && savedA) {
+      listQues = JSON.parse(savedQ);
+      listAns = JSON.parse(savedA);
     } else {
+      // Chỉ tạo mới nếu CHƯA TỪNG LƯU
       listQues = questions;
       listAns = initListAnswer(questions);
-      localStorage.setItem(dethiKey, JSON.stringify(listQues));
-      localStorage.setItem(answerKey, JSON.stringify(listAns));
+
+      if (!savedQ) localStorage.setItem(dethiKey, JSON.stringify(listQues));
+      if (!savedA) localStorage.setItem(answerKey, JSON.stringify(listAns));
     }
 
     showListQuestion(listQues, listAns);
@@ -368,8 +309,8 @@ $(document).ready(function () {
     changeAnswer(quesIndex - 1, macautl);
 
     // Lấy lại dữ liệu mới nhất
-    const listQues = JSON.parse(localStorage.getItem(dethi));
-    const listAns = JSON.parse(localStorage.getItem(cautraloi));
+    const listQues = JSON.parse(localStorage.getItem(dethiKey));
+    const listAns = JSON.parse(localStorage.getItem(answerKey));
 
     showBtnSideBar(listQues, listAns);
     $("label[for='" + $(this).attr("id") + "']")
@@ -391,7 +332,7 @@ $(document).ready(function () {
   $("#btn-nop-bai").click(function (e) {
     e.preventDefault();
 
-    let listAns = JSON.parse(localStorage.getItem(cautraloi));
+    let listAns = JSON.parse(localStorage.getItem(answerKey));
     let unanswered = listAns.filter((ans) => ans.cautraloi === 0);
 
     if (unanswered.length > 0) {
@@ -427,18 +368,19 @@ $(document).ready(function () {
       type: "post",
       url: "./test/submit",
       data: {
-        listCauTraLoi: JSON.parse(localStorage.getItem(cautraloi)),
+        listCauTraLoi: JSON.parse(localStorage.getItem(answerKey) || "[]"),
         thoigianlambai: thoigian,
         made: dethiCheck,
       },
       success: function (response) {
-        localStorage.removeItem(cautraloi);
-        localStorage.removeItem(dethi);
+        localStorage.removeItem(answerKey);
+        localStorage.removeItem(dethiKey);
+
         location.href = `./test/start/${made}`;
       },
       error: function (response) {
-        localStorage.removeItem(cautraloi);
-        localStorage.removeItem(dethi);
+        localStorage.removeItem(answerKey);
+        localStorage.removeItem(dethiKey);
         location.href = `./test/start/${made}`;
       },
     });
@@ -478,8 +420,8 @@ $(document).ready(function () {
         endTime = new Date(response).getTime();
         let curTime = new Date().getTime();
         if (curTime > endTime) {
-          localStorage.removeItem(cautraloi);
-          localStorage.removeItem(dethi);
+          localStorage.removeItem(answerKey);
+          localStorage.removeItem(dethiKey);
           location.href = `./test/start/${made}`;
         } else {
           $.ajax({
