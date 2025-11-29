@@ -1,3 +1,4 @@
+<script src="https://cdn.ckeditor.com/ckeditor5/41.0.0/classic/ckeditor.js"></script>
 <style>
         #list-question {
             display: block !important;
@@ -42,6 +43,32 @@
         .mt-6 {
             margin-top: 5rem !important;
         }
+        .image-preview-container {
+  min-height: 100px;
+  border: 2px dashed #dee2e6;
+  background-color: #fafafa;
+  transition: all 0.3s;
+}
+
+.image-preview-container:not(:empty) {
+  border-style: solid;
+  background-color: #fff;
+}
+
+.no-image-text {
+  color: #999;
+  font-style: italic;
+}
+
+.img-thumbnail {
+  transition: transform 0.2s ease;
+}
+
+.img-thumbnail:hover {
+  transform: scale(1.05);
+  z-index: 10;
+}
+        
     </style>
 </head>
 <body>

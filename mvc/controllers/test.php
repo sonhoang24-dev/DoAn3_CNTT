@@ -679,7 +679,7 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         }
     }
 
-    public function submit()
+        public function submit()
     {
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $listtr = $_POST['listCauTraLoi'] ?? null;
@@ -722,8 +722,10 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             error_log("Test::submit parsed listCauTraLoi: " . print_r($listtr, true));
 
             $result = $this->ketquamodel->submit($made, $nguoidung, $listtr, $formattedTime);
-            // Return a JSON response for clarity
-            echo json_encode(['success' => (bool)$result]);
+            // Also include makq in response for client-side debugging/verification
+            $kqRow = $this->ketquamodel->getMaKQ($made, $nguoidung);
+            $makq = is_array($kqRow) && isset($kqRow['makq']) ? $kqRow['makq'] : null;
+            echo json_encode(['success' => (bool)$result, 'makq' => $makq]);
         }
     }
 

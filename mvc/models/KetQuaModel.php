@@ -98,7 +98,16 @@ class KetQuaModel extends DB
                 $affected = mysqli_affected_rows($this->con);
                 if ($affected === 0) {
                     error_log("KetQuaModel::submit update affected 0 rows for makq={$makq}, macauhoi={$macauhoi}; SQL=" . $sql);
-                    $valid = false;
+                    // Attempt to INSERT the detail row if it doesn't exist so user's answer is preserved
+                    $insertSql = "INSERT INTO `chitietketqua`(`makq`,`macauhoi`,`dapanchon`) VALUES ('$makq','$macauhoi','$cautraloi')";
+                    $insRes = mysqli_query($this->con, $insertSql);
+                    if (!$insRes) {
+                        error_log("KetQuaModel::submit insert chitietketqua failed: " . mysqli_error($this->con) . "; SQL=" . $insertSql);
+                        $valid = false;
+                    } else {
+                        $insAffected = mysqli_affected_rows($this->con);
+                        error_log("KetQuaModel::submit inserted chitietketqua for makq={$makq}, macauhoi={$macauhoi}, dapanchon={$cautraloi}; affected={$insAffected}");
+                    }
                 } else {
                     error_log("KetQuaModel::submit updated chitietketqua for makq={$makq}, macauhoi={$macauhoi}, dapanchon={$cautraloi}; affected={$affected}");
                 }

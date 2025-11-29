@@ -221,55 +221,53 @@ class DeThiModel extends DB
 
 
 
-    private function addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi)
-    {
-        try {
-            $cauhoiModel = new CauHoiModel($this->con);
 
-            foreach ($socau as $type => $levels) {
-                foreach (['de','tb','kho'] as $level) {
-                    $qty = intval($levels[$level] ?? 0);
-                    if ($qty <= 0) {
+private function addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi)
+{
+    try {
+        $cauhoiModel = new CauHoiModel($this->con);
+        foreach ($socau as $type => $levels) {
+            error_log("  Processing type: $type, levels: " . json_encode($levels));
+            
+            foreach (['de','tb','kho'] as $level) {
+                $qty = intval($levels[$level] ?? 0);
+                if ($qty <= 0) continue;
+
+                $levelMap = ['de' => '1','tb' => '2','kho' => '3'];
+                $levelNum = $levelMap[$level];
+
+                $questions = $cauhoiModel->getQuestions($chuong, $monthi, $levelNum, [$type], $qty);
+                
+
+                if ($questions === false) {
+                    throw new Exception("SQL error when fetching $type level $levelNum");
+                }
+                if (count($questions) < $qty) {
+                }
+
+                // Thêm câu hỏi vào chitietdethi
+                foreach ($questions as $q) {
+                    $sql = "INSERT INTO chitietdethi (made, macauhoi) VALUES (?, ?)";
+                    $stmt = mysqli_prepare($this->con, $sql);
+                    if (!$stmt) {
                         continue;
                     }
-
-                    $levelMap = ['de' => '1','tb' => '2','kho' => '3'];
-                    $levelNum = $levelMap[$level];
-
-                    $questions = $cauhoiModel->getQuestions($chuong, $monthi, $levelNum, [$type], $qty);
-                    if ($questions === false) {
-                        throw new Exception("SQL error khi fetch câu hỏi loại $type mức $levelNum");
+                    mysqli_stmt_bind_param($stmt, "ii", $made, $q['macauhoi']);
+                    if (!mysqli_stmt_execute($stmt)) {
                     }
-                    if (count($questions) < $qty) {
-                        throw new Exception("Không đủ câu hỏi loại $type mức $level: Có ".count($questions).", yêu cầu $qty");
-                    }
-
-                    // Thêm câu hỏi vào chitietdethi
-                    foreach ($questions as $q) {
-                        $sql = "INSERT INTO chitietdethi (made, macauhoi) VALUES (?, ?)";
-                        $stmt = mysqli_prepare($this->con, $sql);
-                        if (!$stmt) {
-                            error_log("Prepare failed: " . mysqli_error($this->con));
-                            continue;
-                        }
-                        mysqli_stmt_bind_param($stmt, "ii", $made, $q['macauhoi']);
-                        if (!mysqli_stmt_execute($stmt)) {
-                            error_log("Execute failed: " . mysqli_stmt_error($stmt));
-                        }
-                        mysqli_stmt_close($stmt);
-                    }
-
-                    error_log("Added $qty câu hỏi type=$type level=$levelNum vào đề $made");
+                    mysqli_stmt_close($stmt);
                 }
+
             }
-
-            return true;
-
-        } catch (\Exception $e) {
-            error_log("addQuestionsToAutoTest exception: " . $e->getMessage());
-            return false;
         }
+
+        return true;
+
+    } catch (\Exception $e) {
+        error_log("❌ addQuestionsToAutoTest exception: " . $e->getMessage());
+        return false;
     }
+}
 
 
     // Sửa addCauHoiToDeThi để dùng đúng macauhoi
@@ -921,113 +919,124 @@ class DeThiModel extends DB
     }
 
 
-    public function getQuestionByUser($made, $user)
-    {
-        ini_set('display_errors', 0);
-        error_reporting(E_ALL);
-        $made = intval($made);
-        $user = trim($user);
-        $rows = [];
-        $ctlmodel = new CauTraLoiModel();
-        // --- 1. Lấy thông tin đề thi ---
-        $sql_dethi = "SELECT * FROM dethi WHERE made = ?";
-        $stmt_dethi = mysqli_prepare($this->con, $sql_dethi);
-        if (!$stmt_dethi) {
-            error_log("Prepare dethi failed: " . mysqli_error($this->con));
-            return [];
-        }
-        mysqli_stmt_bind_param($stmt_dethi, "i", $made);
-        mysqli_stmt_execute($stmt_dethi);
-        $res_dethi = mysqli_stmt_get_result($stmt_dethi);
-        $data_dethi = mysqli_fetch_assoc($res_dethi);
-        mysqli_stmt_close($stmt_dethi);
-        if (!$data_dethi) {
-            error_log("Không tìm thấy đề thi: $made");
-            return [];
-        }
-        error_log("DEBUG dethi: " . print_r($data_dethi, true));
-        $trondapan = $data_dethi['trondapan'] ?? 0;
-        $troncauhoi = $data_dethi['troncauhoi'] ?? 0;
-        $loaide = $data_dethi['loaide'] ?? 0;
-        // --- 2. Kiểm tra user đã làm bài chưa ---
-        $sql_ketqua = "SELECT * FROM ketqua WHERE made = ? AND manguoidung = ?";
-        $stmt = mysqli_prepare($this->con, $sql_ketqua);
-        if (!$stmt) {
-            error_log("Prepare ketqua failed: " . mysqli_error($this->con));
-            return [];
-        }
-        mysqli_stmt_bind_param($stmt, "is", $made, $user);
-        mysqli_stmt_execute($stmt);
-        $res_ketqua = mysqli_stmt_get_result($stmt);
-        $data_ketqua = mysqli_fetch_assoc($res_ketqua);
-        mysqli_stmt_close($stmt);
-        error_log("DEBUG ketqua: " . print_r($data_ketqua, true));
-        if ($data_ketqua) {
-            // User đã làm -> lấy câu hỏi từ ketqua
-            $ketqua_id = $data_ketqua['makq'] ?? 0;
-            if ($ketqua_id > 0) {
-                $sql_question = "SELECT ch.*, ctkq.*
-                             FROM chitietketqua ctkq
-                             JOIN cauhoi ch ON ctkq.macauhoi = ch.macauhoi
-                             WHERE ctkq.makq = ?";
-                $stmt_q = mysqli_prepare($this->con, $sql_question);
-                if (!$stmt_q) {
-                    error_log("Prepare chitietketqua failed: " . mysqli_error($this->con));
-                    return [];
-                }
-                mysqli_stmt_bind_param($stmt_q, "i", $ketqua_id);
-                mysqli_stmt_execute($stmt_q);
-                $res_question = mysqli_stmt_get_result($stmt_q);
-                while ($row = mysqli_fetch_assoc($res_question)) {
-                    $arrDapAn = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-                    if ($trondapan == 1) {
-                        shuffle($arrDapAn);
+
+
+
+public function getQuestionByUser($made, $user)
+{
+    $made = intval($made);
+    $user = trim($user);
+    $rows = [];
+    $ctlmodel = new CauTraLoiModel();
+
+    // === 1. Lấy đề thi ===
+    $sql_dethi = "SELECT * FROM dethi WHERE made = ?";
+    $stmt = mysqli_prepare($this->con, $sql_dethi);
+    mysqli_stmt_bind_param($stmt, "i", $made);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $de = mysqli_fetch_assoc($res);
+    mysqli_stmt_close($stmt);
+
+    if (!$de) return [];
+
+    $troncauhoi = $de['troncauhoi'];
+    $trondapan  = $de['trondapan'];
+    $loaide     = $de['loaide'];
+
+    // === 2. Lấy makq nếu người dùng đã làm bài ===
+    $sql_kq = "SELECT * FROM ketqua WHERE made = ? AND manguoidung = ?";
+    $stmt = mysqli_prepare($this->con, $sql_kq);
+    mysqli_stmt_bind_param($stmt, "is", $made, $user);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $data_kq = mysqli_fetch_assoc($res);
+    mysqli_stmt_close($stmt);
+
+    $makq = $data_kq['makq'] ?? 0;
+
+    // === 3. Mapping số câu theo loại + độ khó ===
+    $config = [
+        'mcq' => [
+            1 => intval($de['mcq_de']),
+            2 => intval($de['mcq_tb']),
+            3 => intval($de['mcq_kho'])
+        ],
+        'essay' => [
+            1 => intval($de['essay_de']),
+            2 => intval($de['essay_tb']),
+            3 => intval($de['essay_kho'])
+        ],
+        'reading' => [
+            1 => intval($de['reading_de']),
+            2 => intval($de['reading_tb']),
+            3 => intval($de['reading_kho'])
+        ]
+    ];
+
+    // === 4. Lấy câu hỏi theo từng loại ===
+    foreach ($config as $type => $levels) {
+        foreach ($levels as $dokho => $limit) {
+            if ($limit <= 0) continue;
+
+            $sql = "
+                SELECT ch.macauhoi, ch.noidung, ch.dokho, ch.loai, ch.hinhanh,
+                       ctkq.dapanchon
+                FROM chitietdethi ctdt
+                JOIN cauhoi ch ON ctdt.macauhoi = ch.macauhoi
+                LEFT JOIN chitietketqua ctkq
+                    ON ch.macauhoi = ctkq.macauhoi AND ctkq.makq = ?
+                WHERE ctdt.made = ?
+                  AND ch.loai = ?
+                  AND ch.dokho = ?
+                ORDER BY RAND()
+                LIMIT ?
+            ";
+
+            $stmt = mysqli_prepare($this->con, $sql);
+            mysqli_stmt_bind_param($stmt, "iisii", $makq, $made, $type, $dokho, $limit);
+            mysqli_stmt_execute($stmt);
+            $res = mysqli_stmt_get_result($stmt);
+
+            while ($row = mysqli_fetch_assoc($res)) {
+
+                // MCQ → lấy đáp án
+                if ($type === 'mcq') {
+                    if ($row['dapanchon']) {
+                        $arr = [[
+                            'macautl' => $row['dapanchon'],
+                            'noidungtl' => $row['dapanchon']
+                        ]];
+                    } else {
+                        $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
                     }
-                    $row['cautraloi'] = $arrDapAn;
-                    if (!empty($row['hinhanh'])) {
-                        $row['hinhanh'] = base64_encode($row['hinhanh']);
-                    }
-                    $rows[] = $row;
+                    if ($trondapan) shuffle($arr);
+                    $row['cautraloi'] = $arr;
                 }
-                mysqli_stmt_close($stmt_q);
-                if ($loaide == 1 && $troncauhoi == 1) {
-                    shuffle($rows);
+
+                // Reading & Essay không có đáp án lựa chọn
+                else {
+                    $row['cautraloi'] = [];
                 }
-                error_log("DEBUG rows from ketqua: " . print_r($rows, true));
-                return $rows;
+
+                // Convert ảnh
+                if (!empty($row['hinhanh'])) {
+                    $row['hinhanh'] = base64_encode($row['hinhanh']);
+                }
+
+                $rows[] = $row;
             }
+            mysqli_stmt_close($stmt);
         }
-        // --- 3. User chưa làm -> lấy câu hỏi từ đề trực tiếp ---
-        $sql_question = "SELECT ch.*, ctdt.*
-                     FROM chitietdethi ctdt
-                     JOIN cauhoi ch ON ctdt.macauhoi = ch.macauhoi
-                     WHERE ctdt.made = ?";
-        $stmt_q = mysqli_prepare($this->con, $sql_question);
-        if (!$stmt_q) {
-            error_log("Prepare chitietdethi failed: " . mysqli_error($this->con));
-            return [];
-        }
-        mysqli_stmt_bind_param($stmt_q, "i", $made);
-        mysqli_stmt_execute($stmt_q);
-        $res_question = mysqli_stmt_get_result($stmt_q);
-        while ($row = mysqli_fetch_assoc($res_question)) {
-            $arrDapAn = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-            if ($trondapan == 1) {
-                shuffle($arrDapAn);
-            }
-            $row['cautraloi'] = $arrDapAn;
-            if (!empty($row['hinhanh'])) {
-                $row['hinhanh'] = base64_encode($row['hinhanh']);
-            }
-            $rows[] = $row;
-        }
-        mysqli_stmt_close($stmt_q);
-        if ($loaide == 1 && $troncauhoi == 1) {
-            shuffle($rows);
-        }
-        error_log("DEBUG final rows from dethi: " . print_r($rows, true));
-        return $rows;
     }
+
+    // === 5. Shuffle toàn bộ câu nếu đề trộn ===
+    if ($loaide == 1 && $troncauhoi == 1) {
+        shuffle($rows);
+    }
+
+    return $rows;
+}
 
 
     public function getAllSubjects()
