@@ -24,23 +24,22 @@ function getTotalQuestionOfChapter(chapters, monhoc, dokho, loaicauhoi) {
       chuong: Array.isArray(chapters) ? chapters : [chapters].filter(Boolean),
       monhoc: monhoc,
       dokho: dokho,
-      loaicauhoi: loaicauhoi, // gửi lên server
+      loaicauhoi: loaicauhoi,
     },
-    async: false, // đồng bộ để trả về luôn
+    async: false,
     success: function (response) {
       if (response && response.success && response.data) {
-        // server trả về dạng: {mcq: {de: 11, tb: 49, kho: 29}, essay: {...}, reading: {...}}
         loaicauhoi.forEach(function (lc) {
           if (response.data[lc]) {
             switch (dokho) {
               case 1:
-                result = response.data[lc].de;
+                result += response.data[lc].de;
                 break;
               case 2:
-                result = response.data[lc].tb;
+                result += response.data[lc].tb;
                 break;
               case 3:
-                result = response.data[lc].kho;
+                result += response.data[lc].kho;
                 break;
             }
           }
@@ -54,7 +53,7 @@ function getTotalQuestionOfChapter(chapters, monhoc, dokho, loaicauhoi) {
     },
   });
 
-  return result || 0;
+  return result;
 }
 
 function updateQuestionCounts() {
@@ -444,14 +443,21 @@ $(document).ready(function () {
     let valid = true;
 
     // Map từ value checkbox → tên input thực tế
-    const typeMap = {
+    let typeMap = {
       mcq: "tracnghiem",
       essay: "tuluan",
       reading: "dochieu",
     };
 
+    let typeNameMap = {
+      mcq: "Trắc nghiệm",
+      essay: "Tự luận",
+      reading: "Đọc hiểu",
+    };
+
+    // Lấy số lượng nhập
     questionTypes.forEach((type) => {
-      let prefix = typeMap[type]; // tracnghiem / tuluan / dochieu
+      let prefix = typeMap[type]; // map đúng theo HTML
 
       let de = parseInt($(`#coban_${prefix}`).val()) || 0;
       let tb = parseInt($(`#trungbinh_${prefix}`).val()) || 0;
@@ -461,11 +467,7 @@ $(document).ready(function () {
 
       if (total === 0) {
         valid = false;
-        let tenLoai = {
-          mcq: "Trắc nghiệm",
-          essay: "Tự luận",
-          reading: "Đọc hiểu",
-        }[type];
+        let tenLoai = typeNameMap[type]; // map nhãn hiển thị
 
         Dashmix.helpers("jq-notify", {
           type: "danger",
@@ -482,6 +484,7 @@ $(document).ready(function () {
     // Kiểm tra số lượng có đủ trong ngân hàng câu hỏi
     questionTypes.forEach((type) => {
       let prefix = typeMap[type];
+      let tenLoai = typeNameMap[type]; // map nhãn hiển thị
 
       let available = {
         de: getTotalQuestionOfChapter(chapters, m, 1, [type]),
@@ -495,21 +498,21 @@ $(document).ready(function () {
         valid = false;
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: `Trắc nghiệm: chỉ có ${available.de} câu dễ, bạn cần ${required.de}`,
+          message: `${tenLoai}: chỉ có ${available.de} câu dễ, bạn cần ${required.de}`,
         });
       }
       if (available.tb < required.tb) {
         valid = false;
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: `Trắc nghiệm: chỉ có ${available.tb} câu trung bình`,
+          message: `${tenLoai}: chỉ có ${available.tb} câu trung bình, bạn cần ${required.tb}`,
         });
       }
       if (available.kho < required.kho) {
         valid = false;
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: `Trắc nghiệm: chỉ có ${available.kho} câu khó`,
+          message: `${tenLoai}: chỉ có ${available.kho} câu khó, bạn cần ${required.kho}`,
         });
       }
     });

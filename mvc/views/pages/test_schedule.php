@@ -25,7 +25,7 @@
 
 
     <!-- Bảng danh sách đề thi -->
-  <!-- <div class="table-responsive"> -->
+  <div class="table-responsive">
   <table class="table table-bordered table-hover align-middle text-center">
     <thead class="bg-body-light text-uppercase fw-semibold">
       <tr class="text-primary">
@@ -53,3 +53,26 @@
         } ?>
     </div>
 </div>
+<!-- <style>
+.list-test .block-content {
+  overflow-x: auto; 
+}
+
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table thead th,
+.table tbody td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.table .btn {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.7rem;
+}
+
+</style> -->

@@ -264,7 +264,7 @@ private function addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaica
         return true;
 
     } catch (\Exception $e) {
-        error_log("❌ addQuestionsToAutoTest exception: " . $e->getMessage());
+        error_log("addQuestionsToAutoTest exception: " . $e->getMessage());
         return false;
     }
 }
@@ -937,14 +937,13 @@ public function getQuestionByUser($made, $user)
     $res = mysqli_stmt_get_result($stmt);
     $de = mysqli_fetch_assoc($res);
     mysqli_stmt_close($stmt);
-
     if (!$de) return [];
 
     $troncauhoi = $de['troncauhoi'];
     $trondapan  = $de['trondapan'];
     $loaide     = $de['loaide'];
 
-    // === 2. Lấy makq nếu người dùng đã làm bài ===
+    // === 2. Lấy kết quả nếu đã làm bài ===
     $sql_kq = "SELECT * FROM ketqua WHERE made = ? AND manguoidung = ?";
     $stmt = mysqli_prepare($this->con, $sql_kq);
     mysqli_stmt_bind_param($stmt, "is", $made, $user);
@@ -979,54 +978,119 @@ public function getQuestionByUser($made, $user)
         foreach ($levels as $dokho => $limit) {
             if ($limit <= 0) continue;
 
-            $sql = "
-                SELECT ch.macauhoi, ch.noidung, ch.dokho, ch.loai, ch.hinhanh,
-                       ctkq.dapanchon
-                FROM chitietdethi ctdt
-                JOIN cauhoi ch ON ctdt.macauhoi = ch.macauhoi
-                LEFT JOIN chitietketqua ctkq
-                    ON ch.macauhoi = ctkq.macauhoi AND ctkq.makq = ?
-                WHERE ctdt.made = ?
-                  AND ch.loai = ?
-                  AND ch.dokho = ?
-                ORDER BY RAND()
-                LIMIT ?
-            ";
+            if ($type === 'reading') {
+                // Lấy đoạn văn liên quan
+                $sql_dv = "
+                    SELECT * FROM doan_van
+                    WHERE mamonhoc = ? AND machuong IN (
+                        SELECT machuong FROM chitietdethi WHERE made = ? AND trangthai = 1
+                    )
+                    ORDER BY RAND()
+                    LIMIT ?
+                ";
+                $stmt_dv = mysqli_prepare($this->con, $sql_dv);
+                mysqli_stmt_bind_param($stmt_dv, "sii", $de['monthi'], $made, $limit);
+                mysqli_stmt_execute($stmt_dv);
+                $res_dv = mysqli_stmt_get_result($stmt_dv);
 
-            $stmt = mysqli_prepare($this->con, $sql);
-            mysqli_stmt_bind_param($stmt, "iisii", $makq, $made, $type, $dokho, $limit);
-            mysqli_stmt_execute($stmt);
-            $res = mysqli_stmt_get_result($stmt);
+                while ($dv = mysqli_fetch_assoc($res_dv)) {
+                    // Lấy câu hỏi liên quan đến đoạn văn
+                    $sql_ch = "
+                        SELECT ch.macauhoi, ch.noidung, ch.dokho, ch.loai, ch.hinhanh,
+                               ctkq.dapanchon
+                        FROM cauhoi ch
+                        LEFT JOIN chitietketqua ctkq
+                               ON ch.macauhoi = ctkq.macauhoi AND ctkq.makq = ?
+                        WHERE ch.madv = ? AND ch.dokho = ? AND ch.trangthai = 1
+                        ORDER BY RAND()
+                    ";
+                    $stmt_ch = mysqli_prepare($this->con, $sql_ch);
+                    mysqli_stmt_bind_param($stmt_ch, "iii", $makq, $dv['madv'], $dokho);
+                    mysqli_stmt_execute($stmt_ch);
+                    $res_ch = mysqli_stmt_get_result($stmt_ch);
 
-            while ($row = mysqli_fetch_assoc($res)) {
+                    while ($row = mysqli_fetch_assoc($res_ch)) {
+                        // Gán đoạn văn vào câu hỏi
+                        $row['context'] = $dv['noidung'];
+                        $row['tieude_context'] = $dv['tieude'] ?? '';
 
-                // MCQ → lấy đáp án
-                if ($type === 'mcq') {
-                    if ($row['dapanchon']) {
-                        $arr = [[
-                            'macautl' => $row['dapanchon'],
-                            'noidungtl' => $row['dapanchon']
-                        ]];
-                    } else {
-                        $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                        // Xử lý đáp án theo loại câu hỏi thực sự
+                        if ($row['loai'] === 'mcq') {
+                            if ($row['dapanchon']) {
+                                $arr = [[
+                                    'macautl' => $row['dapanchon'],
+                                    'noidungtl' => $row['dapanchon']
+                                ]];
+                            } else {
+                                $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                            }
+                            if ($trondapan) shuffle($arr);
+                            $row['cautraloi'] = $arr;
+                        } elseif ($row['loai'] === 'essay') {
+                            $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                        } elseif ($row['loai'] === 'reading') {
+                            if ($row['dapanchon']) {
+                                $arr = [[
+                                    'macautl' => $row['dapanchon'],
+                                    'noidungtl' => $row['dapanchon']
+                                ]];
+                            } else {
+                                $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                            }
+                            if ($trondapan) shuffle($arr);
+                            $row['cautraloi'] = $arr;
+                        } else {
+                            $row['cautraloi'] = [];
+                        }
+
+                        if (!empty($row['hinhanh'])) {
+                            $row['hinhanh'] = base64_encode($row['hinhanh']);
+                        }
+                        $rows[] = $row;
                     }
-                    if ($trondapan) shuffle($arr);
-                    $row['cautraloi'] = $arr;
+                    mysqli_stmt_close($stmt_ch);
                 }
+                mysqli_stmt_close($stmt_dv);
+            } else {
+                // MCQ & Essay: giữ nguyên logic
+                $sql = "
+                    SELECT ch.macauhoi, ch.noidung, ch.dokho, ch.loai, ch.hinhanh,
+                           ctkq.dapanchon
+                    FROM chitietdethi ctdt
+                    JOIN cauhoi ch ON ctdt.macauhoi = ch.macauhoi
+                    LEFT JOIN chitietketqua ctkq
+                        ON ch.macauhoi = ctkq.macauhoi AND ctkq.makq = ? 
+                    WHERE ctdt.made = ? AND ch.loai = ? AND ch.dokho = ? AND ch.trangthai = 1
+                    ORDER BY RAND()
+                    LIMIT ?
+                ";
+                $stmt = mysqli_prepare($this->con, $sql);
+                mysqli_stmt_bind_param($stmt, "iisii", $makq, $made, $type, $dokho, $limit);
+                mysqli_stmt_execute($stmt);
+                $res_sql = mysqli_stmt_get_result($stmt);
 
-                // Reading & Essay không có đáp án lựa chọn
-                else {
-                    $row['cautraloi'] = [];
+                while ($row = mysqli_fetch_assoc($res_sql)) {
+                    if ($type === 'mcq') {
+                        if ($row['dapanchon']) {
+                            $arr = [[
+                                'macautl' => $row['dapanchon'],
+                                'noidungtl' => $row['dapanchon']
+                            ]];
+                        } else {
+                            $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                        }
+                        if ($trondapan) shuffle($arr);
+                        $row['cautraloi'] = $arr;
+                    } else { // Essay
+                        $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                    }
+                    if (!empty($row['hinhanh'])) {
+                        $row['hinhanh'] = base64_encode($row['hinhanh']);
+                    }
+                    $rows[] = $row;
                 }
-
-                // Convert ảnh
-                if (!empty($row['hinhanh'])) {
-                    $row['hinhanh'] = base64_encode($row['hinhanh']);
-                }
-
-                $rows[] = $row;
+                mysqli_stmt_close($stmt);
             }
-            mysqli_stmt_close($stmt);
         }
     }
 

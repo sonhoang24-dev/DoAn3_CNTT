@@ -625,38 +625,40 @@ class CauHoiModel extends DB
     }
 
     public function getQuestions($chuong, $monthi, $dokho, $types = [], $qty = 1)
-    {
-        $chuongList = implode(',', array_map('intval', $chuong));
-        $typeList = implode(',', array_map(function ($t) { return "'".trim($t)."'"; }, $types));
+{
+    if (empty($chuong) || empty($types)) return [];
 
-        $sql = "SELECT macauhoi FROM cauhoi 
+    $chuongList = implode(',', array_map('intval', $chuong));
+    $typeList = implode(',', array_map(function ($t) { return "'".trim($t)."'"; }, $types));
+
+    $sql = "SELECT macauhoi FROM cauhoi 
             WHERE mamonhoc = ? 
               AND dokho = ? 
               AND loai IN ($typeList)
               AND machuong IN ($chuongList)
+              AND trangthai = 1
             LIMIT ?";
 
-        $stmt = mysqli_prepare($this->con, $sql);
-        if (!$stmt) {
-            error_log("Prepare failed: " . mysqli_error($this->con) . " | SQL: $sql");
-            return false;
-        }
-
-        mysqli_stmt_bind_param($stmt, "sii", $monthi, $dokho, $qty);
-        mysqli_stmt_execute($stmt);
-        $res = mysqli_stmt_get_result($stmt);
-        if (!$res) {
-            return false;
-        }
-
-        $questions = [];
-        while ($row = mysqli_fetch_assoc($res)) {
-            $questions[] = $row;
-        }
-
-        mysqli_stmt_close($stmt);
-        return $questions;
+    $stmt = mysqli_prepare($this->con, $sql);
+    if (!$stmt) {
+        error_log("Prepare failed: " . mysqli_error($this->con) . " | SQL: $sql");
+        return false;
     }
+
+    mysqli_stmt_bind_param($stmt, "sii", $monthi, $dokho, $qty);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    if (!$res) return false;
+
+    $questions = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $questions[] = $row;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $questions;
+}
+
 
 
 

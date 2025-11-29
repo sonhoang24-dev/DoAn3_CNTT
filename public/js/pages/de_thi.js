@@ -47,33 +47,25 @@ $(document).ready(function () {
           isActive = " active";
         if (q.loai !== "essay" && answers[i].cautraloi) isActive = " active";
       }
+
+      // Xác định ID thực tế của câu hỏi
+      let questionId = q.loai === "reading" ? `reading-q${i + 1}` : `c${i + 1}`;
+
       html += `<li class="answer-item p-1">
-                 <a href="javascript:void(0)" class="answer-item-link btn btn-outline-primary w-100 btn-sm${isActive}" data-index="${
+                   <a href="javascript:void(0)" class="answer-item-link btn btn-outline-primary w-100 btn-sm${isActive}" data-target="${questionId}">${
         i + 1
-      }">${i + 1}</a>
-               </li>`;
+      }</a>
+                 </li>`;
     });
     $(".answer").html(html);
   }
 
-  // ================== Render câu hỏi + CKEditor + MCQ ==================
-  function showBtnSideBar(questions, answers) {
-    let html = "";
-    questions.forEach((q, i) => {
-      let isActive = "";
-      if (answers[i]) {
-        if (q.loai === "essay" && answers[i].noidungtl?.trim())
-          isActive = " active";
-        if (q.loai !== "essay" && answers[i].cautraloi) isActive = " active";
-      }
-      html += `<li class="answer-item p-1">
-                 <a href="javascript:void(0)" class="answer-item-link btn btn-outline-primary w-100 btn-sm${isActive}" data-index="${
-        i + 1
-      }">${i + 1}</a>
-               </li>`;
-    });
-    $(".answer").html(html);
-  }
+  // Click scroll
+  $(document).on("click", ".answer-item-link", function () {
+    const targetId = $(this).data("target");
+    const el = document.getElementById(targetId);
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  });
 
   // ================== Render câu hỏi + CKEditor + MCQ ==================
   function showListQuestion(questions, answers) {
@@ -86,6 +78,8 @@ $(document).ready(function () {
 
     answers = Array.isArray(answers) ? answers : [];
     let html = "";
+    let currentContext = null;
+    let groupHtml = "";
 
     questions.forEach((question, index) => {
       const userAnswer = answers[index] || {};
@@ -93,106 +87,158 @@ $(document).ready(function () {
       const userEssayText = userAnswer.noidungtl || "";
       const editorId = `editor_${index + 1}`;
       const thumbId = `thumb_${index + 1}`;
+      const fileInputId = `fileinput_${index + 1}`;
 
-      html += `
-      <style>
-        .img-question { max-width: 350px; max-height: 250px; object-fit: contain; display: block; margin: 0 auto; }
-        .img-answer { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; margin-left: 10px; margin-top: 5px; }
-        .img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 5px; margin-right: 5px; }
-      </style>
-      <div class="question rounded border mb-3 bg-white" id="c${index + 1}">
+      // === READING GROUP ===
+      if (question.loai === "reading") {
+        // Nếu context mới, đóng nhóm cũ
+        if ((question.context || "").trim() !== (currentContext || "").trim()) {
+          if (groupHtml) {
+            html += `<div class="reading-group rounded border mb-3 bg-white p-3">${groupHtml}</div>`;
+            groupHtml = "";
+          }
+          currentContext = (question.context || "").trim();
+
+          groupHtml += `${
+            question.tieude_context
+              ? `<h5 class="fw-bold mb-3 text-center p-2 rounded" style="background-color: #ffc107; color: #212529;">
+  ${question.tieude_context}
+</h5>
+`
+              : ""
+          }`;
+          groupHtml += `<p class="mb-4 text-muted" style="line-height: 1.8; font-size: 0.95rem;">${question.context}</p>`;
+        }
+
+        const quesNum = index + 1;
+        groupHtml += `<div class="question-item mb-4 p-3 bg-light rounded" id="reading-q${quesNum}">
+          <p class="question-content fw-bold mb-3" style="color: #333; font-size: 1rem;">${quesNum}. ${question.noidung}</p>`;
+
+        if (
+          question.cautraloi &&
+          Array.isArray(question.cautraloi) &&
+          question.cautraloi.length > 0
+        ) {
+          groupHtml += `<div class="row g-2">`;
+          question.cautraloi.forEach((ctl, i) => {
+            const content = ctl.noidungtl || ctl.content || "";
+            groupHtml += `<div class="col-12 col-md-6 mb-2">
+              <div class="d-flex align-items-start">
+                <span class="badge bg-primary me-2" style="min-width: 30px; text-align: center;">${String.fromCharCode(
+                  65 + i
+                )}</span>
+              <span style="word-break: break-word; white-space: normal;">${content}</span>
+              </div>
+            </div>`;
+          });
+          groupHtml += `</div>`; // end row
+        } else {
+          groupHtml += `<p class="text-warning small">Không có phương án</p>`;
+        }
+
+        // ✅ Vùng chọn đáp án với style tốt hơn
+        groupHtml += `<div class="test-ans bg-primary rounded py-3 px-3 d-flex align-items-center mt-3 flex-wrap">
+          <p class="mb-0 text-white me-3 fw-bold">Đáp án:</p>
+          <div class="d-flex gap-2 flex-wrap">`;
+        if (
+          question.cautraloi &&
+          Array.isArray(question.cautraloi) &&
+          question.cautraloi.length > 0
+        ) {
+          question.cautraloi.forEach((ctl, i) => {
+            const isChecked = String(userChosenId) === String(ctl.macautl);
+            groupHtml += `
+              <input type="radio" class="btn-check"
+                     name="options-reading-${quesNum}"
+                     id="ctl-${ctl.macautl}" 
+                     autocomplete="off"
+                     data-index="${index}"
+                     data-macautl="${ctl.macautl}" 
+                     value="${ctl.macautl}" ${isChecked ? "checked" : ""}>
+              <label class="btn btn-light rounded-pill btn-answer fw-bold ${
+                isChecked ? "btn-warning" : ""
+              }"
+                     style="min-width: 45px; text-align: center; cursor: pointer;"
+                     for="ctl-${ctl.macautl}">
+                ${String.fromCharCode(65 + i)}
+              </label>`;
+          });
+        } else {
+          groupHtml += `<span class="text-white small">Không có lựa chọn</span>`;
+        }
+        groupHtml += `</div></div>`; // end test-ans
+        groupHtml += `</div>`; // end question-item
+      }
+      // === MCQ or ESSAY ===
+      else {
+        if (groupHtml) {
+          html += `<div class="reading-group rounded border mb-3 bg-white p-3">${groupHtml}</div>`;
+          groupHtml = "";
+          currentContext = null;
+        }
+
+        html += `<div class="question rounded border mb-3 bg-white" id="c${
+          index + 1
+        }">
         <div class="question-top p-3">
           <p class="question-content fw-bold mb-2">${index + 1}. ${
-        question.noidung
-      }</p>`;
+          question.noidung
+        }</p>
+        </div>`;
 
-      // Hình câu hỏi
-      if (question.hinhanh?.trim()) {
-        const srcQ = question.hinhanh.startsWith("data:image")
-          ? question.hinhanh
-          : "data:image/png;base64," + question.hinhanh;
-        html += `<div class="text-center mb-3"><img src="${srcQ}" class="img-question" alt="Hình câu hỏi"></div>`;
-      }
+        if (question.loai === "essay") {
+          html += `<div class="test-ans bg-light text-dark p-4 rounded-bottom">
+          <p class="mb-3 fw-bold fs-5">Đáp án của bạn:</p>
+          <div id="${editorId}" class="mb-4">${userEssayText || ""}</div>
+          <div class="mb-3">
+            <label class="form-label">Hình ảnh (tùy chọn)</label>
+            <input type="file" class="form-control" id="${fileInputId}" accept="image/*" multiple>
+          </div>
+          <div id="${thumbId}" class="image-preview-container border rounded p-3 bg-white">
+            <small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>
+          </div>
+        </div>`;
 
-      html += `</div>`; // đóng question-top
+          setTimeout(() => {
+            const previewContainer = document.getElementById(thumbId);
+            const fileInput = document.getElementById(fileInputId);
+            if (window["ckeditor_" + editorId])
+              window["ckeditor_" + editorId].destroy().catch(() => {});
 
-      if (question.loai === "essay") {
-        const editorId = `editor_${index + 1}`;
-        const thumbId = `thumb_${index + 1}`;
-        const fileInputId = `fileinput_${index + 1}`;
-
-        html += `
-    <div class="test-ans bg-light text-dark p-4 rounded-bottom">
-      <p class="mb-3 fw-bold fs-5">Đáp án của bạn:</p>
-
-      <!-- CKEditor -->
-      <div id="${editorId}" class="mb-4">${userEssayText || ""}</div>
-
-      <!-- Upload ảnh -->
-      <div class="mb-3">
-        <label class="form-label">Hình ảnh (tùy chọn)</label>
-        <input type="file" class="form-control" id="${fileInputId}" accept="image/*" multiple>
-      </div>
-
-      <!-- Khu vực preview ảnh -->
-      <div id="${thumbId}" class="image-preview-container border rounded p-3 bg-white">
-        <small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>
-      </div>
-    </div>
-  `;
-
-        setTimeout(() => {
-          // === CKEditor (giữ nguyên) ===
-
-          const previewContainer = document.getElementById(thumbId);
-          const fileInput = document.getElementById(fileInputId);
-          if (window["ckeditor_" + editorId]) {
-            window["ckeditor_" + editorId].destroy().catch(() => {});
-          }
-
-          ClassicEditor.create(document.getElementById(editorId), {
-            toolbar: [
-              "heading",
-              "|",
-              "bold",
-              "italic",
-              "underline",
-              "|",
-              "bulletedList",
-              "numberedList",
-              "|",
-              "insertTable",
-              "blockQuote",
-              "|",
-              "undo",
-              "redo",
-            ],
-            placeholder: "Nhập câu trả lời của bạn tại đây...",
-          })
-            // ...existing code...
-            .then((editor) => {
+            ClassicEditor.create(document.getElementById(editorId), {
+              toolbar: [
+                "heading",
+                "|",
+                "bold",
+                "italic",
+                "underline",
+                "|",
+                "bulletedList",
+                "numberedList",
+                "|",
+                "insertTable",
+                "blockQuote",
+                "|",
+                "undo",
+                "redo",
+              ],
+              placeholder: "Nhập câu trả lời của bạn tại đây...",
+            }).then((editor) => {
               window["ckeditor_" + editorId] = editor;
               editor.ui.view.editable.element.style.minHeight = "200px";
+              if (userEssayText) editor.setData(userEssayText);
 
-              // Khởi tạo nội dung editor từ localStorage nếu có
-              if (userEssayText) {
-                editor.setData(userEssayText);
-              }
-
-              // Đồng bộ ảnh giữa editor HTML và answers[index].images
-              const syncImagesFromEditor = () => {
+              const syncImages = () => {
                 const temp = document.createElement("div");
                 temp.innerHTML = editor.getData();
                 const imgs = Array.from(temp.querySelectorAll("img")).map((i) =>
                   i.src ? i.src : ""
                 );
                 answers[index] = answers[index] || {};
-                // chỉ giữ các src không rỗng
                 answers[index].images = imgs.filter((s) => s && s.trim());
                 localStorage.setItem(answerKey, JSON.stringify(answers));
               };
 
-              // Hàm render ảnh preview sử dụng answers[index].images
               const renderImages = () => {
                 const images = answers[index]?.images || [];
                 previewContainer.innerHTML = "";
@@ -204,59 +250,39 @@ $(document).ready(function () {
                   const wrapper = document.createElement("div");
                   wrapper.className =
                     "position-relative d-inline-block me-3 mb-3";
-
                   const img = document.createElement("img");
                   img.src = src;
                   img.className = "img-thumbnail rounded";
                   img.style.cssText =
-                    "max-height: 150px; max-width: 200px; object-fit: cover; cursor: pointer;";
-
+                    "max-height:150px; max-width:200px; object-fit:cover; cursor:pointer;";
                   const btnDelete = document.createElement("button");
                   btnDelete.className =
                     "btn btn-danger btn-sm rounded-circle position-absolute";
                   btnDelete.style.cssText =
-                    "top: 5px; right: 5px; width: 28px; height: 28px; font-size: 16px; line-height: 1;";
+                    "top:5px; right:5px; width:28px; height:28px; font-size:16px; line-height:1;";
                   btnDelete.innerHTML = "×";
                   btnDelete.onclick = (e) => {
                     e.stopPropagation();
-                    answers[index] = answers[index] || {};
-                    answers[index].images = answers[index].images || [];
-                    // remove from answers.images
-                    const removed = answers[index].images.splice(i, 1);
-                    // remove same src from editor content (nếu tồn tại)
+                    answers[index].images.splice(i, 1);
                     try {
-                      const data = editor.getData();
-                      const newData = data.split(removed[0]).join("");
-                      editor.setData(newData);
-                    } catch (err) {
-                      console.warn(
-                        "Không thể cập nhật editor khi xóa ảnh:",
-                        err
-                      );
-                    }
-                    // cập nhật localStorage và vẽ lại
-                    if (answers[index].images.length === 0)
-                      delete answers[index].images;
+                      editor.setData(editor.getData().split(src).join(""));
+                    } catch {}
                     localStorage.setItem(answerKey, JSON.stringify(answers));
                     renderImages();
-                    showBtnSideBar(questions, answers);
                   };
-
                   wrapper.appendChild(img);
                   wrapper.appendChild(btnDelete);
                   previewContainer.appendChild(wrapper);
                 });
               };
 
-              // Khi người dùng thay đổi nội dung editor => lưu HTML và đồng bộ ảnh
               let debounceTimer;
               editor.model.document.on("change:data", () => {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                   answers[index] = answers[index] || {};
                   answers[index].noidungtl = editor.getData();
-                  // đồng bộ ảnh từ editor vào answers
-                  syncImagesFromEditor();
+                  syncImages();
                   localStorage.setItem(answerKey, JSON.stringify(answers));
                   showBtnSideBar(questions, answers);
                   saveEssayAnswer(index, editor.getData());
@@ -264,39 +290,29 @@ $(document).ready(function () {
                 }, 350);
               });
 
-              // Khi user upload file qua input (như trước) → convert to base64, push vào answers[index].images,
-              // set vào editor (thêm <img src="...">) để giữ đồng bộ giữa editor và preview
               fileInput.addEventListener("change", function (e) {
                 const files = Array.from(e.target.files);
-                if (files.length === 0) return;
-
+                if (!files.length) return;
                 answers[index] = answers[index] || {};
                 answers[index].images = answers[index].images || [];
-
                 let loadedCount = 0;
                 const total = files.length;
 
                 files.forEach((file) => {
                   if (file.size > 10 * 1024 * 1024) {
-                    alert(`Ảnh "${file.name}" quá lớn (tối đa 10MB)`);
                     loadedCount++;
                     if (loadedCount === total) renderImages();
                     return;
                   }
-
                   const reader = new FileReader();
                   reader.onload = function (ev) {
-                    const src = ev.target.result;
-                    answers[index].images.push(src); // base64
-                    // chèn ảnh vào editor (đảm bảo hiển thị trong nội dung)
+                    answers[index].images.push(ev.target.result);
                     try {
-                      const cur = editor.getData();
                       editor.setData(
-                        cur + `<p><img src="${src}" alt="image"></p>`
+                        editor.getData() +
+                          `<p><img src="${ev.target.result}" alt="image"></p>`
                       );
-                    } catch (err) {
-                      console.warn("Không thể chèn ảnh vào editor:", err);
-                    }
+                    } catch {}
                     loadedCount++;
                     if (loadedCount === total) {
                       localStorage.setItem(answerKey, JSON.stringify(answers));
@@ -305,78 +321,77 @@ $(document).ready(function () {
                   };
                   reader.readAsDataURL(file);
                 });
-
-                // Reset input để có thể chọn lại cùng file nếu cần
                 this.value = "";
               });
 
-              // Load lại ảnh đã lưu từ lần trước (nếu có)
-              // sync từ editor → answers, sau đó render
-              syncImagesFromEditor();
+              syncImages();
               renderImages();
             });
-          // ...existing code...
-        }, 50);
-      } else {
-        // ================= MCQ =================
-        html += `<div class="row">`;
-        question.cautraloi.forEach((ctl, i) => {
-          let srcAns = "";
-          if (ctl.hinhanhtl || ctl.hinhanh) {
-            const imgData = ctl.hinhanhtl || ctl.hinhanh;
-            srcAns = imgData.startsWith("data:image")
-              ? imgData
-              : "data:image/png;base64," + imgData;
-          }
-          html += `
-          <div class="col-6 mb-2">
-            <div>
-              <b>${String.fromCharCode(65 + i)}.</b> ${ctl.noidungtl || ""}
-              ${srcAns ? `<br><img src="${srcAns}" class="img-answer">` : ""}
-            </div>
-          </div>`;
-        });
-        html += `</div>`; // end row
+          }, 50);
+        } else {
+          // MCQ non-reading
+          html += `<div class="row">`;
+          question.cautraloi.forEach((ctl, i) => {
+            const content = ctl.noidungtl || "";
+            html += `<div class="col-6 mb-2"><div><b>${String.fromCharCode(
+              65 + i
+            )}.</b> ${content}</div></div>`;
+          });
+          html += `</div>`;
 
-        // Vùng chọn đáp án
-        html += `
-        <div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
+          html += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
           <p class="mb-0 text-white me-4">Đáp án của bạn:</p>
           <div>`;
-        question.cautraloi.forEach((ctl, i) => {
-          const isChecked = String(userChosenId) === String(ctl.macautl);
-          html += `
-          <input type="radio" class="btn-check"
-                 name="options-c${index + 1}"
-                 id="ctl-${ctl.macautl}" 
-                 autocomplete="off"
-                 data-index="${index}"
-                 data-macautl="${ctl.macautl}" 
-                 value="${ctl.macautl}" ${isChecked ? "checked" : ""}>
+          question.cautraloi.forEach((ctl, i) => {
+            const isChecked = String(userChosenId) === String(ctl.macautl);
+            html += `<input type="radio" class="btn-check" name="options-c${
+              index + 1
+            }" id="ctl-${
+              ctl.macautl
+            }" autocomplete="off" data-index="${index}" data-macautl="${
+              ctl.macautl
+            }" value="${ctl.macautl}" ${isChecked ? "checked" : ""}>
           <label class="btn btn-light rounded-pill me-2 btn-answer ${
             isChecked ? "btn-warning" : ""
-          }" for="ctl-${ctl.macautl}">
-            ${String.fromCharCode(65 + i)}
-          </label>`;
-        });
-        html += `</div></div></div>`; // end question
+          }" for="ctl-${ctl.macautl}">${String.fromCharCode(65 + i)}</label>`;
+          });
+          html += `</div></div></div>`; // end question
+        }
       }
     });
 
+    // Đóng nhóm reading cuối
+    if (groupHtml)
+      html += `<div class="reading-group rounded border mb-3 bg-white p-3">${groupHtml}</div>`;
+
     $("#list-question").html(html);
 
-    // ================= gán sự kiện MCQ =================
-    $(".btn-check")
-      .off("change")
-      .on("change", function () {
+    // === MCQ event (consolidated handler) ===
+    $(".btn-check").off("change"); // Unbind any existing to avoid duplicates
+    $(document)
+      .off("change", ".btn-check")
+      .on("change", ".btn-check", function () {
         const idx = $(this).data("index");
         const macautl = $(this).data("macautl");
+        const quesIndex = idx + 1; // For toast
+        const label = $("label[for='" + $(this).attr("id") + "']")
+          .text()
+          .trim();
 
         if (!answers[idx]) answers[idx] = {};
         answers[idx].cautraloi = macautl;
         localStorage.setItem(answerKey, JSON.stringify(answers));
         showBtnSideBar(questions, answers);
-        saveMCQAnswer(idx, macautl); // nếu cần server
+        // saveMCQAnswer(idx, macautl);
+
+        // Update UI: Add warning class to selected, remove from siblings (works for both types now)
+        $("label[for='" + $(this).attr("id") + "']")
+          .addClass("btn-warning")
+          .siblings("label")
+          .removeClass("btn-warning")
+          .css("background-color", ""); // Clear any lingering inline styles
+
+        showAnswerToast(quesIndex, label);
       });
 
     showBtnSideBar(questions, answers);
@@ -409,28 +424,6 @@ $(document).ready(function () {
     document.getElementById(`c${ques}`).scrollIntoView({ behavior: "smooth" });
   });
 
-  $(document).on("change", ".btn-check", function () {
-    const quesIndex = $(this).data("index");
-    const macautl = $(this).data("macautl");
-    const label = $("label[for='" + $(this).attr("id") + "']")
-      .text()
-      .trim();
-
-    changeAnswer(quesIndex - 1, macautl);
-
-    // Lấy lại dữ liệu mới nhất
-    const listQues = JSON.parse(localStorage.getItem(dethiKey));
-    const listAns = JSON.parse(localStorage.getItem(answerKey));
-
-    showBtnSideBar(listQues, listAns);
-    $("label[for='" + $(this).attr("id") + "']")
-      .addClass("btn-warning")
-      .siblings("label")
-      .removeClass("btn-warning");
-
-    showAnswerToast(quesIndex, label);
-  });
-
   $(document).on("click", ".btn-answer", function () {
     const forId = $(this).attr("for");
     const $input = $("#" + forId);
@@ -439,17 +432,57 @@ $(document).ready(function () {
     }
   });
 
+  function showAnswerToast(cau, dapan) {
+    // Xoá toast cũ nếu tồn tại
+    $("#answer-toast").remove();
+
+    // HTML toast mới
+    const toastHtml = `
+    <div id="answer-toast" class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 9999; margin-top: 20px;">
+      <div class="toast show align-items-center text-white bg-success border-0 shadow-lg" role="alert">
+        <div class="d-flex">
+          <div class="toast-body fw-bold fs-5 text-center">
+           Bạn đã chọn: <span class="text-warning">Câu ${cau}</span> → Đáp án <span class="text-warning fs-4">${dapan}</span>
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" onclick="$('#answer-toast').fadeOut(200, function(){$(this).remove()})"></button>
+        </div>
+      </div>
+    </div>
+  `;
+
+    $("body").append(toastHtml);
+
+    // Ẩn tự động sau 1.5 giây nếu chưa đóng
+    setTimeout(() => {
+      $("#answer-toast").fadeOut(200, function () {
+        $(this).remove();
+      });
+    }, 1500);
+  }
+  // XÓA DỮ LIỆU
+  function clearExamData() {
+    localStorage.removeItem(answerKey);
+    localStorage.removeItem(dethiKey);
+    localStorage.removeItem("isTabSwitched_" + made);
+  }
+
   $("#btn-nop-bai").click(function (e) {
     e.preventDefault();
 
     let listAns = JSON.parse(localStorage.getItem(answerKey));
-    let unanswered = listAns.filter((ans) => ans.cautraloi === 0);
+    let unanswered = listAns.filter((ans, i) => {
+      const q = questions[i];
+      if (q.loai === "essay") {
+        return !ans.noidungtl?.trim();
+      }
+      return ans.cautraloi === 0;
+    });
 
     if (unanswered.length > 0) {
       Swal.fire({
         icon: "warning",
         title: "Chưa hoàn thành!",
-        html: `<p class="fs-6 text-center mb-0">Bạn chưa chọn đáp án cho <strong>${unanswered.length}</strong> câu hỏi.<br>Vui lòng hoàn thành tất cả trước khi nộp bài.</p>`,
+        html: `<p class='fs-6 text-center mb-0'>Bạn chưa chọn đáp án cho <strong>${unanswered.length}</strong> câu hỏi.<br>Vui lòng hoàn thành tất cả trước khi nộp bài.</p>`,
         confirmButtonText: "OK",
       });
       return;
@@ -486,16 +519,11 @@ $(document).ready(function () {
         made: dethiCheck,
       },
       success: function (response) {
-        // Xóa dữ liệu localStorage
-        localStorage.removeItem(answerKey);
-        localStorage.removeItem(dethiKey);
-
-        // Redirect về trang start
+        clearExamData();
         location.href = `./test/start/${dethiCheck}`;
       },
       error: function (xhr) {
-        localStorage.removeItem(answerKey);
-        localStorage.removeItem(dethiKey);
+        clearExamData();
         location.href = `./test/start/${dethiCheck}`;
       },
     });
@@ -587,16 +615,13 @@ $(document).ready(function () {
   // Logic xử lý chuyển tab
   //nộp bài ngay khi chuyển tab nếu bài thi đó có rán giá trị nộp bài chuyển tab(nopbaichuyentab) là 1
   $(window).on("blur", function () {
-    //lắng nghe sự kiện khi người dùng chuyển tab
     $.ajax({
       type: "post",
-      url: "./test/chuyentab", //gọi đến hàm này trong controller test.php .← Gửi yêu cầu đến server kiểm tra số lần chuyển tab
-      data: {
-        made: $("#dethicontent").data("id"),
-      },
+      url: "./test/chuyentab",
+      data: { made: $("#dethicontent").data("id") },
       success: function (response) {
         if (response == 1) {
-          nopbai();
+          nopbai(clearExamData);
         } else {
           localStorage.setItem("isTabSwitched_" + made, "1");
         }
@@ -606,22 +631,12 @@ $(document).ready(function () {
       },
     });
   });
-  // hàm phát hiện chuyển tab trong khi thi
-  // $(window).on("focus", function () {
-  //   if (localStorage.getItem("isTabSwitched_" + made) === "1") {
-  //     // lắng nghe sự kiện khi người dùng chuyển tab quay lại trang
-  //     let curTime = new Date().getTime();
-  //     if (curTime < endTime) {
-  //       Swal.fire({
-  //         icon: "warning",
-  //         title: "Bạn đã rời khỏi trang thi",
-  //         html: "<p class='fs-6 text-center mb-0'>Hệ thống phát hiện bạn đã chuyển tab trước đó. Bạn vẫn được thi tiếp vì còn thời gian làm bài.</p>",
-  //         confirmButtonText: "Tiếp tục",
-  //       });
-  //       localStorage.removeItem("isTabSwitched_" + made);
-  //     } else {
-  //       nopbai();
-  //     }
-  //   }
-  // });
+
+  //
+  // Xóa dữ liệu khi rời khỏi trang
+  window.addEventListener("beforeunload", function () {
+    localStorage.removeItem(answerKey);
+    localStorage.removeItem(dethiKey);
+    localStorage.removeItem("isTabSwitched_" + made);
+  });
 });
