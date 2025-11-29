@@ -122,91 +122,201 @@ $(document).ready(function () {
         const fileInputId = `fileinput_${index + 1}`;
 
         html += `
-  <div class="test-ans bg-light text-dark p-4 rounded-bottom">
-    <p class="mb-3 fw-bold fs-5">Đáp án của bạn:</p>
+    <div class="test-ans bg-light text-dark p-4 rounded-bottom">
+      <p class="mb-3 fw-bold fs-5">Đáp án của bạn:</p>
 
-    <div id="${editorId}" class="mb-4">${userEssayText || ""}</div>
+      <!-- CKEditor -->
+      <div id="${editorId}" class="mb-4">${userEssayText || ""}</div>
 
-    <div class="mb-3">
-      <label class="form-label">Hình ảnh (tùy chọn)</label>
-      <input type="file" class="form-control" 
-             id="${fileInputId}" accept="image/*" multiple>
+      <!-- Upload ảnh -->
+      <div class="mb-3">
+        <label class="form-label">Hình ảnh (tùy chọn)</label>
+        <input type="file" class="form-control" id="${fileInputId}" accept="image/*" multiple>
+      </div>
+
+      <!-- Khu vực preview ảnh -->
+      <div id="${thumbId}" class="image-preview-container border rounded p-3 bg-white">
+        <small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>
+      </div>
     </div>
-
-    <div id="${thumbId}" class="image-preview-container border rounded p-3 bg-white">
-      <small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>
-    </div>
-  </div>`;
+  `;
 
         setTimeout(() => {
-          const editorDiv = document.getElementById(editorId);
-          const fileInput = document.getElementById(fileInputId);
+          // === CKEditor (giữ nguyên) ===
+
           const previewContainer = document.getElementById(thumbId);
+          const fileInput = document.getElementById(fileInputId);
+          if (window["ckeditor_" + editorId]) {
+            window["ckeditor_" + editorId].destroy().catch(() => {});
+          }
 
-          // CKEditor
-          ClassicEditor.create(editorDiv).then((editor) => {
-            window["ckeditor_" + editorId] = editor;
+          ClassicEditor.create(document.getElementById(editorId), {
+            toolbar: [
+              "heading",
+              "|",
+              "bold",
+              "italic",
+              "underline",
+              "|",
+              "bulletedList",
+              "numberedList",
+              "|",
+              "insertTable",
+              "blockQuote",
+              "|",
+              "undo",
+              "redo",
+            ],
+            placeholder: "Nhập câu trả lời của bạn tại đây...",
+          })
+            // ...existing code...
+            .then((editor) => {
+              window["ckeditor_" + editorId] = editor;
+              editor.ui.view.editable.element.style.minHeight = "200px";
 
-            if (userEssayText) editor.setData(userEssayText);
-
-            const renderImages = () => {
-              const imgs = answers[index]?.images || [];
-              previewContainer.innerHTML = "";
-
-              if (imgs.length === 0) {
-                previewContainer.innerHTML = `<small class="text-muted">Chưa có ảnh nào được chọn</small>`;
-                return;
+              // Khởi tạo nội dung editor từ localStorage nếu có
+              if (userEssayText) {
+                editor.setData(userEssayText);
               }
 
-              imgs.forEach((src, i) => {
-                const wrap = document.createElement("div");
-                wrap.className = "position-relative d-inline-block me-2";
+              // Đồng bộ ảnh giữa editor HTML và answers[index].images
+              const syncImagesFromEditor = () => {
+                const temp = document.createElement("div");
+                temp.innerHTML = editor.getData();
+                const imgs = Array.from(temp.querySelectorAll("img")).map((i) =>
+                  i.src ? i.src : ""
+                );
+                answers[index] = answers[index] || {};
+                // chỉ giữ các src không rỗng
+                answers[index].images = imgs.filter((s) => s && s.trim());
+                localStorage.setItem(answerKey, JSON.stringify(answers));
+              };
 
-                const img = document.createElement("img");
-                img.src = src;
-                img.className = "img-thumbnail rounded";
-                img.style.cssText = "max-width:150px; max-height:150px;";
+              // Hàm render ảnh preview sử dụng answers[index].images
+              const renderImages = () => {
+                const images = answers[index]?.images || [];
+                previewContainer.innerHTML = "";
+                if (images.length === 0) {
+                  previewContainer.innerHTML = `<small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>`;
+                  return;
+                }
+                images.forEach((src, i) => {
+                  const wrapper = document.createElement("div");
+                  wrapper.className =
+                    "position-relative d-inline-block me-3 mb-3";
 
-                const del = document.createElement("button");
-                del.className = "btn btn-danger btn-sm position-absolute";
-                del.style = "top:5px; right:5px;";
-                del.innerHTML = "×";
+                  const img = document.createElement("img");
+                  img.src = src;
+                  img.className = "img-thumbnail rounded";
+                  img.style.cssText =
+                    "max-height: 150px; max-width: 200px; object-fit: cover; cursor: pointer;";
 
-                del.onclick = () => {
-                  answers[index].images.splice(i, 1);
+                  const btnDelete = document.createElement("button");
+                  btnDelete.className =
+                    "btn btn-danger btn-sm rounded-circle position-absolute";
+                  btnDelete.style.cssText =
+                    "top: 5px; right: 5px; width: 28px; height: 28px; font-size: 16px; line-height: 1;";
+                  btnDelete.innerHTML = "×";
+                  btnDelete.onclick = (e) => {
+                    e.stopPropagation();
+                    answers[index] = answers[index] || {};
+                    answers[index].images = answers[index].images || [];
+                    // remove from answers.images
+                    const removed = answers[index].images.splice(i, 1);
+                    // remove same src from editor content (nếu tồn tại)
+                    try {
+                      const data = editor.getData();
+                      const newData = data.split(removed[0]).join("");
+                      editor.setData(newData);
+                    } catch (err) {
+                      console.warn(
+                        "Không thể cập nhật editor khi xóa ảnh:",
+                        err
+                      );
+                    }
+                    // cập nhật localStorage và vẽ lại
+                    if (answers[index].images.length === 0)
+                      delete answers[index].images;
+                    localStorage.setItem(answerKey, JSON.stringify(answers));
+                    renderImages();
+                    showBtnSideBar(questions, answers);
+                  };
+
+                  wrapper.appendChild(img);
+                  wrapper.appendChild(btnDelete);
+                  previewContainer.appendChild(wrapper);
+                });
+              };
+
+              // Khi người dùng thay đổi nội dung editor => lưu HTML và đồng bộ ảnh
+              let debounceTimer;
+              editor.model.document.on("change:data", () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                  answers[index] = answers[index] || {};
+                  answers[index].noidungtl = editor.getData();
+                  // đồng bộ ảnh từ editor vào answers
+                  syncImagesFromEditor();
                   localStorage.setItem(answerKey, JSON.stringify(answers));
+                  showBtnSideBar(questions, answers);
+                  saveEssayAnswer(index, editor.getData());
                   renderImages();
-                };
-
-                wrap.appendChild(img);
-                wrap.appendChild(del);
-                previewContainer.appendChild(wrap);
-              });
-            };
-
-            // Upload ảnh
-            fileInput.addEventListener("change", (e) => {
-              const files = Array.from(e.target.files);
-
-              answers[index] = answers[index] || {};
-              answers[index].images = answers[index].images || [];
-
-              files.forEach((file) => {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                  answers[index].images.push(ev.target.result);
-                  localStorage.setItem(answerKey, JSON.stringify(answers));
-                  renderImages();
-                };
-                reader.readAsDataURL(file);
+                }, 350);
               });
 
-              fileInput.value = "";
+              // Khi user upload file qua input (như trước) → convert to base64, push vào answers[index].images,
+              // set vào editor (thêm <img src="...">) để giữ đồng bộ giữa editor và preview
+              fileInput.addEventListener("change", function (e) {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+
+                answers[index] = answers[index] || {};
+                answers[index].images = answers[index].images || [];
+
+                let loadedCount = 0;
+                const total = files.length;
+
+                files.forEach((file) => {
+                  if (file.size > 10 * 1024 * 1024) {
+                    alert(`Ảnh "${file.name}" quá lớn (tối đa 10MB)`);
+                    loadedCount++;
+                    if (loadedCount === total) renderImages();
+                    return;
+                  }
+
+                  const reader = new FileReader();
+                  reader.onload = function (ev) {
+                    const src = ev.target.result;
+                    answers[index].images.push(src); // base64
+                    // chèn ảnh vào editor (đảm bảo hiển thị trong nội dung)
+                    try {
+                      const cur = editor.getData();
+                      editor.setData(
+                        cur + `<p><img src="${src}" alt="image"></p>`
+                      );
+                    } catch (err) {
+                      console.warn("Không thể chèn ảnh vào editor:", err);
+                    }
+                    loadedCount++;
+                    if (loadedCount === total) {
+                      localStorage.setItem(answerKey, JSON.stringify(answers));
+                      renderImages();
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                });
+
+                // Reset input để có thể chọn lại cùng file nếu cần
+                this.value = "";
+              });
+
+              // Load lại ảnh đã lưu từ lần trước (nếu có)
+              // sync từ editor → answers, sau đó render
+              syncImagesFromEditor();
+              renderImages();
             });
-
-            renderImages();
-          });
-        }, 100);
+          // ...existing code...
+        }, 50);
       } else {
         // ================= MCQ =================
         html += `<div class="row">`;
@@ -362,26 +472,31 @@ $(document).ready(function () {
   });
 
   function nopbai() {
-    let dethiCheck = $("#dethicontent").data("id");
-    let thoigian = new Date();
+    const dethiCheck = $("#dethicontent").data("id");
+    const thoigian = new Date();
+
+    const answers = JSON.parse(localStorage.getItem(answerKey) || "[]");
+
     $.ajax({
       type: "post",
       url: "./test/submit",
       data: {
-        listCauTraLoi: JSON.parse(localStorage.getItem(answerKey) || "[]"),
+        listCauTraLoi: answers,
         thoigianlambai: thoigian,
         made: dethiCheck,
       },
       success: function (response) {
+        // Xóa dữ liệu localStorage
         localStorage.removeItem(answerKey);
         localStorage.removeItem(dethiKey);
 
-        location.href = `./test/start/${made}`;
+        // Redirect về trang start
+        location.href = `./test/start/${dethiCheck}`;
       },
-      error: function (response) {
+      error: function (xhr) {
         localStorage.removeItem(answerKey);
         localStorage.removeItem(dethiKey);
-        location.href = `./test/start/${made}`;
+        location.href = `./test/start/${dethiCheck}`;
       },
     });
   }
@@ -399,8 +514,9 @@ $(document).ready(function () {
       cancelButtonText: "Huỷ",
     }).then((result) => {
       if (result.isConfirmed) {
-        nopbai();
-        location.href = "./dashboard";
+        nopbai(() => {
+          window.location.href = "./dashboard";
+        });
       }
     });
   });
