@@ -26,7 +26,7 @@ class MailModel extends DB
         $this->mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $this->mail->Port = 587;
         $this->mail->setFrom('ontestdht@gmail.com', 'DHT OnTest');
-        $this->mail->SMTPDebug = SMTP::DEBUG_OFF; 
+        $this->mail->SMTPDebug = SMTP::DEBUG_OFF;
     }
 
     // Gửi email thông báo đề thi

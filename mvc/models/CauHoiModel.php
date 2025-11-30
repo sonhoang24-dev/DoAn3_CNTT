@@ -598,7 +598,12 @@ class CauHoiModel extends DB
 
         // Prepare placeholders cho IN (...)
         $placeholdersLoai = implode(',', array_fill(0, count($loaicauhoi), '?'));
-        $sql = "SELECT COUNT(*) as soluong FROM cauhoi WHERE dokho = ? AND mamonhoc = ? AND loai IN ($placeholdersLoai)";
+        $sql = "SELECT COUNT(*) as soluong 
+            FROM cauhoi 
+            WHERE dokho = ? 
+              AND mamonhoc = ? 
+              AND loai IN ($placeholdersLoai)
+              AND trangthai = 1"; // thêm điều kiện trạng thái
 
         $types = str_repeat('s', 2 + count($loaicauhoi)); // dokho + mamonhoc + loaicauhoi
         $params = array_merge([(string)$dokho, $monhoc], $loaicauhoi);
@@ -624,40 +629,113 @@ class CauHoiModel extends DB
         return (int)($row['soluong'] ?? 0);
     }
 
-    public function getQuestions($chuong, $monthi, $dokho, $types = [], $qty = 1)
-{
-    if (empty($chuong) || empty($types)) return [];
 
-    $chuongList = implode(',', array_map('intval', $chuong));
-    $typeList = implode(',', array_map(function ($t) { return "'".trim($t)."'"; }, $types));
+    public function getReadingQuestions($chuong, $monthi, $dokho, $qty = 1)
+    {
+        if (empty($chuong)) {
+            return [];
+        }
 
-    $sql = "SELECT macauhoi FROM cauhoi 
+        $chuongList = implode(',', array_map('intval', $chuong));
+
+        // Lấy tất cả đoạn văn có câu hỏi mức độ $dokho
+        $sql = "SELECT DISTINCT madv
+            FROM cauhoi 
             WHERE mamonhoc = ? 
               AND dokho = ? 
-              AND loai IN ($typeList)
+              AND loai = 'reading'
               AND machuong IN ($chuongList)
+              AND trangthai = 1";
+
+        $stmt = mysqli_prepare($this->con, $sql);
+        mysqli_stmt_bind_param($stmt, "si", $monthi, $dokho);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+
+        $doanvanList = [];
+        while ($row = mysqli_fetch_assoc($res)) {
+            $doanvanList[] = $row['madv'];
+        }
+        mysqli_stmt_close($stmt);
+
+        if (empty($doanvanList)) {
+            return [];
+        }
+
+        // Chọn ngẫu nhiên một đoạn văn
+        shuffle($doanvanList);
+        $selectedDoan = $doanvanList[0];
+
+        // Lấy n câu trong đoạn đã chọn
+        $sql2 = "SELECT macauhoi 
+             FROM cauhoi 
+             WHERE mamonhoc = ? 
+               AND dokho = ? 
+               AND loai = 'reading' 
+               AND madv = ? 
+               AND trangthai = 1
+             ORDER BY RAND()
+             LIMIT ?";
+
+        $stmt2 = mysqli_prepare($this->con, $sql2);
+        mysqli_stmt_bind_param($stmt2, "sisi", $monthi, $dokho, $selectedDoan, $qty);
+        mysqli_stmt_execute($stmt2);
+        $res2 = mysqli_stmt_get_result($stmt2);
+
+        $questions = [];
+        while ($row = mysqli_fetch_assoc($res2)) {
+            $questions[] = $row;
+        }
+        mysqli_stmt_close($stmt2);
+
+        return $questions;
+    }
+    public function getQuestions($chuong, $monthi, $dokho, $types = [], $qty = 1)
+    {
+        if (empty($chuong) || empty($types)) {
+            return [];
+        }
+
+        // Chuẩn hóa mảng chương
+        $chuongList = implode(',', array_map('intval', $chuong));
+
+        // Chuẩn hóa mảng loại
+        $typeList = implode(',', array_map(function ($t) {
+            return "'" . trim($t) . "'";
+        }, $types));
+
+        // SQL: lấy câu hỏi active, theo môn, loại, chương, mức độ
+        $sql = "SELECT macauhoi 
+            FROM cauhoi 
+            WHERE mamonhoc = ? 
+              AND dokho = ? 
+              AND loai IN ($typeList) 
+              AND machuong IN ($chuongList) 
               AND trangthai = 1
+            ORDER BY RAND() 
             LIMIT ?";
 
-    $stmt = mysqli_prepare($this->con, $sql);
-    if (!$stmt) {
-        error_log("Prepare failed: " . mysqli_error($this->con) . " | SQL: $sql");
-        return false;
+        $stmt = mysqli_prepare($this->con, $sql);
+        if (!$stmt) {
+            error_log("Prepare failed: " . mysqli_error($this->con) . " | SQL: $sql");
+            return false;
+        }
+
+        mysqli_stmt_bind_param($stmt, "sii", $monthi, $dokho, $qty);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        if (!$res) {
+            return false;
+        }
+
+        $questions = [];
+        while ($row = mysqli_fetch_assoc($res)) {
+            $questions[] = $row;
+        }
+
+        mysqli_stmt_close($stmt);
+        return $questions;
     }
-
-    mysqli_stmt_bind_param($stmt, "sii", $monthi, $dokho, $qty);
-    mysqli_stmt_execute($stmt);
-    $res = mysqli_stmt_get_result($stmt);
-    if (!$res) return false;
-
-    $questions = [];
-    while ($row = mysqli_fetch_assoc($res)) {
-        $questions[] = $row;
-    }
-
-    mysqli_stmt_close($stmt);
-    return $questions;
-}
 
 
 

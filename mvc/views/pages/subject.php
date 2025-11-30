@@ -295,4 +295,26 @@
     .btn-sm { padding: 0.2rem 0.4rem; font-size: 0.8rem; }
     .input-group .form-control { font-size: 0.9rem; padding: 0.5rem 0.75rem; }
   }
+
+/* .list-test .block-content {
+  overflow-x: auto; 
+}
+
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table thead th,
+.table tbody td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.table .btn {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.7rem;
+} */
+
 </style>

@@ -222,52 +222,61 @@ class DeThiModel extends DB
 
 
 
-private function addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi)
-{
-    try {
-        $cauhoiModel = new CauHoiModel($this->con);
-        foreach ($socau as $type => $levels) {
-            error_log("  Processing type: $type, levels: " . json_encode($levels));
-            
-            foreach (['de','tb','kho'] as $level) {
-                $qty = intval($levels[$level] ?? 0);
-                if ($qty <= 0) continue;
+    private function addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi)
+    {
+        try {
+            $cauhoiModel = new CauHoiModel($this->con);
 
-                $levelMap = ['de' => '1','tb' => '2','kho' => '3'];
-                $levelNum = $levelMap[$level];
+            foreach ($socau as $type => $levels) {
+                error_log("Processing type: $type, levels: " . json_encode($levels));
 
-                $questions = $cauhoiModel->getQuestions($chuong, $monthi, $levelNum, [$type], $qty);
-                
-
-                if ($questions === false) {
-                    throw new Exception("SQL error when fetching $type level $levelNum");
-                }
-                if (count($questions) < $qty) {
-                }
-
-                // Thêm câu hỏi vào chitietdethi
-                foreach ($questions as $q) {
-                    $sql = "INSERT INTO chitietdethi (made, macauhoi) VALUES (?, ?)";
-                    $stmt = mysqli_prepare($this->con, $sql);
-                    if (!$stmt) {
+                foreach (['de','tb','kho'] as $level) {
+                    $qty = intval($levels[$level] ?? 0);
+                    if ($qty <= 0) {
                         continue;
                     }
-                    mysqli_stmt_bind_param($stmt, "ii", $made, $q['macauhoi']);
-                    if (!mysqli_stmt_execute($stmt)) {
+
+                    $levelMap = ['de' => '1','tb' => '2','kho' => '3'];
+                    $levelNum = $levelMap[$level];
+
+                    // Nếu là reading -> lấy theo đoạn
+                    if ($type === 'reading') {
+                        $questions = $cauhoiModel->getReadingQuestions($chuong, $monthi, $levelNum, $qty);
+                    } else {
+                        // mcq / essay -> lấy bình thường
+                        $questions = $cauhoiModel->getQuestions($chuong, $monthi, $levelNum, [$type], $qty);
                     }
-                    mysqli_stmt_close($stmt);
+
+                    if ($questions === false) {
+                        throw new Exception("SQL error when fetching $type level $levelNum");
+                    }
+
+                    if (count($questions) < $qty) {
+                        error_log("Warning: Chỉ lấy được " . count($questions) . " câu cho $type level $levelNum, yêu cầu $qty");
+                    }
+
+                    // Thêm câu hỏi vào chitietdethi
+                    foreach ($questions as $q) {
+                        $sql = "INSERT INTO chitietdethi (made, macauhoi) VALUES (?, ?)";
+                        $stmt = mysqli_prepare($this->con, $sql);
+                        if (!$stmt) {
+                            continue;
+                        }
+                        mysqli_stmt_bind_param($stmt, "ii", $made, $q['macauhoi']);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_close($stmt);
+                    }
                 }
-
             }
+
+            return true;
+
+        } catch (\Exception $e) {
+            error_log("addQuestionsToAutoTest exception: " . $e->getMessage());
+            return false;
         }
-
-        return true;
-
-    } catch (\Exception $e) {
-        error_log("addQuestionsToAutoTest exception: " . $e->getMessage());
-        return false;
     }
-}
+
 
 
     // Sửa addCauHoiToDeThi để dùng đúng macauhoi
@@ -922,65 +931,69 @@ private function addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaica
 
 
 
-public function getQuestionByUser($made, $user)
-{
-    $made = intval($made);
-    $user = trim($user);
-    $rows = [];
-    $ctlmodel = new CauTraLoiModel();
+    public function getQuestionByUser($made, $user)
+    {
+        $made = intval($made);
+        $user = trim($user);
+        $rows = [];
+        $ctlmodel = new CauTraLoiModel();
 
-    // === 1. Lấy đề thi ===
-    $sql_dethi = "SELECT * FROM dethi WHERE made = ?";
-    $stmt = mysqli_prepare($this->con, $sql_dethi);
-    mysqli_stmt_bind_param($stmt, "i", $made);
-    mysqli_stmt_execute($stmt);
-    $res = mysqli_stmt_get_result($stmt);
-    $de = mysqli_fetch_assoc($res);
-    mysqli_stmt_close($stmt);
-    if (!$de) return [];
+        // === 1. Lấy đề thi ===
+        $sql_dethi = "SELECT * FROM dethi WHERE made = ?";
+        $stmt = mysqli_prepare($this->con, $sql_dethi);
+        mysqli_stmt_bind_param($stmt, "i", $made);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $de = mysqli_fetch_assoc($res);
+        mysqli_stmt_close($stmt);
+        if (!$de) {
+            return [];
+        }
 
-    $troncauhoi = $de['troncauhoi'];
-    $trondapan  = $de['trondapan'];
-    $loaide     = $de['loaide'];
+        $troncauhoi = $de['troncauhoi'];
+        $trondapan  = $de['trondapan'];
+        $loaide     = $de['loaide'];
 
-    // === 2. Lấy kết quả nếu đã làm bài ===
-    $sql_kq = "SELECT * FROM ketqua WHERE made = ? AND manguoidung = ?";
-    $stmt = mysqli_prepare($this->con, $sql_kq);
-    mysqli_stmt_bind_param($stmt, "is", $made, $user);
-    mysqli_stmt_execute($stmt);
-    $res = mysqli_stmt_get_result($stmt);
-    $data_kq = mysqli_fetch_assoc($res);
-    mysqli_stmt_close($stmt);
+        // === 2. Lấy kết quả nếu đã làm bài ===
+        $sql_kq = "SELECT * FROM ketqua WHERE made = ? AND manguoidung = ?";
+        $stmt = mysqli_prepare($this->con, $sql_kq);
+        mysqli_stmt_bind_param($stmt, "is", $made, $user);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $data_kq = mysqli_fetch_assoc($res);
+        mysqli_stmt_close($stmt);
 
-    $makq = $data_kq['makq'] ?? 0;
+        $makq = $data_kq['makq'] ?? 0;
 
-    // === 3. Mapping số câu theo loại + độ khó ===
-    $config = [
-        'mcq' => [
-            1 => intval($de['mcq_de']),
-            2 => intval($de['mcq_tb']),
-            3 => intval($de['mcq_kho'])
-        ],
-        'essay' => [
-            1 => intval($de['essay_de']),
-            2 => intval($de['essay_tb']),
-            3 => intval($de['essay_kho'])
-        ],
-        'reading' => [
-            1 => intval($de['reading_de']),
-            2 => intval($de['reading_tb']),
-            3 => intval($de['reading_kho'])
-        ]
-    ];
+        // === 3. Mapping số câu theo loại + độ khó ===
+        $config = [
+            'mcq' => [
+                1 => intval($de['mcq_de']),
+                2 => intval($de['mcq_tb']),
+                3 => intval($de['mcq_kho'])
+            ],
+            'essay' => [
+                1 => intval($de['essay_de']),
+                2 => intval($de['essay_tb']),
+                3 => intval($de['essay_kho'])
+            ],
+            'reading' => [
+                1 => intval($de['reading_de']),
+                2 => intval($de['reading_tb']),
+                3 => intval($de['reading_kho'])
+            ]
+        ];
 
-    // === 4. Lấy câu hỏi theo từng loại ===
-    foreach ($config as $type => $levels) {
-        foreach ($levels as $dokho => $limit) {
-            if ($limit <= 0) continue;
+        // === 4. Lấy câu hỏi theo từng loại ===
+        foreach ($config as $type => $levels) {
+            foreach ($levels as $dokho => $limit) {
+                if ($limit <= 0) {
+                    continue;
+                }
 
-            if ($type === 'reading') {
-                // Lấy đoạn văn liên quan
-                $sql_dv = "
+                if ($type === 'reading') {
+                    // Lấy đoạn văn liên quan
+                    $sql_dv = "
                     SELECT * FROM doan_van
                     WHERE mamonhoc = ? AND machuong IN (
                         SELECT machuong FROM chitietdethi WHERE made = ? AND trangthai = 1
@@ -988,14 +1001,14 @@ public function getQuestionByUser($made, $user)
                     ORDER BY RAND()
                     LIMIT ?
                 ";
-                $stmt_dv = mysqli_prepare($this->con, $sql_dv);
-                mysqli_stmt_bind_param($stmt_dv, "sii", $de['monthi'], $made, $limit);
-                mysqli_stmt_execute($stmt_dv);
-                $res_dv = mysqli_stmt_get_result($stmt_dv);
+                    $stmt_dv = mysqli_prepare($this->con, $sql_dv);
+                    mysqli_stmt_bind_param($stmt_dv, "sii", $de['monthi'], $made, $limit);
+                    mysqli_stmt_execute($stmt_dv);
+                    $res_dv = mysqli_stmt_get_result($stmt_dv);
 
-                while ($dv = mysqli_fetch_assoc($res_dv)) {
-                    // Lấy câu hỏi liên quan đến đoạn văn
-                    $sql_ch = "
+                    while ($dv = mysqli_fetch_assoc($res_dv)) {
+                        // Lấy câu hỏi liên quan đến đoạn văn
+                        $sql_ch = "
                         SELECT ch.macauhoi, ch.noidung, ch.dokho, ch.loai, ch.hinhanh,
                                ctkq.dapanchon
                         FROM cauhoi ch
@@ -1004,56 +1017,60 @@ public function getQuestionByUser($made, $user)
                         WHERE ch.madv = ? AND ch.dokho = ? AND ch.trangthai = 1
                         ORDER BY RAND()
                     ";
-                    $stmt_ch = mysqli_prepare($this->con, $sql_ch);
-                    mysqli_stmt_bind_param($stmt_ch, "iii", $makq, $dv['madv'], $dokho);
-                    mysqli_stmt_execute($stmt_ch);
-                    $res_ch = mysqli_stmt_get_result($stmt_ch);
+                        $stmt_ch = mysqli_prepare($this->con, $sql_ch);
+                        mysqli_stmt_bind_param($stmt_ch, "iii", $makq, $dv['madv'], $dokho);
+                        mysqli_stmt_execute($stmt_ch);
+                        $res_ch = mysqli_stmt_get_result($stmt_ch);
 
-                    while ($row = mysqli_fetch_assoc($res_ch)) {
-                        // Gán đoạn văn vào câu hỏi
-                        $row['context'] = $dv['noidung'];
-                        $row['tieude_context'] = $dv['tieude'] ?? '';
+                        while ($row = mysqli_fetch_assoc($res_ch)) {
+                            // Gán đoạn văn vào câu hỏi
+                            $row['context'] = $dv['noidung'];
+                            $row['tieude_context'] = $dv['tieude'] ?? '';
 
-                        // Xử lý đáp án theo loại câu hỏi thực sự
-                        if ($row['loai'] === 'mcq') {
-                            if ($row['dapanchon']) {
-                                $arr = [[
-                                    'macautl' => $row['dapanchon'],
-                                    'noidungtl' => $row['dapanchon']
-                                ]];
+                            // Xử lý đáp án theo loại câu hỏi thực sự
+                            if ($row['loai'] === 'mcq') {
+                                if ($row['dapanchon']) {
+                                    $arr = [[
+                                        'macautl' => $row['dapanchon'],
+                                        'noidungtl' => $row['dapanchon']
+                                    ]];
+                                } else {
+                                    $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                                }
+                                if ($trondapan) {
+                                    shuffle($arr);
+                                }
+                                $row['cautraloi'] = $arr;
+                            } elseif ($row['loai'] === 'essay') {
+                                $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                            } elseif ($row['loai'] === 'reading') {
+                                if ($row['dapanchon']) {
+                                    $arr = [[
+                                        'macautl' => $row['dapanchon'],
+                                        'noidungtl' => $row['dapanchon']
+                                    ]];
+                                } else {
+                                    $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                                }
+                                if ($trondapan) {
+                                    shuffle($arr);
+                                }
+                                $row['cautraloi'] = $arr;
                             } else {
-                                $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                                $row['cautraloi'] = [];
                             }
-                            if ($trondapan) shuffle($arr);
-                            $row['cautraloi'] = $arr;
-                        } elseif ($row['loai'] === 'essay') {
-                            $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-                        } elseif ($row['loai'] === 'reading') {
-                            if ($row['dapanchon']) {
-                                $arr = [[
-                                    'macautl' => $row['dapanchon'],
-                                    'noidungtl' => $row['dapanchon']
-                                ]];
-                            } else {
-                                $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
-                            }
-                            if ($trondapan) shuffle($arr);
-                            $row['cautraloi'] = $arr;
-                        } else {
-                            $row['cautraloi'] = [];
-                        }
 
-                        if (!empty($row['hinhanh'])) {
-                            $row['hinhanh'] = base64_encode($row['hinhanh']);
+                            if (!empty($row['hinhanh'])) {
+                                $row['hinhanh'] = base64_encode($row['hinhanh']);
+                            }
+                            $rows[] = $row;
                         }
-                        $rows[] = $row;
+                        mysqli_stmt_close($stmt_ch);
                     }
-                    mysqli_stmt_close($stmt_ch);
-                }
-                mysqli_stmt_close($stmt_dv);
-            } else {
-                // MCQ & Essay: giữ nguyên logic
-                $sql = "
+                    mysqli_stmt_close($stmt_dv);
+                } else {
+                    // MCQ & Essay: giữ nguyên logic
+                    $sql = "
                     SELECT ch.macauhoi, ch.noidung, ch.dokho, ch.loai, ch.hinhanh,
                            ctkq.dapanchon
                     FROM chitietdethi ctdt
@@ -1064,43 +1081,45 @@ public function getQuestionByUser($made, $user)
                     ORDER BY RAND()
                     LIMIT ?
                 ";
-                $stmt = mysqli_prepare($this->con, $sql);
-                mysqli_stmt_bind_param($stmt, "iisii", $makq, $made, $type, $dokho, $limit);
-                mysqli_stmt_execute($stmt);
-                $res_sql = mysqli_stmt_get_result($stmt);
+                    $stmt = mysqli_prepare($this->con, $sql);
+                    mysqli_stmt_bind_param($stmt, "iisii", $makq, $made, $type, $dokho, $limit);
+                    mysqli_stmt_execute($stmt);
+                    $res_sql = mysqli_stmt_get_result($stmt);
 
-                while ($row = mysqli_fetch_assoc($res_sql)) {
-                    if ($type === 'mcq') {
-                        if ($row['dapanchon']) {
-                            $arr = [[
-                                'macautl' => $row['dapanchon'],
-                                'noidungtl' => $row['dapanchon']
-                            ]];
-                        } else {
-                            $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                    while ($row = mysqli_fetch_assoc($res_sql)) {
+                        if ($type === 'mcq') {
+                            if ($row['dapanchon']) {
+                                $arr = [[
+                                    'macautl' => $row['dapanchon'],
+                                    'noidungtl' => $row['dapanchon']
+                                ]];
+                            } else {
+                                $arr = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                            }
+                            if ($trondapan) {
+                                shuffle($arr);
+                            }
+                            $row['cautraloi'] = $arr;
+                        } else { // Essay
+                            $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
                         }
-                        if ($trondapan) shuffle($arr);
-                        $row['cautraloi'] = $arr;
-                    } else { // Essay
-                        $row['cautraloi'] = $ctlmodel->getAllWithoutAnswer($row['macauhoi']);
+                        if (!empty($row['hinhanh'])) {
+                            $row['hinhanh'] = base64_encode($row['hinhanh']);
+                        }
+                        $rows[] = $row;
                     }
-                    if (!empty($row['hinhanh'])) {
-                        $row['hinhanh'] = base64_encode($row['hinhanh']);
-                    }
-                    $rows[] = $row;
+                    mysqli_stmt_close($stmt);
                 }
-                mysqli_stmt_close($stmt);
             }
         }
-    }
 
-    // === 5. Shuffle toàn bộ câu nếu đề trộn ===
-    if ($loaide == 1 && $troncauhoi == 1) {
-        shuffle($rows);
-    }
+        // === 5. Shuffle toàn bộ câu nếu đề trộn ===
+        if ($loaide == 1 && $troncauhoi == 1) {
+            shuffle($rows);
+        }
 
-    return $rows;
-}
+        return $rows;
+    }
 
 
     public function getAllSubjects()
@@ -1228,13 +1247,14 @@ public function getQuestionByUser($made, $user)
 
     public function getResultDetail($makq)
     {
-        // Tránh SQL injection
         $makq = mysqli_real_escape_string($this->con, $makq);
 
-        // Join rõ ràng giữa chitietketqua và cauhoi
-        $sql = "SELECT ch.macauhoi, ch.noidung, ch.dokho, ct.dapanchon
+        $sql = "SELECT ch.macauhoi, ch.noidung, ch.dokho, ch.loai,
+                   dv.noidung AS context, dv.tieude AS tieude_context,
+                   ct.dapanchon
             FROM chitietketqua ct
             INNER JOIN cauhoi ch ON ct.macauhoi = ch.macauhoi
+            LEFT JOIN doan_van dv ON ch.madv = dv.madv
             WHERE ct.makq = '$makq'
             ORDER BY ch.macauhoi ASC";
 
@@ -1247,11 +1267,10 @@ public function getQuestionByUser($made, $user)
         $ctlmodel = new CauTraLoiModel();
 
         while ($row = mysqli_fetch_assoc($result)) {
-            // Lấy tất cả đáp án của câu hỏi (text + ảnh BLOB)
             $row['cautraloi'] = $ctlmodel->getAll($row['macauhoi']);
-
-            // Đảm bảo dapanchon không null
             $row['dapanchon'] = $row['dapanchon'] ?? null;
+
+            // Nếu là câu hỏi reading, đoạn văn đã nằm trong $row['context'] và tiêu đề $row['tieude_context']
 
             $rows[] = $row;
         }

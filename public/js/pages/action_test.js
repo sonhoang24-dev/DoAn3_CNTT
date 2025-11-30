@@ -277,15 +277,16 @@ Dashmix.onLoad(() =>
       $.validator.addMethod(
         "validThoigianthi",
         function (value) {
+          let minutes = parseInt(value);
+          if (isNaN(minutes) || minutes <= 0) return false; // check lớn hơn 0
+
           let startTime = new Date($("#time-start").val());
           let endTime = new Date($("#time-end").val());
-          return (
-            startTime < endTime &&
-            parseInt(getMinutesBetweenDates(startTime, endTime)) >=
-              parseInt(value)
-          );
+          let totalMinutes = getMinutesBetweenDates(startTime, endTime);
+
+          return startTime < endTime && totalMinutes >= minutes;
         },
-        "Thời gian làm bài không hợp lệ"
+        "Thời gian làm bài phải lớn hơn 0 và nhỏ hơn tổng thời gian giữa bắt đầu và kết thúc"
       );
 
       jQuery(".form-taodethi").validate({
@@ -570,9 +571,26 @@ $(document).ready(function () {
           responseJSON: xhr.responseJSON,
           error: error,
         });
+
+        let msg = "Lỗi hệ thống";
+
+        // ưu tiên responseJSON nếu server trả về
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          msg = xhr.responseJSON.error;
+        } else if (xhr.responseText) {
+          try {
+            // parse JSON từ responseText nếu chưa tự parse
+            const json = JSON.parse(xhr.responseText);
+            if (json.error) msg = json.error;
+          } catch (e) {
+            msg = xhr.responseText; // fallback raw text
+          }
+        }
+
+        // hiện thông báo bằng Dashmix
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: `Lỗi: ${xhr.responseText || error}`,
+          message: `Lỗi: ${msg}`,
         });
       },
     });
@@ -581,7 +599,7 @@ $(document).ready(function () {
   $("#btn-update-test").click(function (e) {
     e.preventDefault();
 
-    // Kiểm tra form cơ bản và thời gian
+    // Kiểm tra form và thời gian
     if (
       (!checkDate(infodethi.thoigianbatdau) && $(".form-taodethi").valid()) ||
       validUpdate()
@@ -589,7 +607,7 @@ $(document).ready(function () {
       const made = $(this).data("id");
       const loaide = $("#tudongsoande").prop("checked") ? 1 : 0;
 
-      // --- Nhóm học phần ---
+      // Nhóm học phần
       const manhom = getGroupSelected().map((x) => parseInt(x));
       if (manhom.length === 0) {
         Dashmix.helpers("jq-notify", {
@@ -599,9 +617,8 @@ $(document).ready(function () {
         return;
       }
 
-      // --- Lấy loại câu hỏi được chọn (dùng chung hàm đã có) ---
-      const loaicauhoi = getSelectedQuestionTypes(); // ← quan trọng!
-
+      // Loại câu hỏi
+      const loaicauhoi = getSelectedQuestionTypes();
       if (loaicauhoi.length === 0) {
         Dashmix.helpers("jq-notify", {
           type: "danger",
@@ -610,45 +627,34 @@ $(document).ready(function () {
         return;
       }
 
-      // --- Lấy số câu theo loại + mức độ (đúng với ID thực tế của bạn) ---
+      // Lấy số câu từng loại
       const socau = {};
       let valid = true;
 
+      let typeMap = {
+        mcq: "tracnghiem",
+        essay: "tuluan",
+        reading: "dochieu",
+      };
+
+      let typeNameMap = {
+        mcq: "Trắc nghiệm",
+        essay: "Tự luận",
+        reading: "Đọc hiểu",
+      };
+
       loaicauhoi.forEach((type) => {
-        let de = 0,
-          tb = 0,
-          kho = 0;
+        let prefix = typeMap[type];
 
-        if (type === "mcq") {
-          // Trắc nghiệm
-          de = parseInt($("#coban_tracnghiem").val()) || 0;
-          tb = parseInt($("#trungbinh_tracnghiem").val()) || 0;
-          kho = parseInt($("#kho_tracnghiem").val()) || 0;
-        } else if (type === "essay") {
-          // Tự luận
-          de = parseInt($("#coban_tuluan").val()) || 0;
-          tb = parseInt($("#trungbinh_tuluan").val()) || 0;
-          kho = parseInt($("#kho_tuluan").val()) || 0;
-        } else if (type === "reading") {
-          // Đọc hiểu
-          de = parseInt($("#coban_dochieu").val()) || 0;
-          tb = parseInt($("#trungbinh_dochieu").val()) || 0;
-          kho = parseInt($("#kho_dochieu").val()) || 0;
-        }
+        let de = parseInt($(`#coban_${prefix}`).val()) || 0;
+        let tb = parseInt($(`#trungbinh_${prefix}`).val()) || 0;
+        let kho = parseInt($(`#kho_${prefix}`).val()) || 0;
 
-        const total = de + tb + kho;
-
-        if (total === 0) {
+        if (de + tb + kho === 0) {
           valid = false;
-          const tenLoai = {
-            mcq: "Trắc nghiệm",
-            essay: "Tự luận",
-            reading: "Đọc hiểu",
-          }[type];
-
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            message: `Loại "${tenLoai}" phải có ít nhất 1 câu!`,
+            message: `Loại "${typeNameMap[type]}" phải có ít nhất 1 câu!`,
           });
         }
 
@@ -657,7 +663,47 @@ $(document).ready(function () {
 
       if (!valid) return;
 
-      // --- Gửi Ajax ---
+      // ===== CHECK SỐ LƯỢNG NHƯ ADD TEST =====
+
+      let chapters = getSelectedChapters();
+      let m = groups[$("#nhom-hp").val()].mamonhoc;
+
+      loaicauhoi.forEach((type) => {
+        let tenLoai = typeNameMap[type];
+        let required = socau[type];
+
+        let available = {
+          de: getTotalQuestionOfChapter(chapters, m, 1, [type]),
+          tb: getTotalQuestionOfChapter(chapters, m, 2, [type]),
+          kho: getTotalQuestionOfChapter(chapters, m, 3, [type]),
+        };
+
+        if (available.de < required.de) {
+          valid = false;
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: `${tenLoai}: chỉ có ${available.de} câu dễ, bạn cần ${required.de}`,
+          });
+        }
+        if (available.tb < required.tb) {
+          valid = false;
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: `${tenLoai}: chỉ có ${available.tb} câu trung bình, bạn cần ${required.tb}`,
+          });
+        }
+        if (available.kho < required.kho) {
+          valid = false;
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: `${tenLoai}: chỉ có ${available.kho} câu khó, bạn cần ${required.kho}`,
+          });
+        }
+      });
+
+      if (!valid) return;
+
+      // ========= GỬI AJAX UPDATE =========
       const data = {
         made: infodethi.made,
         mamonhoc: groups[$("#nhom-hp").val()].mamonhoc,
@@ -665,7 +711,7 @@ $(document).ready(function () {
         thoigianthi: parseInt($("#exam-time").val()) || 0,
         thoigianbatdau: $("#time-start").val(),
         thoigianketthuc: $("#time-end").val(),
-        chuong: getSelectedChapters(), // dùng hàm có sẵn cho chắc
+        chuong: chapters,
         loaide: loaide,
         xemdiem: $("#xemdiem").prop("checked") ? 1 : 0,
         xemdapan: $("#xemda").prop("checked") ? 1 : 0,
@@ -710,6 +756,23 @@ $(document).ready(function () {
             message: `Lỗi: ${xhr.responseText || error}`,
           });
         },
+      });
+      // ưu tiên responseJSON nếu server trả về
+      if (xhr.responseJSON && xhr.responseJSON.error) {
+        msg = xhr.responseJSON.error;
+      } else if (xhr.responseText) {
+        try {
+          // parse JSON từ responseText nếu chưa tự parse
+          const json = JSON.parse(xhr.responseText);
+          if (json.error) msg = json.error;
+        } catch (e) {
+          msg = xhr.responseText; // fallback raw text
+        }
+      }
+
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: `Lỗi: ${msg}`,
       });
     }
   });

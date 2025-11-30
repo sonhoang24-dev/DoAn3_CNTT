@@ -1,278 +1,219 @@
-<style>
-    #xemkq .content {
-        margin-top: -110px;
-    }
-    .badge {
-        font-size: 0.9rem;
-        padding: 0.5em 1em;
-    }
-    .btn-st, .btn-primary, .btn-danger, .btn-light {
-        font-weight: 500;
-    }
-/* layout */
-.question { border-radius:8px; overflow:hidden; }
-.question-top { padding:18px; }
-.question-image { max-width: 420px; max-height: 260px; object-fit: contain; display:block; margin: 0 auto 16px; }
-.answers-grid { margin-top:8px; }
-.answer-card { display:flex; align-items:flex-start; gap:12px; padding:8px 0; }
+<?php
+// ==================== HELPER & LOGIC (Đặt ở đầu file) ====================
+date_default_timezone_set('Asia/Ho_Chi_Minh');
 
-/* answer image */
-.img-answer { width:120px; height:100px; object-fit:cover; border-radius:8px; }
-
-/* bottom answer bar */
-.test-ans { background:#0b63c9; color:#fff; padding:12px 16px; display:flex; align-items:center; gap:12px; border-radius:0 0 8px 8px; }
-.test-ans .label-title { font-weight:600; margin-right:10px; }
-
-/* circle buttons for choices */
-.choice-circle {
-  width:48px; height:48px; border-radius:50%; background:#fff; color:#000; display:inline-flex; align-items:center; justify-content:center; font-weight:700;
-  box-shadow:0 2px 0 rgba(0,0,0,0.08);
-  margin-right:12px;
-}
-/* highlight selected circle */
-.choice-circle.active { background:#ffd; border:4px solid #0b63c9; }
-
-/* small responsive tweaks */
-@media (max-width: 767px) {
-  .img-answer { width:100px; height:80px; }
-  .question-image { max-width: 100%; max-height: 180px; }
+function h($str)
+{
+    return htmlspecialchars($str ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+function formatDate($date)
+{
+    return !empty($date) ? date_format(date_create($date), "H:i d/m/Y") : 'Chưa đặt';
+}
 
-</style>
-</head>
-<body>
+// Tính tổng số câu hỏi (ưu tiên từ chi tiết kết quả nếu có)
+function getTotalQuestions($data)
+{
+    if (!empty($data['Check']['makq'] ?? null)) {
+        return (new KetQuaModel())->countQuestionsByMakq($data['Check']['makq']);
+    }
+
+    $keys = ['mcq_de','mcq_tb','mcq_kho','essay_de','essay_tb','essay_kho','reading_de','reading_tb','reading_kho'];
+    $total = 0;
+    foreach ($keys as $k) {
+        $total += (int)($data['Test'][$k] ?? 0);
+    }
+    if ($total === 0) {
+        $total = (int)($data['Test']['socaude'] ?? 0) + (int)($data['Test']['socautb'] ?? 0) + (int)($data['Test']['socaukho'] ?? 0);
+    }
+    return $total;
+}
+
+// Xác định loại đề thi
+function getLoaiDe($data)
+{
+    $mcq = (int)($data['Test']['mcq_de'] ?? 0) + (int)($data['Test']['mcq_tb'] ?? 0) + (int)($data['Test']['mcq_kho'] ?? 0);
+    $essay = (int)($data['Test']['essay_de'] ?? 0) + (int)($data['Test']['essay_tb'] ?? 0) + (int)($data['Test']['essay_kho'] ?? 0);
+    $reading = (int)($data['Test']['reading_de'] ?? 0) + (int)($data['Test']['reading_tb'] ?? 0) + (int)($data['Test']['reading_kho'] ?? 0);
+
+    if ($mcq && !$essay && !$reading) {
+        return 'Trắc nghiệm';
+    }
+    if (!$mcq && $essay && !$reading) {
+        return 'Tự luận';
+    }
+    if (!$mcq && !$essay && $reading) {
+        return 'Đọc hiểu';
+    }
+    if ($mcq && $essay && !$reading) {
+        return 'Trắc nghiệm, Tự luận';
+    }
+    if ($mcq && !$essay && $reading) {
+        return 'Trắc nghiệm, Đọc hiểu';
+    }
+    if (!$mcq && $essay && $reading) {
+        return 'Tự luận, Đọc hiểu';
+    }
+    if ($mcq && $essay && $reading) {
+        return 'Trắc nghiệm, Tự luận, Đọc hiểu';
+    }
+    return 'Chưa chọn loại câu hỏi'; // tr
+}
+
+// ==================== TÍNH TOÁN MỘT LẦN ====================
+$now           = time();
+$startTime     = !empty($data['Test']['thoigianbatdau']) ? strtotime($data['Test']['thoigianbatdau']) : 0;
+$endTime       = !empty($data['Test']['thoigianketthuc']) ? strtotime($data['Test']['thoigianketthuc']) : PHP_INT_MAX;
+
+$hasAttempt    = !empty($data['Check']['makq'] ?? null);
+$hasScore      = isset($data['Check']['diemthi']) && $data['Check']['diemthi'] !== '';
+$canViewScore  = ($data['Test']['xemdiemthi'] ?? 0) == 1;
+$showDetailBtn = ($data['Test']['hienthibailam'] ?? 0) == 1;
+
+$totalQuestions = getTotalQuestions($data);
+$loaide         = getLoaiDe($data);
+
+$startFormatted = formatDate($data['Test']['thoigianbatdau'] ?? null);
+$endFormatted   = formatDate($data['Test']['thoigianketthuc'] ?? null);
+?>
+
 <div class="content row justify-content-center align-items-center min-vh-100 py-5">
-    <div class="col-lg-6 col-md-12 bg-white p-4 rounded shadow-sm">
-        <h4 class="text-center mb-4 text-primary fw-bold"><?php echo $data["Test"]["tende"]; ?></h4>
+    <div class="col-lg-6 col-md-10 bg-white p-4 rounded shadow-sm">
+        <h4 class="text-center mb-4 text-primary fw-bold"><?= h($data["Test"]["tende"]) ?></h4>
+
         <div class="exam-info mb-4 border-top pt-3">
-            <?php
-                // Safely prepare formatted start/end strings to avoid passing null to date_create()/strtotime()
-                $startFormatted = !empty($data['Test']['thoigianbatdau']) ? date_format(date_create($data['Test']['thoigianbatdau']), "H:i d/m/Y") : 'Chưa đặt';
-                $endFormatted = !empty($data['Test']['thoigianketthuc']) ? date_format(date_create($data['Test']['thoigianketthuc']), "H:i d/m/Y") : 'Chưa đặt';
-            ?>
+            <!-- Thời gian làm bài -->
             <div class="row mb-3 align-items-center">
-                <div class="col-6">
-                    <span class="text-primary"><i class="far fa-clock me-2"></i></span><span class="fw-medium">Thời gian làm bài</span>
-                </div>
-                <div class="col-6 text-end">
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $data["Test"]["thoigianthi"]; ?> phút</span>
-                </div>
+                <div class="col-6"><i class="far fa-clock text-primary me-2"></i><span class="fw-medium">Thời gian làm bài</span></div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= (int)($data["Test"]["thoigianthi"] ?? 0) ?> phút</span></div>
             </div>
+
+            <!-- Thời gian mở đề -->
             <div class="row mb-3 align-items-center">
-                <div class="col-6">
-                    <span class="text-primary"><i class="far fa-calendar-days me-2"></i></span><span class="fw-medium">Thời gian mở đề</span>
-                </div>
-                <div class="col-6 text-end">
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $startFormatted; ?></span>
-                </div>
+                <div class="col-6"><i class="far fa-calendar-days text-primary me-2"></i><span class="fw-medium">Thời gian mở đề</span></div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= $startFormatted ?></span></div>
             </div>
+
+            <!-- Thời gian kết thúc -->
             <div class="row mb-3 align-items-center">
-                <div class="col-6">
-                    <span class="text-primary"><i class="far fa-calendar-xmark me-2"></i></span><span class="fw-medium">Thời gian kết thúc</span>
-                </div>
-                <div class="col-6 text-end">
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $endFormatted; ?></span>
-                </div>
+                <div class="col-6"><i class="far fa-calendar-xmark text-primary me-2"></i><span class="fw-medium">Thời gian kết thúc</span></div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= $endFormatted ?></span></div>
             </div>
+
+            <!-- Số lượng câu hỏi -->
             <div class="row mb-3 align-items-center">
-                <div class="col-6">
-                    <span class="text-primary"><i class="far fa-circle-question me-2"></i></span><span class="fw-medium">Số lượng câu hỏi</span>
-                </div>
-                <div class="col-6 text-end">
-                    <?php
-                        // Prefer per-type stored columns when available; fallback to totals set by controller
-                        $mcq_de = isset($data['Test']['mcq_de']) ? (int)$data['Test']['mcq_de'] : 0;
-                        $mcq_tb = isset($data['Test']['mcq_tb']) ? (int)$data['Test']['mcq_tb'] : 0;
-                        $mcq_kho = isset($data['Test']['mcq_kho']) ? (int)$data['Test']['mcq_kho'] : 0;
-
-                        $essay_de = isset($data['Test']['essay_de']) ? (int)$data['Test']['essay_de'] : 0;
-                        $essay_tb = isset($data['Test']['essay_tb']) ? (int)$data['Test']['essay_tb'] : 0;
-                        $essay_kho = isset($data['Test']['essay_kho']) ? (int)$data['Test']['essay_kho'] : 0;
-
-                        $reading_de = isset($data['Test']['reading_de']) ? (int)$data['Test']['reading_de'] : 0;
-                        $reading_tb = isset($data['Test']['reading_tb']) ? (int)$data['Test']['reading_tb'] : 0;
-                        $reading_kho = isset($data['Test']['reading_kho']) ? (int)$data['Test']['reading_kho'] : 0;
-
-                        $socaude = $mcq_de + $essay_de + $reading_de;
-                        $socautb = $mcq_tb + $essay_tb + $reading_tb;
-                        $socaukho = $mcq_kho + $essay_kho + $reading_kho;
-
-                        // If controller already populated totals (fallback), use them when per-type sums are zero
-                        if ($socaude + $socautb + $socaukho <= 0) {
-                            $socaude = isset($data["Test"]["socaude"]) ? (int)$data["Test"]["socaude"] : 0;
-                            $socautb = isset($data["Test"]["socautb"]) ? (int)$data["Test"]["socautb"] : 0;
-                            $socaukho = isset($data["Test"]["socaukho"]) ? (int)$data["Test"]["socaukho"] : 0;
-                        }
-
-                        $total = $socaude + $socautb + $socaukho;
-                    ?>
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $total; ?></span>
-                </div>
+                <div class="col-6"><i class="far fa-circle-question text-primary me-2"></i><span class="fw-medium">Số lượng câu hỏi</span></div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= $totalQuestions ?></span></div>
             </div>
+
+            <!-- Loại đề thi -->
             <div class="row mb-3 align-items-center">
-                <div class="col-6">
-                    <span class="text-primary"><i class="far fa-file-lines me-2"></i></span><span class="fw-medium">Môn học</span>
-                </div>
-                <div class="col-6 text-end">
-                    <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $data["Test"]["tenmonhoc"]; ?></span>
-                </div>
+                <div class="col-6"><i class="far fa-list-check text-primary me-2"></i><span class="fw-medium">Loại đề thi</span></div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= h($loaide) ?></span></div>
+            </div>
+
+            <!-- Môn học -->
+            <div class="row mb-3 align-items-center">
+                <div class="col-6"><i class="far fa-file-lines text-primary me-2"></i><span class="fw-medium">Môn học</span></div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= h($data["Test"]["tenmonhoc"] ?? '') ?></span></div>
             </div>
         </div>
-        <?php
-        date_default_timezone_set('Asia/Ho_Chi_Minh');
-        $now = time();
-        // Use safe defaults for start/end to avoid passing null to strtotime()
-        $start = !empty($data["Test"]["thoigianbatdau"]) ? strtotime($data["Test"]["thoigianbatdau"]) : 0;
-        $end = !empty($data["Test"]["thoigianketthuc"]) ? strtotime($data["Test"]["thoigianketthuc"]) : PHP_INT_MAX;
 
-            // Determine user/test status flags
-            $makq = isset($data['Check']['makq']) ? $data['Check']['makq'] : null;
-            $hasMakq = !empty($makq);
-            $diemthi = isset($data['Check']['diemthi']) ? $data['Check']['diemthi'] : null;
-            $hasDiem = ($diemthi !== null && $diemthi !== '');
-            $canViewScore = isset($data['Test']['xemdiemthi']) && (int)$data['Test']['xemdiemthi'] === 1;
+        <!-- NÚT HÀNH ĐỘNG CHÍNH -->
+        <?php if ($hasAttempt && $hasScore): ?>
+            <?php if ($canViewScore): ?>
+                <?php if ($showDetailBtn): ?>
+                    <button class="btn btn-success w-100 rounded-pill py-3 shadow-sm" data-bs-toggle="collapse" data-bs-target="#xemkq">
+                        Xem kết quả
+                    </button>
+                <?php else: ?>
+                    <button type="button" data-id="<?= $data['Check']['makq'] ?>" id="show-exam-detail" class="btn btn-primary w-100 rounded-pill py-3 shadow-sm">
+                        Xem kết quả của tôi
+                    </button>
+                <?php endif; ?>
+            <?php else: ?>
+                <button class="btn btn-danger w-100 rounded-pill py-3" disabled>Đã hoàn thành</button>
+            <?php endif; ?>
 
-            if ($hasMakq && $hasDiem) {
-                // Student completed and a score exists
-                if ($canViewScore) {
-                    if ($data["Test"]['hienthibailam'] == 1) {
-                        echo "<button class='btn btn-success w-100 rounded-pill py-2' data-bs-toggle='collapse' data-bs-target='#xemkq' role='button'>Xem kết quả</button>";
-                    } else {
-                        echo "<button class='btn btn-primary w-100 rounded-pill py-2' type='button' data-id='" . $makq . "' id='show-exam-detail'>Xem kết quả của tôi</button>";
-                    }
-                } else {
-                    // Completed but not allowed to view score: show disabled 'Đã hoàn thành'
-                    echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button' disabled>Đã hoàn thành</button>";
-                }
-            } elseif ($hasMakq && !$hasDiem) {
-                // Has an attempt but no score yet — show 'Đã hoàn thành' instead of 'Tiếp tục thi'
-                echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button' disabled>Đã hoàn thành</button>";
-            
-            } else {
-                // No attempt yet
-                if ($now < $start) {
-                    echo "<button class='btn btn-light w-100 rounded-pill py-2' role='button'>Chưa tới thời gian mở đề</button>";
-                } elseif ($now > $end) {
-                    echo "<button class='btn btn-danger w-100 rounded-pill py-2' role='button'>Bài thi quá hạn</button>";
-                } else {
-                    echo "<button name='start-test' id='start-test' data-id='" . $data['Test']['made'] . "' class='btn btn-info w-100 rounded-pill py-2 text-white btn-st' role='button'>Bắt đầu thi <i class='fa fa-angle-right ms-2'></i></button>";
-                }
-            }
-        ?>
+        <?php elseif ($hasAttempt && !$hasScore): ?>
+            <button class="btn btn-danger w-100 rounded-pill py-3" disabled>Đã hoàn thành (Chưa chấm)</button>
+
+        <?php else: ?>
+            <?php if ($now < $startTime): ?>
+                <button class="btn btn-light w-100 rounded-pill py-3" disabled>Chưa tới thời gian mở đề</button>
+            <?php elseif ($now > $endTime): ?>
+                <button class="btn btn-danger w-100 rounded-pill py-3" disabled>Bài thi đã quá hạn</button>
+            <?php else: ?>
+                <button name="start-test" id="start-test" data-id="<?= $data['Test']['made'] ?>"
+                        class="btn btn-info w-100 rounded-pill py-3 text-white shadow-sm btn-st">
+                   Bắt đầu thi  <i class='fa fa-angle-right ms-2'></i>
+                </button>
+            <?php endif; ?>
+        <?php endif; ?>
     </div>
 </div>
 
-<?php if ($data["Test"]['xemdiemthi'] == 1) { ?>
+<!-- ==================== KẾT QUẢ (nếu được phép xem) ==================== -->
+<?php if ($canViewScore && $hasScore): ?>
 <div class="collapse" id="xemkq">
-    <div class="content row justify-content-center align-items-center mb-2">
-        <div class="col-lg-6 col-md-12 bg-white p-4 rounded shadow-sm">
-            <h3 class="text-center text-uppercase text-dark fw-bold mb-3">KẾT QUẢ BÀI THI</h3>
+    <div class="content row justify-content-center align-items-center mb-5">
+        <div class="col-lg-6 col-md-10 bg-white p-4 rounded shadow-sm">
+            <h3 class="text-center text-uppercase fw-bold mb-3">KẾT QUẢ BÀI THI</h3>
             <h4 class="text-center mb-4 text-success">
                 Điểm của bạn: 
-                <span class="display-6 fw-bold">
-                    <?php echo isset($data["Check"]['diemthi']) && $data["Check"]['diemthi'] != '' ? $data["Check"]['diemthi'] : '0'; ?>
-                </span>
+                <span class="display-6 fw-bold"><?= h($data["Check"]["diemthi"] ?? '0') ?></span>
             </h4>
+
             <div class="exam-info mb-4 border-top pt-3">
                 <div class="row mb-3 align-items-center">
-                    <div class="col-6">
-                        <span class="text-primary"><i class="far fa-clock me-2"></i></span><span class="fw-medium">Thời gian làm bài</span>
-                    </div>
-                    <div class="col-6 text-end">
-                        <span class="badge bg-primary-subtle text-primary fw-medium">
-                            <?php echo isset($data["Check"]['thoigianlambai']) && $data["Check"]['thoigianlambai'] > 0 ? max(1, round($data["Check"]['thoigianlambai'] / 60, 0)) : '0'; ?> phút
-                        </span>
-                    </div>
+                    <div class="col-6"><i class="far fa-clock text-primary me-2"></i>Thời gian làm bài</div>
+                    <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary">
+                        <?= isset($data["Check"]["thoigianlambai"]) ? max(1, round($data["Check"]["thoigianlambai"] / 60)) : 0 ?> phút
+                    </span></div>
                 </div>
                 <div class="row mb-3 align-items-center">
-                    <div class="col-6">
-                        <span class="text-primary"><i class="far fa-calendar-days me-2"></i></span><span class="fw-medium">Thời gian vào thi</span>
-                    </div>
-                    <div class="col-6 text-end">
-                        <span class="badge bg-primary-subtle text-primary fw-medium">
-                            <?php echo !empty($data["Check"]["thoigianvaothi"]) ? date_format(date_create($data["Check"]["thoigianvaothi"]), "H:i d/m/Y") : 'Chưa vào thi'; ?>
-                        </span>
-                    </div>
+                    <div class="col-6"><i class="far fa-calendar-days text-primary me-2"></i>Thời gian vào thi</div>
+                    <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary">
+                        <?= !empty($data["Check"]["thoigianvaothi"]) ? formatDate($data["Check"]["thoigianvaothi"]) : 'Chưa ghi nhận' ?>
+                    </span></div>
                 </div>
                 <div class="row mb-3 align-items-center">
-                    <div class="col-6">
-                        <span class="text-primary"><i class="far fa-circle-check me-2"></i></span><span class="fw-medium">Số câu đúng</span>
-                    </div>
-                    <div class="col-6 text-end">
-                        <span class="badge bg-success-subtle text-success fw-medium">
-                            <?php echo isset($data["Check"]['socaudung']) ? $data["Check"]['socaudung'] : '0'; ?>
-                        </span>
-                    </div>
+                    <div class="col-6"><i class="far fa-circle-check text-primary me-2"></i>Số câu đúng</div>
+                    <div class="col-6 text-end"><span class="badge bg-success-subtle text-success">
+                        <?= $data["Check"]["socaudung"] ?? 0 ?>
+                    </span></div>
                 </div>
                 <div class="row mb-3 align-items-center">
-                    <div class="col-6">
-                        <span class="text-primary"><i class="far fa-circle-question me-2"></i></span><span class="fw-medium">Tổng số câu hỏi</span>
-                    </div>
-                        <div class="col-6 text-end">
-                        <?php
-                            // If we have a makq (a saved attempt), prefer counting recorded questions
-                            // from `chitietketqua` for accuracy. Fallback to per-type columns or totals.
-                            $t_total = 0;
-                            if (!empty($data['Check']['makq'])) {
-                                $makqCount = (new KetQuaModel())->countQuestionsByMakq($data['Check']['makq']);
-                                $t_total = $makqCount;
-                            }
-
-                            if ($t_total <= 0) {
-                                // Compute from per-type stored columns
-                                $mcq_de = isset($data['Test']['mcq_de']) ? (int)$data['Test']['mcq_de'] : 0;
-                                $mcq_tb = isset($data['Test']['mcq_tb']) ? (int)$data['Test']['mcq_tb'] : 0;
-                                $mcq_kho = isset($data['Test']['mcq_kho']) ? (int)$data['Test']['mcq_kho'] : 0;
-
-                                $essay_de = isset($data['Test']['essay_de']) ? (int)$data['Test']['essay_de'] : 0;
-                                $essay_tb = isset($data['Test']['essay_tb']) ? (int)$data['Test']['essay_tb'] : 0;
-                                $essay_kho = isset($data['Test']['essay_kho']) ? (int)$data['Test']['essay_kho'] : 0;
-
-                                $reading_de = isset($data['Test']['reading_de']) ? (int)$data['Test']['reading_de'] : 0;
-                                $reading_tb = isset($data['Test']['reading_tb']) ? (int)$data['Test']['reading_tb'] : 0;
-                                $reading_kho = isset($data['Test']['reading_kho']) ? (int)$data['Test']['reading_kho'] : 0;
-
-                                $t_de = $mcq_de + $essay_de + $reading_de;
-                                $t_tb = $mcq_tb + $essay_tb + $reading_tb;
-                                $t_kho = $mcq_kho + $essay_kho + $reading_kho;
-
-                                // If per-type sums are zero, fall back to any totals provided by controller
-                                if ($t_de + $t_tb + $t_kho <= 0) {
-                                    $t_de = isset($data['Test']['socaude']) ? (int)$data['Test']['socaude'] : 0;
-                                    $t_tb = isset($data['Test']['socautb']) ? (int)$data['Test']['socautb'] : 0;
-                                    $t_kho = isset($data['Test']['socaukho']) ? (int)$data['Test']['socaukho'] : 0;
-                                }
-
-                                $t_total = $t_de + $t_tb + $t_kho;
-                            }
-                        ?>
-                        <span class="badge bg-primary-subtle text-primary fw-medium"><?php echo $t_total; ?></span>
-                    </div>
+                    <div class="col-6"><i class="far fa-circle-question text-primary me-2"></i>Tổng số câu</div>
+                    <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= $totalQuestions ?></span></div>
                 </div>
             </div>
-            <?php if ($data["Test"]['hienthibailam'] == 1 && isset($data["Check"]['makq'])) { ?>
-                <button data-id="<?php echo $data["Check"]['makq']; ?>" type="button" class="btn btn-primary w-100 rounded-pill py-2" id="show-exam-detail">Xem chi tiết bài thi</button>
-            <?php } ?>
+
+            <?php if ($showDetailBtn && !empty($data["Check"]["makq"])): ?>
+                <button data-id="<?= $data["Check"]["makq"] ?>" id="show-exam-detail"
+                        class="btn btn-primary w-100 rounded-pill py-3 shadow-sm">
+                    Xem chi tiết bài làm
+                </button>
+            <?php endif; ?>
         </div>
     </div>
 </div>
-<?php } ?>
+<?php endif; ?>
 
+<!-- ==================== MODAL XEM CHI TIẾT ==================== -->
 <div class="modal fade" id="modal-show-test" tabindex="-1" aria-labelledby="modal-view-test-label" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-xl">
         <div class="modal-content shadow-lg">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modal-view-test-label">Chi tiết kết quả</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="modal-view-test-label">Chi tiết bài thi</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body pb-1">
-                <div id="content-file" class="p-3"></div>
-            </div>
+            <div class="modal-body" id="content-file"></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-alt-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary btn-sm rounded-pill" data-bs-dismiss="modal">Hoàn tất</button>
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Đóng</button>
             </div>
         </div>
     </div>
 </div>
+

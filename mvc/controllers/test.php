@@ -358,6 +358,28 @@ class Test extends Controller
                     }
                 }
             }
+            if (empty($mamonhoc)) {
+                throw new Exception("Môn học không hợp lệ.");
+            }
+            if (empty($tende)) {
+                throw new Exception("Tên đề không hợp lệ.");
+            }
+            if ($thoigianthi <= 0) {
+                throw new Exception("Thời gian thi không hợp lệ.");
+            }
+
+            if ($thoigianbatdau && !$thoigianbatdau = date('Y-m-d H:i:s', strtotime($thoigianbatdau))) {
+                throw new Exception("Thời gian bắt đầu không hợp lệ.");
+            }
+
+            if ($thoigianketthuc && !$thoigianketthuc = date('Y-m-d H:i:s', strtotime($thoigianketthuc))) {
+                throw new Exception("Thời gian kết thúc không hợp lệ.");
+            }
+
+            if (!is_array($chuong) || !is_array($nhom) || !is_array($loaicauhoi)) {
+                throw new Exception("Dữ liệu chương, nhóm hoặc loại câu hỏi không hợp lệ.");
+            }
+
 
             // ===== Gọi create, lưu chi tiết từng loại câu =====
             $made = $this->dethimodel->create(
@@ -493,9 +515,29 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             $loaicauhoi = isset($_POST['loaicauhoi']) ? (is_array($_POST['loaicauhoi']) ? $_POST['loaicauhoi'] : [$_POST['loaicauhoi']]) : ['mcq'];
 
             $socau_json = isset($_POST['socau']) ? $_POST['socau'] : '{}';
+            
 
-            error_log("updateTest parsed: made=$made, monthi=$monthi, nguoitao=$nguoitao, socau_json=$socau_json, chuong=" . json_encode($chuong) . ", nhom=" . json_encode($nhom));
+              if (empty($mamonhoc)) {
+                throw new Exception("Môn học không hợp lệ.");
+            }
+            if (empty($tende)) {
+                throw new Exception("Tên đề không hợp lệ.");
+            }
+            if ($thoigianthi <= 0) {
+                throw new Exception("Thời gian thi không hợp lệ.");
+            }
 
+            if ($thoigianbatdau && !$thoigianbatdau = date('Y-m-d H:i:s', strtotime($thoigianbatdau))) {
+                throw new Exception("Thời gian bắt đầu không hợp lệ.");
+            }
+
+            if ($thoigianketthuc && !$thoigianketthuc = date('Y-m-d H:i:s', strtotime($thoigianketthuc))) {
+                throw new Exception("Thời gian kết thúc không hợp lệ.");
+            }
+
+            if (!is_array($chuong) || !is_array($nhom) || !is_array($loaicauhoi)) {
+                throw new Exception("Dữ liệu chương, nhóm hoặc loại câu hỏi không hợp lệ.");
+            }
             // gọi model update
             $res = $this->dethimodel->update(
                 $made,
@@ -679,7 +721,7 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         }
     }
 
-        public function submit()
+    public function submit()
     {
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $listtr = $_POST['listCauTraLoi'] ?? null;
