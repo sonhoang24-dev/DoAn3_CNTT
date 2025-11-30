@@ -358,7 +358,7 @@ class Test extends Controller
                     }
                 }
             }
-            if (empty($monthi)) {
+            if (empty($mamonhoc)) {
                 throw new Exception("Môn học không hợp lệ.");
             }
             if (empty($tende)) {
@@ -515,13 +515,12 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             $loaicauhoi = isset($_POST['loaicauhoi']) ? (is_array($_POST['loaicauhoi']) ? $_POST['loaicauhoi'] : [$_POST['loaicauhoi']]) : ['mcq'];
 
             $socau_json = isset($_POST['socau']) ? $_POST['socau'] : '{}';
-            
-
-                        if (empty($monthi)) {
-                                // include what we received for easier debugging
-                                $received = isset($_POST['mamonhoc']) ? $_POST['mamonhoc'] : '(not set)';
-                                throw new Exception("Môn học không hợp lệ. Received mamonhoc=" . $received);
-                        }
+        
+                        // if (empty($monthi)) {
+                        //         // include what we received for easier debugging
+                        //         $received = isset($_POST['mamonhoc']) ? $_POST['mamonhoc'] : '(not set)';
+                        //         throw new Exception("Môn học không hợp lệ. Received mamonhoc=" . $received);
+                        // }
             if (empty($tende)) {
                 throw new Exception("Tên đề không hợp lệ.");
             }

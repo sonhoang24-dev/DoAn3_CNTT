@@ -100,7 +100,7 @@
         </div>
     </nav>
 
-    <div class="container mb-5 mt-6" id="dethicontent" data-id="<?php echo $data['Made']?>">
+    <div class="container mb-5 mt-6" id="dethicontent" data-id="<?php echo $data['Made']?>" data-user="<?php echo $_SESSION['user_id'] ?>">
         <div class="row">
             <div class="col-8" id="list-question">
                 <!-- Question content goes here -->

@@ -15,19 +15,17 @@ function formatDate($date)
 // Tính tổng số câu hỏi (ưu tiên từ chi tiết kết quả nếu có)
 function getTotalQuestions($data)
 {
-    if (!empty($data['Check']['makq'] ?? null)) {
-        return (new KetQuaModel())->countQuestionsByMakq($data['Check']['makq']);
-    }
-
     $keys = ['mcq_de','mcq_tb','mcq_kho','essay_de','essay_tb','essay_kho','reading_de','reading_tb','reading_kho'];
     $total = 0;
     foreach ($keys as $k) {
         $total += (int)($data['Test'][$k] ?? 0);
     }
     if ($total === 0) {
-        $total = (int)($data['Test']['socaude'] ?? 0) + (int)($data['Test']['socautb'] ?? 0) + (int)($data['Test']['socaukho'] ?? 0);
+        $total = (int)($data['Test']['socaude'] ?? 0) + 
+                 (int)($data['Test']['socautb'] ?? 0) + 
+                 (int)($data['Test']['socaukho'] ?? 0);
     }
-    return $total;
+    return $total > 0 ? $total : 1;
 }
 
 // Xác định loại đề thi

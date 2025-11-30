@@ -1,8 +1,11 @@
 $(document).ready(function () {
   let questions = [];
   const made = $("#dethicontent").data("id");
-  const dethiKey = "dethi" + made;
-  const answerKey = "cautraloi" + made;
+  const userId = $("#dethicontent").data("user") || "guest"; // Lấy MSSV từ data-user
+
+  // Key giờ độc nhất cho từng người + từng đề
+  const dethiKey = `dethi_${made}_user_${userId}`;
+  const answerKey = `cautraloi_${made}_user_${userId}`;
 
   // ================== Lấy câu hỏi từ server ==================
   function getQuestion() {
@@ -277,50 +280,68 @@ $(document).ready(function () {
 
               let debounceTimer;
               editor.model.document.on("change:data", () => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                  answers[index] = answers[index] || {};
-                  answers[index].noidungtl = editor.getData();
-                  syncImages();
-                  localStorage.setItem(answerKey, JSON.stringify(answers));
-                  showBtnSideBar(questions, answers);
-                  saveEssayAnswer(index, editor.getData());
-                  renderImages();
-                }, 350);
+                const raw = editor.getData();
+
+                // Tạo div tạm để xử lý
+                const div = document.createElement("div");
+                div.innerHTML = raw;
+
+                // 1. Tách ảnh ra (nếu có)
+                answers[index].images = answers[index].images || [];
+                div.querySelectorAll("img").forEach((img) => {
+                  if (img.src && img.src.startsWith("data:image")) {
+                    answers[index].images.push(img.src);
+                    img.remove();
+                  }
+                });
+
+                // 2. Lấy nội dung sạch nhất có thể
+                let cleanText = div.innerHTML
+                  .replace(/<p>/gi, "")
+                  .replace(/<\/p>/gi, "\n")
+                  .replace(/<br\s*\/?>/gi, "\n")
+                  .replace(/&nbsp;/gi, " ")
+                  .replace(/\n+/g, "\n")
+                  .trim();
+
+                if (cleanText === "" || /^\s*$/.test(cleanText)) {
+                  answers[index].noidungtl = null;
+                } else {
+                  answers[index].noidungtl = cleanText;
+                }
+
+                // Lưu lại
+                localStorage.setItem(answerKey, JSON.stringify(answers));
+                showBtnSideBar(questions, answers);
               });
 
               fileInput.addEventListener("change", function (e) {
                 const files = Array.from(e.target.files);
                 if (!files.length) return;
+
                 answers[index] = answers[index] || {};
                 answers[index].images = answers[index].images || [];
-                let loadedCount = 0;
-                const total = files.length;
 
                 files.forEach((file) => {
-                  if (file.size > 10 * 1024 * 1024) {
-                    loadedCount++;
-                    if (loadedCount === total) renderImages();
-                    return;
-                  }
+                  if (file.size > 15 * 1024 * 1024) return; // Giới hạn 15MB
+
                   const reader = new FileReader();
                   reader.onload = function (ev) {
-                    answers[index].images.push(ev.target.result);
-                    try {
-                      editor.setData(
-                        editor.getData() +
-                          `<p><img src="${ev.target.result}" alt="image"></p>`
-                      );
-                    } catch {}
-                    loadedCount++;
-                    if (loadedCount === total) {
-                      localStorage.setItem(answerKey, JSON.stringify(answers));
-                      renderImages();
-                    }
+                    const imgSrc = ev.target.result;
+                    answers[index].images.push(imgSrc);
+
+                    // Chèn ảnh vào editor
+                    editor.setData(
+                      editor.getData() +
+                        `<p><img src="${imgSrc}" style="max-width:100%;height:auto;"></p>`
+                    );
+
+                    renderImages(); // Cập nhật preview
+                    localStorage.setItem(answerKey, JSON.stringify(answers));
                   };
                   reader.readAsDataURL(file);
                 });
-                this.value = "";
+                this.value = ""; // Reset input
               });
 
               syncImages();
@@ -365,8 +386,7 @@ $(document).ready(function () {
 
     $("#list-question").html(html);
 
-    // === MCQ event (consolidated handler) ===
-    $(".btn-check").off("change"); // Unbind any existing to avoid duplicates
+    $(".btn-check").off("change");
     $(document)
       .off("change", ".btn-check")
       .on("change", ".btn-check", function () {
@@ -464,17 +484,21 @@ $(document).ready(function () {
     localStorage.removeItem(dethiKey);
     localStorage.removeItem("isTabSwitched_" + made);
   }
-
   $("#btn-nop-bai").click(function (e) {
     e.preventDefault();
 
-    let listAns = JSON.parse(localStorage.getItem(answerKey));
+    let listAns = JSON.parse(localStorage.getItem(answerKey) || "[]");
     let unanswered = listAns.filter((ans, i) => {
       const q = questions[i];
+      if (!q) return false;
       if (q.loai === "essay") {
-        return !ans.noidungtl?.trim();
+        return (
+          !ans.noidungtl ||
+          ans.noidungtl.trim() === "" ||
+          ans.noidungtl === "<p></p>"
+        );
       }
-      return ans.cautraloi === 0;
+      return !ans.cautraloi || ans.cautraloi === 0;
     });
 
     if (unanswered.length > 0) {
@@ -504,30 +528,64 @@ $(document).ready(function () {
   });
 
   function nopbai() {
-    const dethiCheck = $("#dethicontent").data("id");
-    const thoigian = new Date();
+    const thoigian = new Date().toISOString();
+    const formData = new FormData();
 
-    const answers = JSON.parse(localStorage.getItem(answerKey) || "[]");
+    // Lấy đáp án từ localStorage
+    const savedAnswers = JSON.parse(localStorage.getItem(answerKey) || "[]");
+
+    // === 1. Gửi trắc nghiệm (MCQ + Reading) ===
+    const tracnghiemAnswers = savedAnswers
+      .filter((ans) => ans.cautraloi && ans.cautraloi !== 0)
+      .map((ans) => ({
+        macauhoi: ans.macauhoi,
+        cautraloi: ans.cautraloi,
+      }));
+    formData.append("listCauTraLoi", JSON.stringify(tracnghiemAnswers));
+
+    // === 2. Gửi tự luận + ảnh ===
+    savedAnswers.forEach((ans, index) => {
+      const q = questions[index];
+      if (q && q.loai === "essay") {
+        if (ans.noidungtl && ans.noidungtl.trim()) {
+          formData.append(`essay_${index}_macauhoi`, ans.macauhoi);
+          formData.append(`essay_${index}_noidung`, ans.noidungtl);
+
+          // Chuyển ảnh từ base64 → Blob rồi gửi
+          // Gửi ảnh: dùng tên key KHÔNG có [] → PHP nhận được hết
+          if (ans.images && ans.images.length > 0) {
+            ans.images.forEach((base64, j) => {
+              const base64Data = base64.split(",")[1]; // bỏ prefix
+              formData.append(`essay_${index}_image_${j}`, base64Data);
+            });
+          }
+        }
+      }
+    });
+
+    // Thông tin chung
+    formData.append("made", made);
+    formData.append("thoigian", thoigian);
 
     $.ajax({
-      type: "post",
       url: "./test/submit",
-      data: {
-        listCauTraLoi: answers,
-        thoigianlambai: thoigian,
-        made: dethiCheck,
-      },
-      success: function (response) {
+      type: "POST",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (res) {
         clearExamData();
-        location.href = `./test/start/${dethiCheck}`;
+        Swal.fire("Thành công!", "Bài thi đã được nộp.", "success").then(() => {
+          location.href = `./test/start/${made}`;
+        });
       },
-      error: function (xhr) {
+      error: function () {
         clearExamData();
-        location.href = `./test/start/${dethiCheck}`;
+        alert("Lỗi mạng, nhưng bài đã được lưu tạm. Vui lòng nộp lại!");
+        location.href = `./test/start/${made}`;
       },
     });
   }
-
   $("#btn-thoat").click(function (e) {
     e.preventDefault();
     Swal.fire({
@@ -633,60 +691,60 @@ $(document).ready(function () {
 
   //
   // Xóa dữ liệu khi rời khỏi trang
-  window.addEventListener("beforeunload", function () {
-    localStorage.removeItem(answerKey);
-    localStorage.removeItem(dethiKey);
-    localStorage.removeItem("isTabSwitched_" + made);
-  });
+  // window.addEventListener("beforeunload", function () {
+  //   localStorage.removeItem(answerKey);
+  //   localStorage.removeItem(dethiKey);
+  //   localStorage.removeItem("isTabSwitched_" + made);
+  // });
 
   //chặn load trang
-  $(document).on("keydown", function (e) {
-    if (
-      e.which === 116 || // F5
-      ((e.ctrlKey || e.metaKey) && e.which === 82) // Ctrl+R / Cmd+R
-    ) {
-      e.preventDefault();
+  // $(document).on("keydown", function (e) {
+  //   if (
+  //     e.which === 116 || // F5
+  //     ((e.ctrlKey || e.metaKey) && e.which === 82) // Ctrl+R / Cmd+R
+  //   ) {
+  //     e.preventDefault();
 
-      Swal.fire({
-        icon: "warning",
-        title: "Không thể tải lại!",
-        html: `<p class='fs-6 text-center mb-0'>Bạn không thể tải lại trang khi đang làm bài.</p>`,
-        confirmButtonText: "OK",
-      });
-    }
-  });
+  //     Swal.fire({
+  //       icon: "warning",
+  //       title: "Không thể tải lại!",
+  //       html: `<p class='fs-6 text-center mb-0'>Bạn không thể tải lại trang khi đang làm bài.</p>`,
+  //       confirmButtonText: "OK",
+  //     });
+  //   }
+  // });
 
-  history.pushState(null, null, location.href);
-  window.onpopstate = function () {
-    history.go(1);
+  // history.pushState(null, null, location.href);
+  // window.onpopstate = function () {
+  //   history.go(1);
 
-    Swal.fire({
-      icon: "warning",
-      title: "Không thể quay lại!",
-      html: `<p class='fs-6 text-center mb-0'>Bạn không thể quay lại trang trước khi hoàn thành bài thi.</p>`,
-      confirmButtonText: "OK",
-    });
-  };
-  window.addEventListener("beforeunload", function (e) {
-    // Kiểm tra xem bài chưa hoàn thành
-    const answers = JSON.parse(localStorage.getItem(answerKey) || "[]");
-    const unanswered = answers.filter((ans, i) => {
-      const q = questions[i];
-      if (q.loai === "essay") return !ans.noidungtl?.trim();
-      return ans.cautraloi === 0;
-    });
+  //   Swal.fire({
+  //     icon: "warning",
+  //     title: "Không thể quay lại!",
+  //     html: `<p class='fs-6 text-center mb-0'>Bạn không thể quay lại trang trước khi hoàn thành bài thi.</p>`,
+  //     confirmButtonText: "OK",
+  //   });
+  // };
+  // window.addEventListener("beforeunload", function (e) {
+  //   // Kiểm tra xem bài chưa hoàn thành
+  //   const answers = JSON.parse(localStorage.getItem(answerKey) || "[]");
+  //   const unanswered = answers.filter((ans, i) => {
+  //     const q = questions[i];
+  //     if (q.loai === "essay") return !ans.noidungtl?.trim();
+  //     return ans.cautraloi === 0;
+  //   });
 
-    if (unanswered.length > 0) {
-      Swal.fire({
-        icon: "warning",
-        title: "Bài chưa hoàn thành!",
-        html: `<p class='fs-6 text-center mb-0'>Bạn chưa hoàn thành <strong>${unanswered.length}</strong> câu hỏi.<br>Vui lòng hoàn thành trước khi rời trang.</p>`,
-        confirmButtonText: "OK",
-      });
+  //   if (unanswered.length > 0) {
+  //     Swal.fire({
+  //       icon: "warning",
+  //       title: "Bài chưa hoàn thành!",
+  //       html: `<p class='fs-6 text-center mb-0'>Bạn chưa hoàn thành <strong>${unanswered.length}</strong> câu hỏi.<br>Vui lòng hoàn thành trước khi rời trang.</p>`,
+  //       confirmButtonText: "OK",
+  //     });
 
-      e.preventDefault();
-      e.returnValue = ""; // Chrome hiện cảnh báo mặc định
-      return "";
-    }
-  });
+  //     e.preventDefault();
+  //     e.returnValue = ""; // Chrome hiện cảnh báo mặc định
+  //     return "";
+  //   }
+  // });
 });

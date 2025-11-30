@@ -163,10 +163,6 @@ class CauTraLoiModel extends DB
 
 
 
-
-
-
-
     public function getById($macautl)
     {
         $sql = "SELECT * FROM `cautraloi` WHERE `macautl` = ?";
@@ -217,5 +213,7 @@ class CauTraLoiModel extends DB
         }
         return $rows;
     }
+
+    
 
 }

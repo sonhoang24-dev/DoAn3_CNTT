@@ -54,68 +54,122 @@ class KetQuaModel extends DB
         return $socaudung;
     }
 
-    public function submit($made, $nguoidung, $list, $thoigian)
-    {
-        // // Debug: log submit entry for diagnosis
-        // error_log("KetQuaModel::submit called with made=" . print_r($made, true) . ", nguoidung=" . print_r($nguoidung, true));
-        // error_log("KetQuaModel::submit list payload: " . print_r($list, true));
+   public function submit($made, $nguoidung, $thoigian)
+{
+    error_log("POST data: " . print_r($_POST, true));
+error_log("FILES data: " . print_r($_FILES, true));
+    // 1. Lấy makq và thời gian vào thi
+    $stmt = $this->con->prepare("SELECT makq, thoigianvaothi FROM ketqua WHERE made = ? AND manguoidung = ? AND diemthi IS NULL");
+    $stmt->bind_param("is", $made, $nguoidung);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
 
-        $sql_ketqua = "Select * from ketqua where made = '$made' and manguoidung = '$nguoidung'";
-        $result_ketqua = mysqli_query($this->con, $sql_ketqua);
-        if (!$result_ketqua) {
-            error_log("KetQuaModel::submit select ketqua failed: " . mysqli_error($this->con));
-            return false;
-        }
-        $data = mysqli_fetch_assoc($result_ketqua);
-        if (!$data) {
-            error_log("KetQuaModel::submit: no ketqua row found for made=$made user=$nguoidung");
-            return false;
-        }
+    if (!$row) return false;
 
-        $thoigianvaolam = strtotime($data['thoigianvaothi']);
-        $thoigianlambai = strtotime($thoigian) - $thoigianvaolam;
-        $valid = true;
-        $socaudung = $this->socaudung($list);
-        $socau = count($list);
-        $diem = $socau > 0 ? round((10 / $socau * $socaudung), 2) : 0;
-        $sql = "UPDATE `ketqua` SET `diemthi`='$diem',`thoigianlambai`='$thoigianlambai',`socaudung`='$socaudung' WHERE manguoidung = '$nguoidung' and made = '$made'";
-        $result = mysqli_query($this->con, $sql);
-        if (!$result) {
-            error_log("KetQuaModel::submit update ketqua failed: " . mysqli_error($this->con) . "; SQL=" . $sql);
-            $valid = false;
-        }
-        $makq = $data['makq'];
+    $makq = $row['makq'];
+    $thoigianvaothi = strtotime($row['thoigianvaothi']);
+    $thoigian_str = is_array($thoigian) ? ($_POST['thoigian'] ?? date('Y-m-d H:i:s')) : $thoigian;
+$thoigianlambai = strtotime($thoigian_str) - $thoigianvaothi;
+if ($thoigianlambai < 0) $thoigianlambai = 0;
+    if ($thoigianlambai < 0) $thoigianlambai = 0;
 
-        foreach ($list as $ct) {
-            $macauhoi = $ct['macauhoi'];
-            $cautraloi = $ct['cautraloi'];
-            $sql = "UPDATE `chitietketqua` SET `dapanchon`='$cautraloi' WHERE `makq`='$makq' AND `macauhoi`='$macauhoi'";
-            $insertCt = mysqli_query($this->con, $sql);
-            if (!$insertCt) {
-                error_log("KetQuaModel::submit update chitietketqua failed: " . mysqli_error($this->con) . "; SQL=" . $sql);
-                $valid = false;
-            } else {
-                $affected = mysqli_affected_rows($this->con);
-                if ($affected === 0) {
-                    error_log("KetQuaModel::submit update affected 0 rows for makq={$makq}, macauhoi={$macauhoi}; SQL=" . $sql);
-                    // Attempt to INSERT the detail row if it doesn't exist so user's answer is preserved
-                    $insertSql = "INSERT INTO `chitietketqua`(`makq`,`macauhoi`,`dapanchon`) VALUES ('$makq','$macauhoi','$cautraloi')";
-                    $insRes = mysqli_query($this->con, $insertSql);
-                    if (!$insRes) {
-                        error_log("KetQuaModel::submit insert chitietketqua failed: " . mysqli_error($this->con) . "; SQL=" . $insertSql);
-                        $valid = false;
-                    } else {
-                        $insAffected = mysqli_affected_rows($this->con);
-                        error_log("KetQuaModel::submit inserted chitietketqua for makq={$makq}, macauhoi={$macauhoi}, dapanchon={$cautraloi}; affected={$insAffected}");
-                    }
-                } else {
-                    error_log("KetQuaModel::submit updated chitietketqua for makq={$makq}, macauhoi={$macauhoi}, dapanchon={$cautraloi}; affected={$affected}");
-                }
-            }
+    // 2. Xử lý trắc nghiệm
+    $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
+    $socaudung_tn = 0;
+    $tongcau_tn = 0;
+
+    foreach ($listCauTraLoi as $ans) {
+        $macauhoi = $ans['macauhoi'];
+        $cautraloi = $ans['cautraloi'] ?? 0;
+
+        if ($cautraloi != 0) {
+            $tongcau_tn++;
+
+            // Kiểm tra đúng/sai
+            $check = $this->con->prepare("SELECT 1 FROM cauhoi WHERE macauhoi = ? AND macautl_dung = ?");
+            $check->bind_param("ii", $macauhoi, $cautraloi);
+            $check->execute();
+            if ($check->get_result()->num_rows > 0) $socaudung_tn++;
+
+            // Lưu đáp án
+            $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
         }
-        return $valid;
     }
 
+    $diem_tracnghiem = $tongcau_tn > 0 ? round(10 * $socaudung_tn / $tongcau_tn, 2) : 0;
+
+    // 3. Xử lý tự luận (có ảnh)
+    $this->xuLyTuLuan($makq);
+
+    // 4. Cập nhật ketqua (chỉ điểm trắc nghiệm, tổng điểm sẽ cập nhật sau khi chấm tự luận)
+    $stmt = $this->con->prepare("
+        UPDATE ketqua 
+        SET diemthi = ?, 
+            thoigianlambai = ?, 
+            socaudung = ?,
+            trangthai = 'Đã nộp',
+            thoigiannop = NOW()
+        WHERE makq = ?
+    ");
+    $stmt->bind_param("diii", $diem_tracnghiem, $thoigianlambai, $socaudung_tn, $makq);
+    $stmt->execute();
+
+    return true;
+}
+
+// Hàm phụ: lưu đáp án trắc nghiệm (upsert)
+private function luuDapAnTracNghiem($makq, $macauhoi, $dapanchon)
+{
+    $stmt = $this->con->prepare("
+        INSERT INTO chitietketqua (makq, macauhoi, dapanchon) 
+        VALUES (?, ?, ?) 
+        ON DUPLICATE KEY UPDATE dapanchon = VALUES(dapanchon)
+    ");
+    $stmt->bind_param("iii", $makq, $macauhoi, $dapanchon);
+    $stmt->execute();
+}
+
+// Hàm phụ: xử lý tất cả câu tự luận từ FormData
+private function xuLyTuLuan($makq)
+{
+    $index = 0;
+    while (true) {
+        $keyMacauhoi = "essay_{$index}_macauhoi";
+        $keyNoidung  = "essay_{$index}_noidung";
+
+        if (!isset($_POST[$keyMacauhoi])) break;
+
+        $macauhoi = $_POST[$keyMacauhoi];
+        $noidung  = $_POST[$keyNoidung] ?? '';
+
+        // Lưu nội dung tự luận
+        $stmt = $this->con->prepare("INSERT INTO traloi_tuluan (makq, macauhoi, noidung) VALUES (?, ?, ?)");
+        $stmt->bind_param("iis", $makq, $macauhoi, $noidung);
+        if (!$stmt->execute()) {
+            error_log("Lỗi INSERT traloi_tuluan: " . $stmt->error);
+            $index++;
+            continue;
+        }
+        $traloi_id = $this->con->insert_id;
+
+        // === LẤY TẤT CẢ ẢNH CÓ KEY: essay_{$index}_image_ ===
+        foreach ($_POST as $postKey => $base64String) {
+            if (strpos($postKey, "essay_{$index}_image_") === 0 && !empty($base64String)) {
+                $imgBinary = base64_decode($base64String);
+                if ($imgBinary === false) continue;
+
+                $stmt2 = $this->con->prepare("INSERT INTO hinhanh_traloi_tuluan (traloi_id, hinhanh) VALUES (?, ?)");
+                $null = NULL;
+                $stmt2->bind_param("ib", $traloi_id, $null);
+                $stmt2->send_long_data(1, $imgBinary);
+                $stmt2->execute();
+            }
+        }
+
+        $index++;
+    }
+}
     public function tookTheExam($made)
     {
         $sql = "select * from ketqua kq join nguoidung nd on kq.manguoidung = nd.id where kq.made = '$made'";
