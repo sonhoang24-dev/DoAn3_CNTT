@@ -75,7 +75,16 @@ $loaide         = getLoaiDe($data);
 $startFormatted = formatDate($data['Test']['thoigianbatdau'] ?? null);
 $endFormatted   = formatDate($data['Test']['thoigianketthuc'] ?? null);
 ?>
+<?php
 
+
+$diemTracNghiem = (float)($data["Check"]["diem"] ?? $data["Check"]["diemthi"] ?? 0);
+$diemTuLuan     = (float)($data["Check"]["diem_tuluan"] ?? 0);
+$trangThaiTuLuan = $data["Check"]["trangthai_tuluan"] ?? 'Chưa chấm';
+
+$daChamTuLuan = ($trangThaiTuLuan === 'Đã chấm');
+$diemCuoiCung = $daChamTuLuan ? round($diemTracNghiem + $diemTuLuan, 2) : null; // null = chưa có điểm cuối
+?>
 <div class="content row justify-content-center align-items-center min-vh-100 py-5">
     <div class="col-lg-6 col-md-10 bg-white p-4 rounded shadow-sm">
         <h4 class="text-center mb-4 text-primary fw-bold"><?= h($data["Test"]["tende"]) ?></h4>
@@ -153,50 +162,125 @@ $endFormatted   = formatDate($data['Test']['thoigianketthuc'] ?? null);
 </div>
 
 <!-- ==================== KẾT QUẢ (nếu được phép xem) ==================== -->
-<?php if ($canViewScore && $hasScore): ?>
-<div class="collapse" id="xemkq">
-    <div class="content row justify-content-center align-items-center mb-5">
-        <div class="col-lg-6 col-md-10 bg-white p-4 rounded shadow-sm">
-            <h3 class="text-center text-uppercase fw-bold mb-3">KẾT QUẢ BÀI THI</h3>
-            <h4 class="text-center mb-4 text-success">
-                Điểm của bạn: 
-                <span class="display-6 fw-bold"><?= h($data["Check"]["diemthi"] ?? '0') ?></span>
-            </h4>
+<?php if ($canViewScore): ?>
+    <?php 
+        $trangthai_tuluan = $data["Check"]["trangthai_tuluan"] ?? 'Chưa chấm';
+        $daChamTuLuan = ($trangthai_tuluan === 'Đã chấm');
+    ?>
 
-            <div class="exam-info mb-4 border-top pt-3">
-                <div class="row mb-3 align-items-center">
-                    <div class="col-6"><i class="far fa-clock text-primary me-2"></i>Thời gian làm bài</div>
-                    <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary">
-                        <?= isset($data["Check"]["thoigianlambai"]) ? max(1, round($data["Check"]["thoigianlambai"] / 60)) : 0 ?> phút
-                    </span></div>
-                </div>
-                <div class="row mb-3 align-items-center">
-                    <div class="col-6"><i class="far fa-calendar-days text-primary me-2"></i>Thời gian vào thi</div>
-                    <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary">
-                        <?= !empty($data["Check"]["thoigianvaothi"]) ? formatDate($data["Check"]["thoigianvaothi"]) : 'Chưa ghi nhận' ?>
-                    </span></div>
-                </div>
-                <div class="row mb-3 align-items-center">
-                    <div class="col-6"><i class="far fa-circle-check text-primary me-2"></i>Số câu đúng</div>
-                    <div class="col-6 text-end"><span class="badge bg-success-subtle text-success">
-                        <?= $data["Check"]["socaudung"] ?? 0 ?>
-                    </span></div>
-                </div>
-                <div class="row mb-3 align-items-center">
-                    <div class="col-6"><i class="far fa-circle-question text-primary me-2"></i>Tổng số câu</div>
-                    <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= $totalQuestions ?></span></div>
-                </div>
+
+    <!-- CÙNG 1 KHU VỰC #xemkq – NỘI DUNG TỰ ĐỔI THEO TRẠNG THÁI -->
+    <div class="collapse mt-4" id="xemkq">
+        <div class="row justify-content-center">
+            <div class="col-lg-7 col-md-10">
+
+                <?php if ($daChamTuLuan && $hasScore): ?>
+    <!-- ĐÃ CHẤM XONG CẢ TỰ LUẬN → HIỆN ĐIỂM CHÍNH XÁC NHẤT -->
+    <div class="bg-white p-4 rounded shadow-sm">
+        <h3 class="text-center text-uppercase fw-bold mb-3 text-primary">KẾT QUẢ BÀI THI</h3>
+        
+        <h4 class="text-center mb-4 text-success">
+            Điểm của bạn: 
+            <span class="display-6 fw-bold text-danger">
+                <?= number_format($diemCuoiCung, 2) ?>
+            </span>
+            <?php if ($diemTuLuan > 0): ?>
+                <small class="d-block text-muted mt-2">
+                    (Trắc nghiệm: <?= number_format($diemTracNghiem, 2) ?> + 
+                     Tự luận: <?= number_format($diemTuLuan, 2) ?>)
+                </small>
+            <?php endif; ?>
+        </h4>
+
+        <div class="exam-info mb-4 border-top pt-3">
+            <div class="row mb-3 align-items-center">
+                <div class="col-6">Thời gian làm bài</div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary">
+                    <?= isset($data["Check"]["thoigianlambai"]) ? max(1, round($data["Check"]["thoigianlambai"] / 60)) : 0 ?> phút
+                </span></div>
+            </div>
+            <div class="row mb-3 align-items-center">
+                <div class="col-6">Thời gian vào thi</div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary">
+                    <?= !empty($data["Check"]["thoigianvaothi"]) ? formatDate($data["Check"]["thoigianvaothi"]) : 'Chưa ghi nhận' ?>
+                </span></div>
+            </div>
+            <div class="row mb-3 align-items-center">
+                <div class="col-6">Số câu đúng (trắc nghiệm)</div>
+                <div class="col-6 text-end"><span class="badge bg-success-subtle text-success">
+                    <?= $data["Check"]["socaudung"] ?? 0 ?>
+                </span></div>
+            </div>
+            <div class="row mb-3 align-items-center">
+                <div class="col-6">Tổng số câu</div>
+                <div class="col-6 text-end"><span class="badge bg-primary-subtle text-primary"><?= $totalQuestions ?></span></div>
             </div>
 
-            <?php if ($showDetailBtn && !empty($data["Check"]["makq"])): ?>
-                <button data-id="<?= $data["Check"]["makq"] ?>" id="show-exam-detail"
-                        class="btn btn-primary w-100 rounded-pill py-3 shadow-sm">
-                    Xem chi tiết bài làm
-                </button>
+            <?php if ($diemTuLuan > 0): ?>
+            <div class="row mb-3 align-items-center">
+                <div class="col-6">Điểm tự luận</div>
+                <div class="col-6 text-end"><span class="badge bg-info-subtle text-info fw-bold">
+                    <?= number_format($diemTuLuan, 2) ?>
+                </span></div>
+            </div>
             <?php endif; ?>
         </div>
+
+        <?php if ($showDetailBtn && !empty($data["Check"]["makq"])): ?>
+            <button data-id="<?= $data["Check"]["makq"] ?>" id="show-exam-detail"
+                    class="btn btn-primary w-100 rounded-pill py-3 shadow-sm">
+                Xem chi tiết bài làm
+            </button>
+        <?php endif; ?>
     </div>
-</div>
+
+<?php else: ?>
+    <!-- CHƯA CHẤM TỰ LUẬN -->
+    <div class="text-center py-5">
+        <i class="fas fa-hourglass-half fa-5x text-warning mb-4"></i>
+        <h3 class="fw-bold text-dark mb-3">Đang chờ chấm tự luận</h3>
+        <p class="lead text-muted px-4">
+            Giáo viên đang chấm phần tự luận của bạn.<br>
+            <?php if ($diemTracNghiem > 0): ?>
+                <small class="d-block mt-3 text-primary">
+                    <strong>Điểm trắc nghiệm tạm tính: <?= number_format($diemTracNghiem, 2) ?></strong>
+                </small>
+            <?php endif; ?>
+            <strong class="d-block mt-3">Điểm chính thức sẽ được cập nhật ngay khi chấm xong!</strong>
+        </p>
+        <div class="mt-4">
+            <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status"></div>
+        </div>
+    </div>
+<?php endif; ?>
+
+            </div>
+        </div>
+    </div>
+    <script>
+$(document).ready(function() {
+    // Nếu collapse đã mở sẵn khi load trang
+    if ($('#xemkq').hasClass('show')) {
+        $('html, body').animate({
+            scrollTop: $('#xemkq').offset().top - 100 // -100 để cách header nếu cần
+        }, 800);
+    }
+
+    // Khi collapse được mở (bootstrap collapse event)
+    $('#xemkq').on('shown.bs.collapse', function () {
+        $('html, body').animate({
+            scrollTop: $('#xemkq').offset().top - 100
+        }, 300);
+    });
+
+    // Nếu bạn dùng nút "Xem chi tiết bài làm" để mở collapse
+    $('#show-exam-detail').on('click', function() {
+        $('#xemkq').collapse('show');
+    });
+});
+</script>
+
+
 <?php endif; ?>
 
 <!-- ==================== MODAL XEM CHI TIẾT ==================== -->

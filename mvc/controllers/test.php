@@ -16,6 +16,7 @@ class Test extends Controller
     public $cauhoimodel;
     public $announcementmodel;
     public $mailmodel;
+    public $cauTraLoiModel;
 
 
 
@@ -25,6 +26,7 @@ class Test extends Controller
         $this->chitietde = $this->model("ChiTietDeThiModel");
         $this->ketquamodel = $this->model("KetQuaModel");
         $this->cauhoimodel = $this->model("CauHoiModel");
+        $this->cauTraLoiModel = $this->model("CauTraLoiModel");
         $this->announcementmodel = $this->model("AnnouncementModel");
         $this->mailmodel = $this->model("MailModel");
 
@@ -515,12 +517,12 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             $loaicauhoi = isset($_POST['loaicauhoi']) ? (is_array($_POST['loaicauhoi']) ? $_POST['loaicauhoi'] : [$_POST['loaicauhoi']]) : ['mcq'];
 
             $socau_json = isset($_POST['socau']) ? $_POST['socau'] : '{}';
-        
-                        // if (empty($monthi)) {
-                        //         // include what we received for easier debugging
-                        //         $received = isset($_POST['mamonhoc']) ? $_POST['mamonhoc'] : '(not set)';
-                        //         throw new Exception("Môn học không hợp lệ. Received mamonhoc=" . $received);
-                        // }
+
+            // if (empty($monthi)) {
+            //         // include what we received for easier debugging
+            //         $received = isset($_POST['mamonhoc']) ? $_POST['mamonhoc'] : '(not set)';
+            //         throw new Exception("Môn học không hợp lệ. Received mamonhoc=" . $received);
+            // }
             if (empty($tende)) {
                 throw new Exception("Tên đề không hợp lệ.");
             }
@@ -772,6 +774,63 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         }
     }
 
+    //lấy câu trả lời tự luận
+    public function getListEssaySubmissionsAction()
+{
+    $made = isset($_REQUEST['made']) ? intval($_REQUEST['made']) : 0;
+
+    if ($made <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Mã đề không hợp lệ']);
+        exit;
+    }
+
+    $result = $this->cauTraLoiModel->getAllEssaySubmissions($made);
+
+    echo json_encode($result);
+    exit;
+}
+
+// 2. LẤY CHI TIẾT BÀI LÀM TỰ LUẬN CỦA 1 THÍ SINH (dùng để mở form chấm điểm)
+public function getEssayDetailAction()
+{
+    $makq = isset($_REQUEST['makq']) ? intval($_REQUEST['makq']) : 0;
+
+    if ($makq <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Mã kết quả không hợp lệ']);
+        exit;
+    }
+
+    $result = $this->cauTraLoiModel->getEssayAnswersByMakq($makq);
+
+    echo json_encode($result);
+    exit;
+}
+//Chấm điểm
+public function saveEssayScoreAction()
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Phương thức không hợp lệ']);
+        exit;
+    }
+
+    $makq        = intval($_POST['makq'] ?? 0);
+    $diemTong    = floatval($_POST['diem'] ?? 0);        // ← THÊM DÒNG NÀY
+    $diemTungCau = $_POST['cau'] ?? [];
+
+    if ($makq <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Thiếu mã kết quả']);
+        exit;
+    }
+
+    $model = $this->model("KetquaModel");
+    $result = $model->luuDiemTuLuan($makq, $diemTong, $diemTungCau);
+    //                                      
+    //                                      
+
+    header('Content-Type: application/json');
+    echo json_encode($result);
+    exit;
+}
 
 
     public function getDethi()

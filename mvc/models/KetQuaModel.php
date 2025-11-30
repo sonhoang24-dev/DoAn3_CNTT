@@ -54,25 +54,33 @@ class KetQuaModel extends DB
         return $socaudung;
     }
 
-   public function submit($made, $nguoidung, $thoigian)
+public function submit($made, $nguoidung, $thoigian)
 {
-    error_log("POST data: " . print_r($_POST, true));
-error_log("FILES data: " . print_r($_FILES, true));
+    error_log("Test::submit called with made=$made, user=$nguoidung");
+    error_log("Raw POST: " . print_r($_POST, true));
+    error_log("FILES: " . print_r($_FILES, true));
+
     // 1. Lấy makq và thời gian vào thi
     $stmt = $this->con->prepare("SELECT makq, thoigianvaothi FROM ketqua WHERE made = ? AND manguoidung = ? AND diemthi IS NULL");
+    if (!$stmt) {
+        error_log("Prepare SELECT ketqua failed: " . $this->con->error);
+        return false;
+    }
     $stmt->bind_param("is", $made, $nguoidung);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
+    $stmt->close();
 
-    if (!$row) return false;
+    if (!$row) {
+        error_log("No ketqua found or already submitted.");
+        return false;
+    }
 
     $makq = $row['makq'];
     $thoigianvaothi = strtotime($row['thoigianvaothi']);
     $thoigian_str = is_array($thoigian) ? ($_POST['thoigian'] ?? date('Y-m-d H:i:s')) : $thoigian;
-$thoigianlambai = strtotime($thoigian_str) - $thoigianvaothi;
-if ($thoigianlambai < 0) $thoigianlambai = 0;
-    if ($thoigianlambai < 0) $thoigianlambai = 0;
+    $thoigianlambai = max(strtotime($thoigian_str) - $thoigianvaothi, 0);
 
     // 2. Xử lý trắc nghiệm
     $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
@@ -80,96 +88,224 @@ if ($thoigianlambai < 0) $thoigianlambai = 0;
     $tongcau_tn = 0;
 
     foreach ($listCauTraLoi as $ans) {
-        $macauhoi = $ans['macauhoi'];
-        $cautraloi = $ans['cautraloi'] ?? 0;
+        $macauhoi = intval($ans['macauhoi']);
+        $cautraloi = intval($ans['cautraloi'] ?? 0);
 
         if ($cautraloi != 0) {
             $tongcau_tn++;
 
-            // Kiểm tra đúng/sai
-            $check = $this->con->prepare("SELECT 1 FROM cauhoi WHERE macauhoi = ? AND macautl_dung = ?");
-            $check->bind_param("ii", $macauhoi, $cautraloi);
-            $check->execute();
-            if ($check->get_result()->num_rows > 0) $socaudung_tn++;
+            $check = $this->con->prepare("SELECT 1 FROM cautraloi WHERE macauhoi = ? AND macautl = ? AND ladapan = 1");
+            if ($check) {
+                $check->bind_param("ii", $macauhoi, $cautraloi);
+                $check->execute();
+                $resCheck = $check->get_result();
+                if ($resCheck->num_rows > 0) $socaudung_tn++;
+                $check->close();
+            }
 
-            // Lưu đáp án
             $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
         }
     }
 
     $diem_tracnghiem = $tongcau_tn > 0 ? round(10 * $socaudung_tn / $tongcau_tn, 2) : 0;
 
-    // 3. Xử lý tự luận (có ảnh)
+    // 3. Xử lý tự luận
     $this->xuLyTuLuan($makq);
 
-    // 4. Cập nhật ketqua (chỉ điểm trắc nghiệm, tổng điểm sẽ cập nhật sau khi chấm tự luận)
+    // 4. Kiểm tra đề có câu tự luận
+    $stmtCheckTL = $this->con->prepare("
+        SELECT COUNT(*) AS total_tl
+        FROM chitietdethi ctd
+        JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi
+        WHERE ctd.made = ? AND ch.loai IN ('essay','tuluan')
+    ");
+    if ($stmtCheckTL) {
+        $stmtCheckTL->bind_param("i", $made);
+        $stmtCheckTL->execute();
+        $resTL = $stmtCheckTL->get_result()->fetch_assoc();
+        $stmtCheckTL->close();
+        $trangthai_tuluan = ($resTL['total_tl'] == 0) ? 'Đã chấm' : 'Chưa chấm';
+    } else {
+        $trangthai_tuluan = 'Chưa chấm';
+    }
+
+    // 5. Cập nhật ketqua
     $stmt = $this->con->prepare("
         UPDATE ketqua 
-        SET diemthi = ?, 
-            thoigianlambai = ?, 
-            socaudung = ?,
-            trangthai = 'Đã nộp',
-            thoigiannop = NOW()
+        SET diemthi = ?, thoigianlambai = ?, socaudung = ?, trangthai = 'Đã nộp', trangthai_tuluan = ?
         WHERE makq = ?
     ");
-    $stmt->bind_param("diii", $diem_tracnghiem, $thoigianlambai, $socaudung_tn, $makq);
+    if (!$stmt) {
+        error_log("Prepare UPDATE ketqua failed: " . $this->con->error);
+        return false;
+    }
+    $stmt->bind_param("diisi", $diem_tracnghiem, $thoigianlambai, $socaudung_tn, $trangthai_tuluan, $makq);
     $stmt->execute();
+    $stmt->close();
 
     return true;
 }
 
-// Hàm phụ: lưu đáp án trắc nghiệm (upsert)
+private function xuLyTuLuan($makq)
+{
+    // Lấy danh sách tất cả các câu tự luận được gửi lên
+    $essays = [];
+    foreach ($_POST as $key => $value) {
+        if (preg_match('/^essay_(\d+)_macauhoi$/', $key, $matches)) {
+            $index = $matches[1];
+            $essays[$index] = [
+                'macauhoi' => intval($_POST["essay_{$index}_macauhoi"]),
+                'noidung'  => $_POST["essay_{$index}_noidung"] ?? '',
+                'images'   => []
+            ];
+
+            // Thu thập tất cả ảnh của câu này
+            foreach ($_POST as $imgKey => $base64) {
+                if (strpos($imgKey, "essay_{$index}_image_") === 0 && !empty($base64)) {
+                    $essays[$index]['images'][] = $base64;
+                }
+            }
+        }
+    }
+
+    // Bây giờ xử lý từng câu một cách an toàn
+    foreach ($essays as $index => $essay) {
+        $macauhoi = $essay['macauhoi'];
+        $noidung  = $essay['noidung'];
+
+        // 1. Lưu nội dung trả lời tự luận
+        $stmt = $this->con->prepare("INSERT INTO traloi_tuluan (makq, macauhoi, noidung) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE noidung = VALUES(noidung)");
+        if (!$stmt) {
+            error_log("Prepare INSERT traloi_tuluan failed: " . $this->con->error);
+            continue;
+        }
+        $stmt->bind_param("iis", $makq, $macauhoi, $noidung);
+        if (!$stmt->execute()) {
+            error_log("Execute traloi_tuluan failed: " . $stmt->error);
+            $stmt->close();
+            continue;
+        }
+        $traloi_id = $this->con->insert_id ?: $this->getTraloiId($makq, $macauhoi); // phòng trường hợp đã tồn tại
+        $stmt->close();
+
+        // 2. Lưu tất cả ảnh của câu này
+        foreach ($essay['images'] as $base64String) {
+            $imgBinary = base64_decode($base64String);
+            if ($imgBinary === false) continue;
+
+            $stmt2 = $this->con->prepare("INSERT INTO hinhanh_traloi_tuluan (traloi_id, hinhanh) VALUES (?, ?)");
+            if (!$stmt2) continue;
+
+            $null = NULL;
+            $stmt2->bind_param("ib", $traloi_id, $null);
+            $stmt2->send_long_data(1, $imgBinary); // quan trọng: stream ảnh lớn
+            $stmt2->execute();
+            $stmt2->close();
+        }
+    }
+}
+
+// Hàm phụ trợ nếu cần lấy lại traloi_id khi đã tồn tại
+private function getTraloiId($makq, $macauhoi) {
+    $stmt = $this->con->prepare("SELECT id FROM traloi_tuluan WHERE makq = ? AND macauhoi = ?");
+    $stmt->bind_param("ii", $makq, $macauhoi);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    return $row['id'] ?? 0;
+}
+
+
+
+// Hàm lưu đáp án trắc nghiệm
 private function luuDapAnTracNghiem($makq, $macauhoi, $dapanchon)
 {
     $stmt = $this->con->prepare("
-        INSERT INTO chitietketqua (makq, macauhoi, dapanchon) 
-        VALUES (?, ?, ?) 
+        INSERT INTO chitietketqua (makq, macauhoi, dapanchon)
+        VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE dapanchon = VALUES(dapanchon)
     ");
+    if (!$stmt) {
+        error_log("Prepare chitietketqua failed: " . $this->con->error);
+        return false;
+    }
     $stmt->bind_param("iii", $makq, $macauhoi, $dapanchon);
     $stmt->execute();
+    $stmt->close();
+    return true;
 }
 
-// Hàm phụ: xử lý tất cả câu tự luận từ FormData
-private function xuLyTuLuan($makq)
+   
+    // Lưu điểm TL
+public function luuDiemTuLuan($makq, $diemTong, $diemTungCau = [])
 {
-    $index = 0;
-    while (true) {
-        $keyMacauhoi = "essay_{$index}_macauhoi";
-        $keyNoidung  = "essay_{$index}_noidung";
+    $makq     = intval($makq);
+    $diemTong = round(floatval($diemTong), 2);
 
-        if (!isset($_POST[$keyMacauhoi])) break;
+    if ($makq <= 0) {
+        return ['success' => false, 'message' => 'Mã kết quả không hợp lệ'];
+    }
 
-        $macauhoi = $_POST[$keyMacauhoi];
-        $noidung  = $_POST[$keyNoidung] ?? '';
+    mysqli_begin_transaction($this->con);
 
-        // Lưu nội dung tự luận
-        $stmt = $this->con->prepare("INSERT INTO traloi_tuluan (makq, macauhoi, noidung) VALUES (?, ?, ?)");
-        $stmt->bind_param("iis", $makq, $macauhoi, $noidung);
-        if (!$stmt->execute()) {
-            error_log("Lỗi INSERT traloi_tuluan: " . $stmt->error);
-            $index++;
-            continue;
-        }
-        $traloi_id = $this->con->insert_id;
+    try {
+        // BƯỚC 1: Lưu điểm từng câu (gộp 1 câu lệnh duy nhất)
+        if (!empty($diemTungCau) && is_array($diemTungCau)) {
+            $values = [];
+            $params = [];
+            $types  = '';
 
-        // === LẤY TẤT CẢ ẢNH CÓ KEY: essay_{$index}_image_ ===
-        foreach ($_POST as $postKey => $base64String) {
-            if (strpos($postKey, "essay_{$index}_image_") === 0 && !empty($base64String)) {
-                $imgBinary = base64_decode($base64String);
-                if ($imgBinary === false) continue;
+            foreach ($diemTungCau as $macauhoi => $diem) {
+                $macauhoi = intval($macauhoi);
+                $diem     = round(floatval($diem), 2);
 
-                $stmt2 = $this->con->prepare("INSERT INTO hinhanh_traloi_tuluan (traloi_id, hinhanh) VALUES (?, ?)");
-                $null = NULL;
-                $stmt2->bind_param("ib", $traloi_id, $null);
-                $stmt2->send_long_data(1, $imgBinary);
-                $stmt2->execute();
+                if ($macauhoi > 0) {
+                    $values[] = "(?, ?, ?)";
+                    $params[] = $makq;
+                    $params[] = $macauhoi;
+                    $params[] = $diem;
+                    $types .= 'iid';
+                }
+            }
+
+            if (!empty($values)) {
+                $sql = "INSERT INTO cham_tuluan (makq, macauhoi, diem) VALUES "
+                     . implode(',', $values)
+                     . " ON DUPLICATE KEY UPDATE diem = VALUES(diem)";
+
+                $stmt = mysqli_prepare($this->con, $sql);
+
+                // bind_param với số lượng tham số động
+                mysqli_stmt_bind_param($stmt, $types, ...$params);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
             }
         }
 
-        $index++;
+        // BƯỚC 2: Cập nhật tổng điểm vào ketqua
+        $trangthai = ($diemTong > 0) ? 'Đã chấm' : 'Chưa chấm';
+        $sql = "UPDATE ketqua SET diem_tuluan = ?, trangthai_tuluan = ? WHERE makq = ?";
+        $stmt = mysqli_prepare($this->con, $sql);
+        mysqli_stmt_bind_param($stmt, "dsi", $diemTong, $trangthai, $makq);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        mysqli_commit($this->con);
+
+    } catch (Exception $e) {
+        mysqli_rollback($this->con);
+        return ['success' => false, 'message' => 'Lỗi: ' . $e->getMessage()];
     }
+
+    return [
+        'success' => true,
+        'message' => 'Lưu điểm tự luận thành công!',
+        'diem_tuluan' => $diemTong
+    ];
 }
+
+
     public function tookTheExam($made)
     {
         $sql = "select * from ketqua kq join nguoidung nd on kq.manguoidung = nd.id where kq.made = '$made'";

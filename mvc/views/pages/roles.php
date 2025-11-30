@@ -129,6 +129,21 @@
                                 </td>
                             </tr>
                             <tr>
+                                <td>Năm học</td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="namhoc" value="view">
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="namhoc" value="create">
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="namhoc" value="update">
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="namhoc" value="delete">
+                                </td>
+                            </tr>
+                            <tr>
                                 <td>Xem Môn Học</td>
                                 <td class="text-center">
                                     <input class="form-check-input" type="checkbox" name="xem_monhoc" value="view">

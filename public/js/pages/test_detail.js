@@ -607,7 +607,338 @@ function showChart(data) {
     },
   });
 }
+//chấm tự luận
+$(document).ready(function () {
+  // Ẩn badge số lượng chưa chấm lúc đầu
+  $("#count-chua-cham").hide();
+});
 
+// ==================== 1. KHI MỞ TAB CHẤM TỰ LUẬN ====================
+$("#cham-tuluan-tab").on("shown.bs.tab", function () {
+  const made = $("#chitietdethi").data("id");
+  if (made && made > 0) {
+    loadStudentsEssayToGrade(made);
+  }
+});
+
+// ==================== 2. LOAD DANH SÁCH SINH VIÊN CÓ BÀI TỰ LUẬN ====================
+function loadStudentsEssayToGrade(made) {
+  $.ajax({
+    url: "./test/getListEssaySubmissionsAction",
+    type: "POST",
+    data: { made: made },
+    dataType: "json",
+    success: function (res) {
+      if (!res || !res.success || !res.data || res.data.length === 0) {
+        $("#danh-sach-sinhvien-tuluan").html(`
+          <div class="text-center py-5 text-muted">
+            <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i>
+            <p class="mb-0">Không có bài nộp tự luận</p>
+          </div>
+        `);
+        $("#count-chua-cham").hide();
+        return;
+      }
+
+      let html = "";
+      let chuaCham = 0;
+
+      res.data.forEach((item) => {
+        const tn =
+          item.diemthi !== null ? parseFloat(item.diemthi).toFixed(2) : "0.00";
+        const tl = parseFloat(item.diem_tuluan_hien_tai || 0).toFixed(2);
+        const tong = (parseFloat(tn) + parseFloat(tl)).toFixed(2);
+        const daCham = parseFloat(tl) > 0;
+        if (!daCham) chuaCham++;
+
+        const hoten = item.hoten?.trim() || item.manguoidung;
+        const avatarLetter = hoten.charAt(0).toUpperCase();
+
+        const badge = daCham
+          ? `<div class="badge bg-success rounded-pill px-3 py-2"><i class="fas fa-check me-1"></i>${tl}</div>`
+          : `<div class="badge bg-warning text-dark rounded-pill px-3 py-2"><i class="fas fa-clock me-1"></i>Chưa chấm</div>`;
+
+        html += `
+        <div class="student-item border rounded-3 mb-3 shadow-sm hover-shadow transition-all pointer bg-white"
+             data-makq="${item.makq}" 
+             data-manguoidung="${item.manguoidung}" 
+             data-hoten="${hoten}">
+
+          <div class="p-3">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+              
+              <!-- Avatar + Tên + MSSV -->
+              <div class="d-flex align-items-center flex-grow-1 min-width-0">
+                <div class="avatar-bg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 me-3"
+                     style="width:48px; height:48px; font-size:20px; font-weight:bold;">
+                  ${avatarLetter}
+                </div>
+                <div class="min-width-0">
+                  <h6 class="mb-1 fw-bold text-dark text-truncate">${hoten}</h6>
+                  <small class="text-muted"><i class="fas fa-id-card me-1"></i>${
+                    item.manguoidung
+                  }</small>
+                </div>
+              </div>
+
+              <!-- ĐIỂM - RESPONSIVE HOÀN HẢO -->
+              <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+                <div class="text-center">
+                  <small class="text-muted d-block fw-medium">Trắc nghiệm</small>
+                  <strong class="text-info fs-5">${tn}</strong>
+                </div>
+                <div class="text-center">
+                  <small class="text-muted d-block fw-medium">Tự luận</small>
+                  <strong class="${
+                    daCham ? "text-success" : "text-danger"
+                  } fs-5">${tl}</strong>
+                </div>
+                <div class="text-center border-start ps-3">
+                  <small class="text-muted d-block fw-medium">Tổng</small>
+                  <strong class="text-primary fs-4 fw-bold">${tong}đ</strong>
+                </div>
+              </div>
+
+              <!-- Badge trạng thái -->
+              <div class="d-flex align-items-center ms-3">
+                ${badge}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      });
+
+      $("#danh-sach-sinhvien-tuluan").html(html);
+      $("#total-chua-cham").text(chuaCham);
+      $("#count-chua-cham")
+        .text(chuaCham > 0 ? chuaCham : "")
+        .toggle(chuaCham > 0);
+    },
+    error: function () {
+      $("#danh-sach-sinhvien-tuluan").html(`
+        <div class="text-center py-5 text-danger">
+          <i class="fas fa-wifi fa-3x mb-3"></i>
+          <p>Lỗi kết nối. Vui lòng thử lại!</p>
+        </div>
+      `);
+    },
+  });
+}
+// ==================== 3. KHI CLICK VÀO 1 SINH VIÊN ====================
+$(document).on(
+  "click",
+  "#danh-sach-sinhvien-tuluan .student-item",
+  function () {
+    const $this = $(this);
+    const makq = $this.data("makq");
+    const hoten = $this.data("hoten");
+    const mssv = $this.data("manguoidung");
+
+    // Active
+    $(".student-item").removeClass("active bg-primary text-white");
+    $this.addClass("active bg-primary text-white");
+
+    // Hiển thị thông tin sinh viên
+    $("#ten-sinhvien-cham").text(hoten);
+    $("#mssv-cham").text(mssv);
+    $("#khu-vuc-cham-bai").show();
+
+    // Load bài làm
+    $.post(
+      "./test/getEssayDetailAction",
+      { makq: makq },
+      function (res) {
+        if (!res.success || !res.cautraloi || res.cautraloi.length === 0) {
+          $("#noi-dung-tuluan").html(
+            '<div class="alert alert-warning text-center">Chưa có bài làm tự luận.</div>'
+          );
+          $("#tong-diem-tuluan").text("0.00");
+          $("#diem-tuluan-input").val("0");
+          return;
+        }
+
+        let html = "";
+        let tong = 0;
+
+        res.cautraloi.forEach((c, i) => {
+          const diem = parseFloat(c.diem_cham || 0);
+          tong += diem;
+
+          html += `
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7);">
+          <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Câu ${
+            i + 1
+          } (Mã: ${c.macauhoi})</h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-4">
+            <strong class="text-danger"><i class="fas fa-book-open me-2"></i>Câu hỏi:</strong>
+            <div class="bg-light p-3 rounded border mt-2">${
+              c.noidung_cauhoi || "—"
+            }</div>
+          </div>
+
+          <div class="mb-4">
+            <strong class="text-success"><i class="fas fa-pen me-2"></i>Trả lời:</strong>
+            <div class="bg-white p-3 rounded border mt-2 min-vh-20">
+              ${
+                c.noidung_tra_loi
+                  ? c.noidung_tra_loi
+                  : '<em class="text-muted">Không có nội dung</em>'
+              }
+            </div>
+          </div>
+
+          ${
+            c.hinhanh && c.hinhanh.length > 0
+              ? c.hinhanh
+                  .map(
+                    (img) => `
+            <div class="text-center mb-4">
+              <img src="data:image/png;base64,${img}" class="img-fluid rounded shadow" style="max-height: 500px;">
+            </div>`
+                  )
+                  .join("")
+              : ""
+          }
+
+          <div class="mt-4 d-flex align-items-center">
+            <label class="fw-bold text-primary me-3">Điểm câu này:</label>
+            <input type="number" step="0.25" min="0" max="50"
+                   class="form-control diem-cau w-25" style="font-size:1.2rem;"
+                   value="${diem.toFixed(2)}" data-macauhoi="${c.macauhoi}">
+            <small class="text-muted ms-3"><i class="fas fa-clock"></i> ${
+              c.thoigianlam || "—"
+            }</small>
+          </div>
+        </div>
+      </div>`;
+        });
+
+        $("#noi-dung-tuluan").html(html);
+        $("#tong-diem-tuluan").text(tong.toFixed(2));
+        $("#diem-tuluan-input").val(tong.toFixed(2));
+        $(".diem-cau").first().focus();
+      },
+      "json"
+    );
+  }
+);
+
+// ==================== 4. TỰ ĐỘNG TÍNH TỔNG ĐIỂM KHI NHẬP ====================
+$(document).on("input change", ".diem-cau", function () {
+  let tong = 0;
+  $(".diem-cau").each(function () {
+    const val = parseFloat($(this).val()) || 0;
+    tong += val;
+  });
+  $("#tong-diem-tuluan").text(tong.toFixed(2));
+  $("#diem-tuluan-input").val(tong.toFixed(2));
+});
+
+// ==================== 5. LƯU ĐIỂM TỰ LUẬN ====================
+let isSavingEssayScore = false; // Chống double submit
+
+$("#form-cham-diem-tuluan").on("submit", function (e) {
+  e.preventDefault();
+
+  if (isSavingEssayScore) return;
+  isSavingEssayScore = true;
+
+  const $btn = $(this).find("button[type=submit]");
+  const $activeItem = $("#danh-sach-sinhvien-tuluan .student-item.active");
+  const makq = $activeItem.data("makq");
+
+  if (!makq || makq <= 0) {
+    Swal.fire("Lỗi", "Vui lòng chọn sinh viên để chấm!", "error");
+    isSavingEssayScore = false;
+    return;
+  }
+
+  // LẤY TỔNG ĐIỂM TỪ Ô INPUT (người dùng nhập)
+  const diemTong = parseFloat($("#diem-tuluan-input").val()) || 0;
+
+  // QUAN TRỌNG: Thu thập điểm từng câu để gửi lên lưu chi tiết
+  const diemTungCau = {};
+  $(".diem-cau").each(function () {
+    const macauhoi = $(this).data("macauhoi");
+    const diem = parseFloat($(this).val()) || 0;
+    if (macauhoi > 0) {
+      diemTungCau[macauhoi] = diem;
+    }
+  });
+
+  // Vô hiệu hóa nút
+  $btn
+    .prop("disabled", true)
+    .html('<span class="spinner-border spinner-border-sm"></span> Đang lưu...');
+
+  $.post("./test/saveEssayScoreAction", {
+    makq: makq,
+    diem: diemTong, // tổng điểm → lưu vào ketqua.diem_tuluan
+    cau: diemTungCau, // điểm từng câu → lưu vào bảng cham_tuluan
+  })
+    .done(function (res) {
+      if (res.success && res.diem_tuluan !== undefined) {
+        const diemTuLuan = parseFloat(res.diem_tuluan).toFixed(2);
+
+        Swal.fire({
+          icon: "success",
+          title: "Thành công!",
+          text: `Đã lưu điểm tự luận: ${diemTuLuan} điểm`,
+          timer: 1500,
+          showConfirmButton: false,
+        });
+
+        // Cập nhật badge
+        const $badge = $activeItem.find(".badge");
+        $badge
+          .removeClass("bg-warning text-dark")
+          .addClass("bg-success")
+          .html(`<i class="fas fa-check me-1"></i>${diemTuLuan}đ`);
+
+        // Cập nhật điểm tự luận trong danh sách sinh viên
+        const $cols = $activeItem.find(".text-center strong.fs-5");
+        const diemTracNghiem = parseFloat($cols.eq(0).text()) || 0;
+        $cols
+          .eq(1)
+          .text(diemTuLuan)
+          .removeClass("text-danger")
+          .addClass("text-success");
+
+        // Cập nhật tổng điểm
+        const tongDiem = (diemTracNghiem + parseFloat(diemTuLuan)).toFixed(2);
+        $activeItem.find(".text-center strong.fs-4").text(tongDiem);
+
+        // Cập nhật lại khu vực chấm bài
+        $("#tong-diem-tuluan").text(diemTuLuan);
+        $("#diem-tuluan-input").val(diemTuLuan);
+
+        // Cập nhật số bài chưa chấm
+        const currentCount = parseInt($("#count-chua-cham").text()) || 0;
+        if (currentCount > 0) {
+          const newCount = currentCount - 1;
+          $("#count-chua-cham").text(newCount);
+          if (newCount === 0) $("#count-chua-cham").hide();
+        }
+      } else {
+        Swal.fire("Lỗi", res.message || "Không thể lưu điểm tự luận", "error");
+      }
+    })
+    .fail(function (xhr) {
+      console.error("Lỗi AJAX:", xhr.responseText);
+      Swal.fire(
+        "Lỗi hệ thống",
+        "Không kết nối được server. Vui lòng thử lại!",
+        "error"
+      );
+    })
+    .always(function () {
+      isSavingEssayScore = false;
+      $btn.prop("disabled", false).html("Lưu điểm");
+    });
+});
 // Pagination
 const mainPagePagination = new Pagination();
 mainPagePagination.option.controller = "test";

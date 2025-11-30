@@ -280,99 +280,139 @@
             <div id="chuong" class="d-flex flex-column gap-2"></div>
         </div>
         <!-- LOẠI CÂU HỎI -->
-        <div class="mb-4" id="loaicauhoi-container">
-            <div class="col-md-6 form-section">
-                <label class="form-label section-title"> <i class="fa fa-list-check text-primary me-2"></i>Loại câu hỏi</label>
-                <div class="d-flex justify-content-between">
-                    <div class="form-check d-flex align-items-center">
-                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tracnghiem" name="loai_cau_hoi[]" value="mcq" checked>
-                        <label class="form-check-label mb-0" for="loai-tracnghiem">Trắc nghiệm</label>
-                    </div>
-                    <div class="form-check d-flex align-items-center">
-                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tuluan" name="loai_cau_hoi[]" value="essay">
-                        <label class="form-check-label mb-0" for="loai-tuluan">Tự luận</label>
-                    </div>
-                    <div class="form-check d-flex align-items-center">
-                        <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-doc-hieu" name="loai_cau_hoi[]" value="reading">
-                        <label class="form-check-label mb-0" for="loai-doc-hieu">Đọc hiểu</label>
-                    </div>
+      <div class="mb-4" id="loaicauhoi-container">
+    <div class="col-md-6 form-section">
+        <label class="form-label section-title">
+            <i class="fa fa-list-check text-primary me-2"></i>Loại câu hỏi
+        </label>
+
+        <div class="d-flex flex-column gap-2">
+            <!-- Trắc nghiệm -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check d-flex align-items-center flex-grow-1">
+                    <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tracnghiem" name="loai_cau_hoi[]" value="mcq" checked>
+                    <label class="form-check-label mb-0" for="loai-tracnghiem">Trắc nghiệm</label>
+                </div>
+                <input type="number" class="form-control w-25" name="diem_tracnghiem" id="diem_tracnghiem" placeholder="Điểm/câu" step="0.1" min="0">
+            </div>
+
+            <!-- Tự luận -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check d-flex align-items-center flex-grow-1">
+                    <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-tuluan" name="loai_cau_hoi[]" value="essay">
+                    <label class="form-check-label mb-0" for="loai-tuluan">Tự luận</label>
+                </div>
+                <input type="number" class="form-control w-25" name="diem_tuluan" id="diem_tuluan" placeholder="Điểm/câu" step="0.1" min="0">
+            </div>
+
+            <!-- Đọc hiểu -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check d-flex align-items-center flex-grow-1">
+                    <input class="form-check-input dang-hoi me-2" type="checkbox" id="loai-doc-hieu" name="loai_cau_hoi[]" value="reading">
+                    <label class="form-check-label mb-0" for="loai-doc-hieu">Đọc hiểu</label>
+                </div>
+                <input type="number" class="form-control w-25" name="diem_dochieu" id="diem_dochieu" placeholder="Điểm/câu" step="0.1" min="0">
+            </div>
+        </div>
+    </div>
+</div>
+
+        <!-- SỐ LƯỢNG CÂU THEO DẠNG & MỨC ĐỘ -->
+<div id="socau-container" class="mb-4">
+
+    <div class="fs-5 fw-bold mb-3">Cấu hình số lượng câu hỏi</div>
+
+    <div class="socau-wrapper">
+
+        <!-- TEMPLATE CHUNG CHO MỖI LOẠI CÂU HỎI -->
+        <div class="socau-card mb-3 p-3 border rounded shadow-sm" id="box-tn" data-type="tracnghiem">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa fa-check-circle text-primary fs-4"></i>
+                    <span class="fw-semibold fs-6">Trắc nghiệm</span>
+                </div>
+                <span class="text-muted small">Nhập số câu cho từng mức độ</span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Dễ</label>
+                    <input type="number" class="form-control" name="socaude_tracnghiem" id="coban_tracnghiem" min="0">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Trung bình</label>
+                    <input type="number" class="form-control" name="socautb_tracnghiem" id="trungbinh_tracnghiem" min="0">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Khó</label>
+                    <input type="number" class="form-control" name="socaukho_tracnghiem" id="kho_tracnghiem" min="0">
                 </div>
             </div>
         </div>
 
-        <!-- SỐ LƯỢNG CÂU (THƯỜNG ĐỂ ẨN/HIỆN) -->
-        <div class="mb-3" id="socau-container">
-            <div class="section-title">Số lượng câu hỏi theo dạng & mức độ</div>
-            <div class="p-3 border rounded socau-group">
 
-                <!-- Trắc nghiệm -->
-                <div class="mb-3 socau-type" id="box-tn" data-type="tracnghiem">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="fw-semibold">Trắc nghiệm</div>
-                        <div class="small-muted">Nhập số câu cho từng mức độ</div>
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <label class="small-muted">Dễ</label>
-                            <input type="number" class="form-control" name="socaude_tracnghiem" id="coban_tracnghiem" min="0" step="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="small-muted">Trung bình</label>
-                            <input type="number" class="form-control" name="socautb_tracnghiem" id="trungbinh_tracnghiem" min="0" step="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="small-muted">Khó</label>
-                            <input type="number" class="form-control" name="socaukho_tracnghiem" id="kho_tracnghiem" min="0" step="1">
-                        </div>
-                    </div>
+        <!-- Tự luận -->
+        <div class="socau-card mb-3 p-3 border rounded shadow-sm d-none" id="box-tl" data-type="tuluan">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa fa-file-pen text-warning fs-4"></i>
+                    <span class="fw-semibold fs-6">Tự luận</span>
                 </div>
+                <span class="text-muted small">Nhập số câu cho từng mức độ</span>
+            </div>
 
-                <!-- Tự luận -->
-                <div class="mb-3 socau-type d-none" id="box-tl" data-type="tuluan">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="fw-semibold">Tự luận</div>
-                        <div class="small-muted">Nhập số câu cho từng mức độ</div>
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <label class="small-muted">Dễ</label>
-                            <input type="number" class="form-control" name="socaude_tuluan" id="coban_tuluan" min="0" step="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="small-muted">Trung bình</label>
-                            <input type="number" class="form-control" name="socautb_tuluan" id="trungbinh_tuluan" min="0" step="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="small-muted">Khó</label>
-                            <input type="number" class="form-control" name="socaukho_tuluan" id="kho_tuluan" min="0" step="1">
-                        </div>
-                    </div>
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Dễ</label>
+                    <input type="number" class="form-control" name="socaude_tuluan" id="coban_tuluan" min="0">
                 </div>
-
-                <!-- Đọc hiểu -->
-                <div class="mb-3 socau-type d-none" id="box-dh" data-type="dochieu">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="fw-semibold">Đọc hiểu</div>
-                        <div class="small-muted">Nhập số câu cho từng mức độ</div>
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <label class="small-muted">Dễ</label>
-                            <input type="number" class="form-control" name="socaude_dochieu" id="coban_dochieu" min="0" step="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="small-muted">Trung bình</label>
-                            <input type="number" class="form-control" name="socautb_dochieu" id="trungbinh_dochieu" min="0" step="1">
-                        </div>
-                        <div class="col-4">
-                            <label class="small-muted">Khó</label>
-                            <input type="number" class="form-control" name="socaukho_dochieu" id="kho_dochieu" min="0" step="1">
-                        </div>
-                    </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Trung bình</label>
+                    <input type="number" class="form-control" name="socautb_tuluan" id="trungbinh_tuluan" min="0">
                 </div>
-
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Khó</label>
+                    <input type="number" class="form-control" name="socaukho_tuluan" id="kho_tuluan" min="0">
+                </div>
             </div>
         </div>
+
+
+        <!-- Đọc hiểu -->
+        <div class="socau-card mb-3 p-3 border rounded shadow-sm d-none" id="box-dh" data-type="dochieu">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa fa-book text-success fs-4"></i>
+                    <span class="fw-semibold fs-6">Đọc hiểu</span>
+                </div>
+                <span class="text-muted small">Nhập số câu cho từng mức độ</span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Dễ</label>
+                    <input type="number" class="form-control" name="socaude_dochieu" id="coban_dochieu" min="0">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Trung bình</label>
+                    <input type="number" class="form-control" name="socautb_dochieu" id="trungbinh_dochieu" min="0">
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted">Khó</label>
+                    <input type="number" class="form-control" name="socaukho_dochieu" id="kho_dochieu" min="0">
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+       
 
         <!-- NÚT HÀNH ĐỘNG -->
         <div class="mb-4">

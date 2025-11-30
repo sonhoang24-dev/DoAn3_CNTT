@@ -282,24 +282,22 @@ $(document).ready(function () {
               editor.model.document.on("change:data", () => {
                 const raw = editor.getData();
 
-                // Tạo div tạm để xử lý
+                // Tạo div tạm để xử lý (không push ảnh ở đây để tránh duplicate)
                 const div = document.createElement("div");
                 div.innerHTML = raw;
 
-                // 1. Tách ảnh ra (nếu có)
-                answers[index].images = answers[index].images || [];
+                // Loại bỏ thẻ img khỏi div để lấy nội dung text sạch
                 div.querySelectorAll("img").forEach((img) => {
                   if (img.src && img.src.startsWith("data:image")) {
-                    answers[index].images.push(img.src);
                     img.remove();
                   }
                 });
 
-                // 2. Lấy nội dung sạch nhất có thể
+                // Lấy nội dung sạch nhất có thể
                 let cleanText = div.innerHTML
                   .replace(/<p>/gi, "")
                   .replace(/<\/p>/gi, "\n")
-                  .replace(/<br\s*\/?>/gi, "\n")
+                  .replace(/<br\s*\/>/gi, "\n")
                   .replace(/&nbsp;/gi, " ")
                   .replace(/\n+/g, "\n")
                   .trim();
@@ -310,8 +308,9 @@ $(document).ready(function () {
                   answers[index].noidungtl = cleanText;
                 }
 
-                // Lưu lại
-                localStorage.setItem(answerKey, JSON.stringify(answers));
+                // Đồng bộ ảnh từ nội dung editor (syncImages sẽ ghi vào localStorage)
+                if (typeof syncImages === "function") syncImages();
+
                 showBtnSideBar(questions, answers);
               });
 
@@ -328,16 +327,16 @@ $(document).ready(function () {
                   const reader = new FileReader();
                   reader.onload = function (ev) {
                     const imgSrc = ev.target.result;
-                    answers[index].images.push(imgSrc);
 
-                    // Chèn ảnh vào editor
+                    // Chèn ảnh vào editor; không push trực tiếp vào answers để tránh duplicate.
                     editor.setData(
                       editor.getData() +
                         `<p><img src="${imgSrc}" style="max-width:100%;height:auto;"></p>`
                     );
 
+                    // Đồng bộ ảnh từ editor vào answers và cập nhật preview
+                    if (typeof syncImages === "function") syncImages();
                     renderImages(); // Cập nhật preview
-                    localStorage.setItem(answerKey, JSON.stringify(answers));
                   };
                   reader.readAsDataURL(file);
                 });
