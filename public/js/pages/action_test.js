@@ -750,30 +750,30 @@ $(document).ready(function () {
         },
         error: function (xhr, status, error) {
           console.error("AJAX Error:", xhr.status, xhr.responseText);
+          let msg = "Lỗi hệ thống";
+          // Prefer parsed JSON error message when available
+          if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
+            msg = xhr.responseJSON.error;
+          } else if (xhr && xhr.responseText) {
+            try {
+              const json = JSON.parse(xhr.responseText);
+              if (json && json.error) msg = json.error;
+              else msg = xhr.responseText;
+            } catch (e) {
+              msg = xhr.responseText;
+            }
+          } else if (error) {
+            msg = error;
+          }
+
           Dashmix.helpers("jq-notify", {
             type: "danger",
             icon: "fa fa-times me-1",
-            message: `Lỗi: ${xhr.responseText || error}`,
+            message: `Lỗi: ${msg}`,
           });
         },
       });
-      // ưu tiên responseJSON nếu server trả về
-      if (xhr.responseJSON && xhr.responseJSON.error) {
-        msg = xhr.responseJSON.error;
-      } else if (xhr.responseText) {
-        try {
-          // parse JSON từ responseText nếu chưa tự parse
-          const json = JSON.parse(xhr.responseText);
-          if (json.error) msg = json.error;
-        } catch (e) {
-          msg = xhr.responseText; // fallback raw text
-        }
-      }
-
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        message: `Lỗi: ${msg}`,
-      });
+      // end of #btn-update-test click handler
     }
   });
 

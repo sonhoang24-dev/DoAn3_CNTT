@@ -136,7 +136,6 @@ $(document).ready(function () {
           groupHtml += `<p class="text-warning small">Không có phương án</p>`;
         }
 
-        // ✅ Vùng chọn đáp án với style tốt hơn
         groupHtml += `<div class="test-ans bg-primary rounded py-3 px-3 d-flex align-items-center mt-3 flex-wrap">
           <p class="mb-0 text-white me-3 fw-bold">Đáp án:</p>
           <div class="d-flex gap-2 flex-wrap">`;
@@ -638,5 +637,56 @@ $(document).ready(function () {
     localStorage.removeItem(answerKey);
     localStorage.removeItem(dethiKey);
     localStorage.removeItem("isTabSwitched_" + made);
+  });
+
+  //chặn load trang
+  $(document).on("keydown", function (e) {
+    if (
+      e.which === 116 || // F5
+      ((e.ctrlKey || e.metaKey) && e.which === 82) // Ctrl+R / Cmd+R
+    ) {
+      e.preventDefault();
+
+      Swal.fire({
+        icon: "warning",
+        title: "Không thể tải lại!",
+        html: `<p class='fs-6 text-center mb-0'>Bạn không thể tải lại trang khi đang làm bài.</p>`,
+        confirmButtonText: "OK",
+      });
+    }
+  });
+
+  history.pushState(null, null, location.href);
+  window.onpopstate = function () {
+    history.go(1);
+
+    Swal.fire({
+      icon: "warning",
+      title: "Không thể quay lại!",
+      html: `<p class='fs-6 text-center mb-0'>Bạn không thể quay lại trang trước khi hoàn thành bài thi.</p>`,
+      confirmButtonText: "OK",
+    });
+  };
+  window.addEventListener("beforeunload", function (e) {
+    // Kiểm tra xem bài chưa hoàn thành
+    const answers = JSON.parse(localStorage.getItem(answerKey) || "[]");
+    const unanswered = answers.filter((ans, i) => {
+      const q = questions[i];
+      if (q.loai === "essay") return !ans.noidungtl?.trim();
+      return ans.cautraloi === 0;
+    });
+
+    if (unanswered.length > 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "Bài chưa hoàn thành!",
+        html: `<p class='fs-6 text-center mb-0'>Bạn chưa hoàn thành <strong>${unanswered.length}</strong> câu hỏi.<br>Vui lòng hoàn thành trước khi rời trang.</p>`,
+        confirmButtonText: "OK",
+      });
+
+      e.preventDefault();
+      e.returnValue = ""; // Chrome hiện cảnh báo mặc định
+      return "";
+    }
   });
 });
