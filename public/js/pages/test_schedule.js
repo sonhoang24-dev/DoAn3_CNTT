@@ -67,10 +67,14 @@ function showData(data) {
 <td>${
       test.xemdiemthi == 0
         ? "Không được xem"
-        : test.diemthi != null
-        ? test.diemthi
+        : test.diemthi != null || test.diem_tuluan != null
+        ? (
+            (parseFloat(test.diemthi) || 0) +
+            (parseFloat(test.diem_tuluan) || 0)
+          ).toFixed(2)
         : "-"
     }</td>
+
         <td>
           <span class="badge bg-${state.color} rounded-pill px-3 py-2">
             <i class="fa fa-circle small me-1"></i>${state.text}

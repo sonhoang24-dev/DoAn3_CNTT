@@ -3,10 +3,12 @@
 class Roles extends Controller
 {
     public $NhomQuyenModel;
+    public $NguoiDungModel;
 
     public function __construct()
     {
         $this->NhomQuyenModel = $this->model("NhomQuyenModel");
+        $this->NguoiDungModel = $this->model("NguoiDungModel");
         parent::__construct();
     }
 
@@ -44,12 +46,22 @@ class Roles extends Controller
         $result = $this->NhomQuyenModel->getAllSl();
         echo json_encode($result);
     }
+    
 
     // Hiển thị bên user
     public function getAll()
     {
         $result = $this->NhomQuyenModel->getAll();
         echo json_encode($result);
+    }
+    // Lấy danh sách người dùng thuộc nhóm quyền
+    public function getUsers()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("nhomquyen", "view")) {
+            $manhom = isset($_POST['manhomquyen']) ? (int)$_POST['manhomquyen'] : 0;
+            $result = $this->NguoiDungModel->getByRole($manhom);
+            echo json_encode($result);
+        }
     }
 
     public function getDetail()

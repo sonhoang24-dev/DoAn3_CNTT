@@ -150,6 +150,17 @@ class User extends Controller
             ]);
         }
     }
+    public function setStatus()
+    {
+        if ($_SERVER["REQUEST_METHOD"] == "POST" && AuthCore::checkPermission("nguoidung", "update")) {
+            $id = $_POST['id'] ?? '';
+            $status = isset($_POST['status']) ? (int)$_POST['status'] : 0;
+            $result = $this->NguoiDungModel->setStatus($id, $status);
+            echo json_encode(['success' => $result]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No permission or invalid request']);
+        }
+    }
 
     public function getDetail()
     {

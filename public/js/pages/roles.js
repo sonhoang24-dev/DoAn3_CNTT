@@ -83,13 +83,17 @@ $(document).ready(function () {
                     <td>${item.tennhomquyen}</td>
                     <td class="text-center fs-sm">${item.soluong}</td>
                     <td class="text-center col-action">
-                        <button data-role="nhomquyen" data-action="update" class="btn btn-sm btn-alt-secondary btn-show-update" data-id="${item.manhomquyen}" data-bs-toggle="tooltip" aria-label="Edit" data-bs-original-title="Edit">
-                            <i class="fa fa-fw fa-pencil"></i>
-                        </button>
-                        <button data-role="nhomquyen" data-action="delete" class="btn btn-sm btn-alt-secondary delete_roles" data-id="${item.manhomquyen}" data-bs-toggle="tooltip" aria-label="Delete"
-                            data-bs-original-title="Delete">
-                            <i class="fa fa-fw fa-times"></i>
-                        </button>
+                      <button data-role="nhomquyen" data-action="update" class="btn btn-sm btn-alt-secondary btn-show-update" data-id="${item.manhomquyen}" data-bs-toggle="tooltip" aria-label="Edit" data-bs-original-title="Edit">
+                        <i class="fa fa-fw fa-pencil"></i>
+                      </button>
+                      <button class="btn btn-sm btn-alt-info btn-view-users" data-id="${item.manhomquyen}" data-bs-toggle="tooltip" data-bs-original-title="Xem thành viên" aria-label="Xem thành viên">
+                        <i class="fa fa-fw fa-users"></i>
+                        <span class="d-none d-sm-inline ms-1">Thành viên</span>
+                      </button>
+                      <button data-role="nhomquyen" data-action="delete" class="btn btn-sm btn-alt-secondary delete_roles" data-id="${item.manhomquyen}" data-bs-toggle="tooltip" aria-label="Delete"
+                        data-bs-original-title="Delete">
+                        <i class="fa fa-fw fa-times"></i>
+                      </button>
                     </td>
                 </tr>`;
       });
@@ -192,6 +196,92 @@ $(document).ready(function () {
         });
 
         $("#modal-add-role").modal("show");
+      },
+    });
+  });
+
+  // Hiển thị danh sách người dùng của nhóm
+  $(document).on("click", ".btn-view-users", function () {
+    let manhom = $(this).data("id");
+    $.ajax({
+      type: "post",
+      url: "./roles/getUsers",
+      data: { manhomquyen: manhom },
+      dataType: "json",
+      success: function (response) {
+        let html = "";
+        if (response && response.length > 0) {
+          response.forEach((u) => {
+            const statusText = u.trangthai == 1 ? "Kích hoạt" : "Khóa";
+            const toggleLabel = u.trangthai == 1 ? "Khóa" : "Kích hoạt";
+            const toggleClass = u.trangthai == 1 ? "btn-danger" : "btn-success";
+            html += `<tr data-user-id="${u.id}">
+                                <td>${u.id}</td>
+                                <td>${u.hoten}</td>
+                                <td>${u.email}</td>
+                                <td>
+                                    <span class="status-badge">${statusText}</span>
+                                    <button class="btn btn-sm ms-2 btn-toggle-status ${toggleClass}" data-id="${u.id}" data-status="${u.trangthai}">${toggleLabel}</button>
+                                </td>
+                            </tr>`;
+          });
+        } else {
+          html = `<tr><td colspan="4" class="text-center">Không có người dùng</td></tr>`;
+        }
+        $("#list-role-users").html(html);
+        $("#modal-role-users").modal("show");
+      },
+      error: function () {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: "Lỗi khi tải danh sách người dùng",
+        });
+      },
+    });
+  });
+
+  // Toggle user status from modal
+  $(document).on("click", ".btn-toggle-status", function (e) {
+    e.preventDefault();
+    const btn = $(this);
+    const id = btn.data("id");
+    const current = parseInt(btn.data("status"));
+    const newStatus = current === 1 ? 0 : 1;
+
+    $.ajax({
+      type: "post",
+      url: "./user/setStatus",
+      data: { id: id, status: newStatus },
+      dataType: "json",
+      success: function (resp) {
+        if (resp && resp.success) {
+          // update button and badge
+          btn.data("status", newStatus);
+          const badge = btn.closest("td").find(".status-badge");
+          if (newStatus === 1) {
+            btn.removeClass("btn-success").addClass("btn-danger");
+            btn.text("Khóa");
+            badge.text("Kích hoạt");
+          } else {
+            btn.removeClass("btn-danger").addClass("btn-success");
+            btn.text("Kích hoạt");
+            badge.text("Khóa");
+          }
+        } else {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            icon: "fa fa-times me-1",
+            message: "Thay đổi trạng thái thất bại",
+          });
+        }
+      },
+      error: function () {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "fa fa-times me-1",
+          message: "Lỗi server khi thay đổi trạng thái",
+        });
       },
     });
   });

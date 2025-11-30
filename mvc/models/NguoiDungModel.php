@@ -396,6 +396,14 @@ class NguoiDungModel extends DB
         $sql = "UPDATE `nhom` SET `siso`=(SELECT COUNT(*) FROM `chitietnhom` WHERE manhom=$manhom) WHERE `manhom`=$manhom";
         return mysqli_query($this->con, $sql) !== false;
     }
+
+    public function setStatus($id, $trangthai)
+    {
+        $id = mysqli_real_escape_string($this->con, $id);
+        $trangthai = (int)$trangthai;
+        $sql = "UPDATE `nguoidung` SET `trangthai`=$trangthai WHERE `id`='$id'";
+        return mysqli_query($this->con, $sql) !== false;
+    }
     public function getQuery($filter, $input, $args)
     {
         $query = "SELECT ND.*, NQ.tennhomquyen FROM nguoidung ND, nhomquyen NQ WHERE ND.manhomquyen = NQ.manhomquyen AND ND.trangthai = 1  AND ND.manhomquyen != 3";
@@ -448,6 +456,22 @@ class NguoiDungModel extends DB
     public function getAllRoles()
     {
         $sql = "SELECT * FROM nhomquyen WHERE trangthai=1";
+        $result = mysqli_query($this->con, $sql);
+        $rows = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    public function getByRole($manhomquyen)
+    {
+        $manhomquyen = (int)$manhomquyen;
+        $sql = "SELECT nguoidung.id, nguoidung.hoten, nguoidung.email, nguoidung.trangthai, nhomquyen.tennhomquyen
+            FROM nguoidung
+            LEFT JOIN nhomquyen ON nguoidung.manhomquyen = nhomquyen.manhomquyen
+            WHERE nguoidung.manhomquyen = $manhomquyen
+            ORDER BY nguoidung.id ASC";
         $result = mysqli_query($this->con, $sql);
         $rows = [];
         while ($row = mysqli_fetch_assoc($result)) {

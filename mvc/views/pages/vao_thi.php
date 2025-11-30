@@ -21,8 +21,8 @@ function getTotalQuestions($data)
         $total += (int)($data['Test'][$k] ?? 0);
     }
     if ($total === 0) {
-        $total = (int)($data['Test']['socaude'] ?? 0) + 
-                 (int)($data['Test']['socautb'] ?? 0) + 
+        $total = (int)($data['Test']['socaude'] ?? 0) +
+                 (int)($data['Test']['socautb'] ?? 0) +
                  (int)($data['Test']['socaukho'] ?? 0);
     }
     return $total > 0 ? $total : 1;
@@ -163,9 +163,9 @@ $diemCuoiCung = $daChamTuLuan ? round($diemTracNghiem + $diemTuLuan, 2) : null; 
 
 <!-- ==================== KẾT QUẢ (nếu được phép xem) ==================== -->
 <?php if ($canViewScore): ?>
-    <?php 
+    <?php
         $trangthai_tuluan = $data["Check"]["trangthai_tuluan"] ?? 'Chưa chấm';
-        $daChamTuLuan = ($trangthai_tuluan === 'Đã chấm');
+    $daChamTuLuan = ($trangthai_tuluan === 'Đã chấm');
     ?>
 
 

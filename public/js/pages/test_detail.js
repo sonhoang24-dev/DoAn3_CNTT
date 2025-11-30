@@ -45,9 +45,12 @@ function showData(data) {
                 }</span>
             </div>
         </td>
-<td class="text-center">
-  ${Element["diemthi"] ?? "(Chưa nộp bài)"}
+        <td class="text-center">
+  ${((Element["diemthi"] ?? 0) + (Element["diem_tuluan"] ?? 0)).toFixed(2)}
 </td>
+
+
+
         <td class="text-center">${
           Element["thoigianvaothi"] || "(Vắng thi)"
         }</td>
