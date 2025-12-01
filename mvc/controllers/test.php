@@ -483,125 +483,114 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         }
     }
 
-    public function updateTest()
-    {
-        header('Content-Type: application/json; charset=utf-8');
+ public function updateTest()
+{
+    header('Content-Type: application/json; charset=utf-8');
 
-        if ($_SERVER["REQUEST_METHOD"] != "POST" || !AuthCore::checkPermission("dethi", "update")) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'error' => 'Yêu cầu không hợp lệ hoặc không có quyền.']);
-            exit;
-        }
-
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        error_log("---- updateTest called ----");
-        error_log("RAW POST: " . print_r($_POST, true));
-
-        try {
-            $made = intval($_POST['made'] ?? 0);
-            if ($made <= 0) {
-                throw new Exception("Mã đề không hợp lệ.");
-            }
-
-            // ===============================
-            // 1. Lấy dữ liệu cơ bản
-            // ===============================
-            $monthi = trim($_POST['mamonhoc'] ?? '');
-            $tende = trim($_POST['tende'] ?? '');
-            $thoigianthi = (int)($_POST['thoigianthi'] ?? 0);
-            $thoigianbatdau = trim($_POST['thoigianbatdau'] ?? '');
-            $thoigianketthuc = trim($_POST['thoigianketthuc'] ?? '');
-
-            $hienthibailam = (int)($_POST['xembailam'] ?? 0);
-            $xemdiemthi = (int)($_POST['xemdiem'] ?? 0);
-            $xemdapan = (int)($_POST['xemdapan'] ?? 0);
-            $daocauhoi = (int)($_POST['daocauhoi'] ?? 0);
-            $daodapan = (int)($_POST['daodapan'] ?? 0);
-            $tudongnop = (int)($_POST['tudongnop'] ?? 0);
-            $loaide = (int)($_POST['loaide'] ?? 0);
-
-            $nguoitao = $_SESSION['user_id'] ?? 'unknown';
-
-            // ===============================
-            // 2. Mảng chương, nhóm, loại câu hỏi
-            // ===============================
-            $chuong = isset($_POST['chuong']) ? (array)$_POST['chuong'] : [];
-            $nhom   = isset($_POST['manhom']) ? (array)$_POST['manhom'] : [];
-            $loaicauhoi = isset($_POST['loaicauhoi']) ? (array)$_POST['loaicauhoi'] : ['mcq'];
-
-            $socau_json = $_POST['socau'] ?? '{}';
-
-            // ===============================
-            // 3. 3 cột điểm mới (double)
-            // ===============================
-            $diem_tracnghiem = isset($_POST['diem_tracnghiem']) ? (float)$_POST['diem_tracnghiem'] : 0.0;
-            $diem_tuluan     = isset($_POST['diem_tuluan']) ? (float)$_POST['diem_tuluan'] : 0.0;
-            $diem_dochieu    = isset($_POST['diem_dochieu']) ? (float)$_POST['diem_dochieu'] : 0.0;
-
-            // Validate
-            if (empty($tende)) {
-                throw new Exception("Tên đề không hợp lệ.");
-            }
-            if ($thoigianthi <= 0) {
-                throw new Exception("Thời gian thi không hợp lệ.");
-            }
-
-            // format datetime
-            if ($thoigianbatdau) {
-                $thoigianbatdau = date('Y-m-d H:i:s', strtotime($thoigianbatdau));
-            }
-            if ($thoigianketthuc) {
-                $thoigianketthuc = date('Y-m-d H:i:s', strtotime($thoigianketthuc));
-            }
-
-            // ===============================
-            // 4. Gọi MODEL UPDATE (đã thêm 3 điểm)
-            // ===============================
-            $res = $this->dethimodel->update(
-                $made,
-                $monthi,
-                $nguoitao,
-                $tende,
-                $thoigianthi,
-                $thoigianbatdau,
-                $thoigianketthuc,
-                $hienthibailam,
-                $xemdiemthi,
-                $xemdapan,
-                $daocauhoi,
-                $daodapan,
-                $tudongnop,
-                $loaide,
-                $socau_json,
-                $chuong,
-                $nhom,
-                $loaicauhoi,
-                $diem_tracnghiem,
-                $diem_tuluan,
-                $diem_dochieu
-            );
-
-            if (is_array($res) && isset($res['success']) && $res['success']) {
-                echo json_encode(['success' => true, 'made' => $made]);
-                exit;
-            } else {
-                $msg = is_array($res) && isset($res['error']) ? $res['error'] : json_encode($res);
-                error_log("updateTest model returned error: " . $msg);
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Update failed: ' . $msg]);
-                exit;
-            }
-
-        } catch (Throwable $e) {
-            error_log("updateTest exception: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
-            exit;
-        }
+    if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("dethi", "update")) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Yêu cầu không hợp lệ hoặc không có quyền.']);
+        exit;
     }
+
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    error_log("---- updateTest called ----");
+    error_log("RAW POST: " . print_r($_POST, true));
+
+    try {
+        $made = intval($_POST['made'] ?? 0);
+        if ($made <= 0) {
+            throw new Exception("Mã đề không hợp lệ.");
+        }
+        $monthi = trim($_POST['mamonhoc'] ?? '');
+        $tende  = trim($_POST['tende'] ?? '');
+
+        $thoigianthi     = (int)($_POST['thoigianthi'] ?? 0);
+        $thoigianbatdau  = trim($_POST['thoigianbatdau'] ?? '');
+        $thoigianketthuc = trim($_POST['thoigianketthuc'] ?? '');
+
+        if (empty($tende)) throw new Exception("Tên đề không hợp lệ.");
+        if ($thoigianthi <= 0) throw new Exception("Thời gian thi không hợp lệ.");
+
+        if ($thoigianbatdau) {
+            $thoigianbatdau = date('Y-m-d H:i:s', strtotime($thoigianbatdau));
+        }
+        if ($thoigianketthuc) {
+            $thoigianketthuc = date('Y-m-d H:i:s', strtotime($thoigianketthuc));
+        }
+        $hienthibailam = (int)($_POST['xembailam'] ?? 0);
+        $xemdiemthi    = (int)($_POST['xemdiem'] ?? 0);
+        $xemdapan      = (int)($_POST['xemdapan'] ?? 0);
+        $daocauhoi     = (int)($_POST['daocauhoi'] ?? 0);
+        $daodapan      = (int)($_POST['daodapan'] ?? 0);
+        $tudongnop     = (int)($_POST['tudongnop'] ?? 0);
+        $loaide        = (int)($_POST['loaide'] ?? 0);
+
+        $nguoitao = $_SESSION['user_id'] ?? 'unknown';
+
+        // =============================
+        // 4. Mảng chương, nhóm, loại câu hỏi
+        // =============================
+        $chuong       = isset($_POST['chuong']) ? (array)$_POST['chuong'] : [];
+        $nhom         = isset($_POST['manhom']) ? (array)$_POST['manhom'] : [];
+        $loaicauhoi   = isset($_POST['loaicauhoi']) ? (array)$_POST['loaicauhoi'] : ['mcq'];
+        $socau_json   = $_POST['socau'] ?? '{}';
+
+        // =============================
+        // 5. Điểm 3 phần
+        // =============================
+        $diem_tracnghiem = (double)($_POST['diem_tracnghiem'] ?? 0);
+        $diem_tuluan     = (double)($_POST['diem_tuluan'] ?? 0);
+        $diem_dochieu    = (double)($_POST['diem_dochieu'] ?? 0);
+
+        // =============================
+        // 6. Gọi model update
+        // =============================
+        $res = $this->dethimodel->update(
+            $made,
+            $monthi,
+            $nguoitao,
+            $tende,
+            $thoigianthi,
+            $thoigianbatdau,
+            $thoigianketthuc,
+            $hienthibailam,
+            $xemdiemthi,
+            $xemdapan,
+            $daocauhoi,
+            $daodapan,
+            $tudongnop,
+            $loaide,
+            $socau_json,
+            $chuong,
+            $nhom,
+            $loaicauhoi,
+            $diem_tracnghiem,
+            $diem_tuluan,
+            $diem_dochieu
+        );
+
+        // =============================
+        // 7. Xử lý kết quả
+        // =============================
+        if (isset($res['success']) && $res['success']) {
+            echo json_encode(['success' => true, 'made' => $made]);
+            exit;
+        }
+
+        $msg = $res['error'] ?? json_encode($res);
+        throw new Exception("Update failed: $msg");
+
+    } catch (Throwable $e) {
+        error_log("updateTest exception: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống: ' . $e->getMessage()]);
+        exit;
+    }
+}
 
 
     public function getDetail()
@@ -807,7 +796,10 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             exit;
         }
 
-        $result = $this->cauTraLoiModel->getAllEssaySubmissions($made);
+        $search = isset($_REQUEST['q']) ? trim($_REQUEST['q']) : (isset($_REQUEST['search']) ? trim($_REQUEST['search']) : null);
+        $status = isset($_REQUEST['status']) ? trim($_REQUEST['status']) : 'all'; // 'all'|'graded'|'ungraded'
+
+        $result = $this->cauTraLoiModel->getAllEssaySubmissions($made, $search, $status);
 
         echo json_encode($result);
         exit;

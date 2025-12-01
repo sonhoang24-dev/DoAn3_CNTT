@@ -183,68 +183,124 @@ $(document).ready(function () {
   // Hiển thị đề kiểm tra đáp án + câu trả lời của thí sinh đó
   function showTestDetail(questions) {
     let html = "";
+    let lastContext = null;
 
     questions.forEach((item, index) => {
-      let dadung = item.cautraloi.find((op) => op.ladapan == 1);
+      let dadung = item.cautraloi ? item.cautraloi.find((op) => op.ladapan == 1) : null;
       let dapanchon = item.dapanchon || null;
+
+      // Nếu là câu thuộc dạng 'reading' thì hiển thị đoạn văn/tiêu đề một lần
+      if (item.loai === 'reading' && item.context && item.context !== lastContext) {
+        html += `<div class="card mb-3">
+            <div class="card-body bg-light">
+              <h6 class="mb-2">${item.tieude_context ? item.tieude_context : 'Đoạn văn'}</h6>
+              <div class="small text-muted">${item.context}</div>
+            </div>
+          </div>`;
+        lastContext = item.context;
+      }
 
       // Câu hỏi
       html += `<div class="question rounded border mb-3">
-      <div class="question-top p-3">
-        <p class="fw-bold mb-3">${index + 1}. ${item.noidung}</p>
-        <div class="row">`;
+        <div class="question-top p-3">
+          <p class="fw-bold mb-3">${index + 1}. ${item.noidung}</p>`;
 
-      // Hiển thị đáp án
-      item.cautraloi.forEach((op, i) => {
-        let label = String.fromCharCode(65 + i);
-        let cls = "";
+      // Nếu là câu tự luận → hiển thị câu trả lời và điểm giáo viên (nếu có)
+      if (item.loai === 'essay') {
+        html += `<div class="mb-4">
+            <strong class="text-success"><i class="fas fa-pen me-2"></i>Câu trả lời của thí sinh:</strong>
+            <div class="bg-white p-3 rounded border mt-2 min-vh-20">
+              ${item.noidung_tra_loi ? item.noidung_tra_loi : '<em class="text-muted">Chưa làm</em>'}
+            </div>
+          </div>`;
 
-        // Highlight đáp án đúng/sai
-        if (op.ladapan == 1) cls = "text-success fw-bold";
-        if (dapanchon == op.macautl) {
-          cls =
-            op.ladapan == 1
-              ? "bg-success text-white fw-bold"
-              : "bg-danger text-white fw-bold";
-        }
+        // Hiển thị điểm giáo viên cho câu này (nếu đã chấm)
+        const diemCau = item.diem_cham_tuluan !== null && item.diem_cham_tuluan !== undefined ? parseFloat(item.diem_cham_tuluan).toFixed(2) : null;
 
-        // Nếu có hình ảnh BLOB (đã chuyển Base64), hiển thị ảnh
-        let content = "";
-        if (op.hinhanh && op.hinhanh.trim() !== "") {
-          content = `<img src="${op.hinhanh}" alt="Hình ảnh đáp án" class="img-fluid">`;
+        html += `<div class="mt-2 mb-3">
+            <span class="fw-bold">Điểm giáo viên:</span>
+            <span class="ms-2">${diemCau !== null ? diemCau + ' điểm' : '<em class="text-muted">Chưa chấm</em>'}</span>
+          </div>`;
+
+        html += `</div>`; // đóng question-top
+        html += `</div>`; // đóng question
+
+      } else {
+        // Nếu có student essay data for a reading subquestion, prefer showing it
+        if ((item.noidung_tra_loi !== undefined && item.noidung_tra_loi !== null) || (item.diem_cham_tuluan !== undefined && item.diem_cham_tuluan !== null)) {
+          html += `<div class="mb-4">
+              <strong class="text-success"><i class="fas fa-pen me-2"></i>Câu trả lời của thí sinh:</strong>
+              <div class="bg-white p-3 rounded border mt-2 min-vh-20">
+                ${item.noidung_tra_loi ? item.noidung_tra_loi : '<em class="text-muted">Chưa làm</em>'}
+              </div>
+            </div>`;
+
+          const diemCau = item.diem_cham_tuluan !== null && item.diem_cham_tuluan !== undefined ? parseFloat(item.diem_cham_tuluan).toFixed(2) : null;
+          html += `<div class="mt-2 mb-3">
+              <span class="fw-bold">Điểm giáo viên:</span>
+              <span class="ms-2">${diemCau !== null ? diemCau + ' điểm' : '<em class="text-muted">Chưa chấm</em>'}</span>
+            </div>`;
+
+          html += `</div>`; // đóng question-top
+          html += `</div>`; // đóng question
         } else {
-          content = op.noidungtl;
+          html += `<div class="row">`;
+
+          // Hiển thị đáp án (MCQ)
+          if (item.cautraloi && Array.isArray(item.cautraloi)) {
+            item.cautraloi.forEach((op, i) => {
+              let label = String.fromCharCode(65 + i);
+              let cls = "";
+
+              // Highlight đáp án đúng/sai
+              if (op.ladapan == 1) cls = "text-success fw-bold";
+              if (dapanchon == op.macautl) {
+                cls =
+                  op.ladapan == 1
+                    ? "bg-success text-white fw-bold"
+                    : "bg-danger text-white fw-bold";
+              }
+
+              // Nếu có hình ảnh BLOB (đã chuyển Base64), hiển thị ảnh
+              let content = "";
+              if (op.hinhanh && op.hinhanh.trim() !== "") {
+                content = `<img src="${op.hinhanh}" alt="Hình ảnh đáp án" class="img-fluid">`;
+              } else {
+                content = op.noidungtl;
+              }
+
+              html += `<div class="col-6 mb-1">
+                <p class="${cls}"><b>${label}.</b> ${content}</p>
+              </div>`;
+            });
+          }
+
+          html += `</div></div>`; // đóng question-top
+
+          // Phần kết quả cho MCQ
+          html += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
+            <p class="mb-0 text-white me-4">Đáp án của bạn:</p>`;
+
+          if (dapanchon === null) {
+            html += `<span class="text-white">Chưa làm</span>`;
+          } else if (dadung && dadung.macautl == dapanchon) {
+            html += `<span class="h2 mb-0 ms-1">
+                     <i class="fa fa-check" style="color:#76BB68;"></i>
+                   </span>`;
+          } else if (dadung) {
+            html += `<span class="h2 mb-0 ms-1">
+                     <i class="fa fa-xmark" style="color:#FF5A5F;"></i>
+                   </span>
+                   <span class="mx-2 text-white">
+                     Đáp án đúng: ${String.fromCharCode(
+                       item.cautraloi.indexOf(dadung) + 65
+                     )}
+                   </span>`;
+          }
+
+          html += `</div></div>`; // đóng test-ans và question
         }
-
-        html += `<div class="col-6 mb-1">
-        <p class="${cls}"><b>${label}.</b> ${content}</p>
-      </div>`;
-      });
-
-      html += `</div></div>`; // đóng question-top
-
-      // Phần kết quả
-      html += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
-      <p class="mb-0 text-white me-4">Đáp án của bạn:</p>`;
-
-      if (dapanchon === null) {
-        html += `<span class="text-white">Chưa làm</span>`;
-      } else if (dadung && dadung.macautl == dapanchon) {
-        html += `<span class="h2 mb-0 ms-1">
-                 <i class="fa fa-check" style="color:#76BB68;"></i>
-               </span>`;
-      } else if (dadung) {
-        html += `<span class="h2 mb-0 ms-1">
-                 <i class="fa fa-xmark" style="color:#FF5A5F;"></i>
-               </span>
-               <span class="mx-2 text-white">
-                 Đáp án đúng: ${String.fromCharCode(
-                   item.cautraloi.indexOf(dadung) + 65
-                 )}
-               </span>`;
       }
-
-      html += `</div></div>`; // đóng test-ans và question
     });
 
     $("#content-file").html(html);
@@ -647,11 +703,20 @@ $("#cham-tuluan-tab").on("shown.bs.tab", function () {
 });
 
 // ==================== 2. LOAD DANH SÁCH SINH VIÊN CÓ BÀI TỰ LUẬN ====================
-function loadStudentsEssayToGrade(made) {
+function loadStudentsEssayToGrade(made, q, status) {
+  // ensure search UI exists
+  ensureEssaySearchUI();
+
+  var postData = { made: made };
+  if (q && q.toString().trim() !== "") postData.q = q.toString().trim();
+  // status param: 'all' | 'graded' | 'ungraded'
+  status = typeof status !== 'undefined' ? status : ($('#essay-filter-status').val() || 'all');
+  postData.status = status;
+
   $.ajax({
     url: "./test/getListEssaySubmissionsAction",
     type: "POST",
-    data: { made: made },
+    data: postData,
     dataType: "json",
     success: function (res) {
       if (!res || !res.success || !res.data || res.data.length === 0) {
@@ -748,6 +813,72 @@ function loadStudentsEssayToGrade(made) {
       `);
     },
   });
+}
+
+// Add a small search UI for essay grader list (search by student name or MSSV)
+function ensureEssaySearchUI() {
+  if (document.getElementById('essay-search-container')) return;
+
+  var container = document.createElement('div');
+  container.id = 'essay-search-container';
+  container.className = 'mb-3';
+  container.innerHTML = `
+    <div class="row mb-2">
+      <div class="col-12">
+        <div class="input-group">
+          <input id="essay-search-input" type="text" class="form-control" placeholder="Tìm theo tên hoặc MSSV...">
+          <button id="essay-search-clear" class="btn btn-outline-secondary" type="button"><i class="fa fa-times"></i></button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-auto">
+        <select id="essay-filter-status" class="form-select">
+          <option value="all">Tất cả</option>
+          <option value="ungraded">Chưa chấm</option>
+          <option value="graded">Đã chấm</option>
+        </select>
+      </div>
+      <div class="col">
+        <small class="text-muted">Nhập tên / MSSV để lọc</small>
+      </div>
+    </div>
+  `;
+
+  var target = document.getElementById('danh-sach-sinhvien-tuluan');
+  if (target && target.parentNode) {
+    target.parentNode.insertBefore(container, target);
+
+    var $input = $('#essay-search-input');
+    var $clear = $('#essay-search-clear');
+    var $status = $('#essay-filter-status');
+
+    // debounce helper
+    var timer = null;
+    $input.on('input', function () {
+      clearTimeout(timer);
+      var q = $(this).val();
+      timer = setTimeout(function () {
+        var made = $('#chitietdethi').data('id');
+        var st = $status.val();
+        loadStudentsEssayToGrade(made, q, st);
+      }, 400);
+    });
+
+    $clear.on('click', function () {
+      $input.val('');
+      var made = $('#chitietdethi').data('id');
+      var st = $status.val();
+      loadStudentsEssayToGrade(made, '', st);
+      $input.focus();
+    });
+
+    $status.on('change', function () {
+      var made = $('#chitietdethi').data('id');
+      var q = $input.val();
+      loadStudentsEssayToGrade(made, q, $(this).val());
+    });
+  }
 }
 // ==================== 3. KHI CLICK VÀO 1 SINH VIÊN ====================
 $(document).on(

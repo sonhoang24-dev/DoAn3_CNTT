@@ -85,31 +85,93 @@ class KetQuaModel extends DB
         // 2. Xử lý trắc nghiệm
         $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
         $socaudung_tn = 0;
-        $tongcau_tn = 0;
+
+        // Tính tổng số câu trắc nghiệm trong đề (lấy từ chitietdethi JOIN cauhoi)
+        $total_mcq = 0;
+        $stmtTotal = $this->con->prepare("SELECT SUM(CASE WHEN ch.loai = 'mcq' THEN 1 ELSE 0 END) AS total_mcq FROM chitietdethi ctd JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi WHERE ctd.made = ?");
+        if ($stmtTotal) {
+            $stmtTotal->bind_param('i', $made);
+            $stmtTotal->execute();
+            $resTotal = $stmtTotal->get_result()->fetch_assoc();
+            $stmtTotal->close();
+            $total_mcq = isset($resTotal['total_mcq']) ? (int)$resTotal['total_mcq'] : 0;
+        }
+
+        // Nếu không tìm được số lượng câu trắc nghiệm, fallback về 0
+        $tongcau_tn = max(0, $total_mcq);
+
+        // Tạo map loại câu (loai) cho các câu trong listCauTraLoi để phân biệt reading vs mcq
+        $questionTypes = [];
+        $macList = array_column($listCauTraLoi, 'macauhoi');
+        $macList = array_map('intval', $macList);
+        if (!empty($macList)) {
+            $in = implode(',', $macList);
+            $sqlTypes = "SELECT macauhoi, loai FROM cauhoi WHERE macauhoi IN ($in)";
+            $resTypes = mysqli_query($this->con, $sqlTypes);
+            if ($resTypes) {
+                while ($r = mysqli_fetch_assoc($resTypes)) {
+                    $questionTypes[(int)$r['macauhoi']] = $r['loai'];
+                }
+            }
+        }
+
+        $socaudung_reading = 0;
 
         foreach ($listCauTraLoi as $ans) {
             $macauhoi = intval($ans['macauhoi']);
             $cautraloi = intval($ans['cautraloi'] ?? 0);
 
+            // Lưu đáp án (kể cả khi không chọn -> lưu 0) để ghi đè đáp án cũ
+            // Kiểm tra đúng chỉ khi có chọn (không kiểm khi = 0)
             if ($cautraloi != 0) {
-                $tongcau_tn++;
-
                 $check = $this->con->prepare("SELECT 1 FROM cautraloi WHERE macauhoi = ? AND macautl = ? AND ladapan = 1");
                 if ($check) {
                     $check->bind_param("ii", $macauhoi, $cautraloi);
                     $check->execute();
                     $resCheck = $check->get_result();
                     if ($resCheck->num_rows > 0) {
-                        $socaudung_tn++;
+                        // Phân loại: nếu câu là reading thì cộng vào bộ đếm reading, ngược lại là mcq
+                        if (isset($questionTypes[$macauhoi]) && $questionTypes[$macauhoi] === 'reading') {
+                            $socaudung_reading++;
+                        } else {
+                            $socaudung_tn++;
+                        }
                     }
                     $check->close();
                 }
+            }
 
-                $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
+            // Ghi đáp án vào chitietketqua luôn, dùng ON DUPLICATE KEY UPDATE để ghi đè
+            $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
+        }
+
+        // Lấy điểm tối đa cho phần trắc nghiệm và đọc hiểu từ dethi
+        $mcq_total_points = 0.0;
+        $reading_total_points = 0.0;
+        $stmtMcq = $this->con->prepare("SELECT diem_tracnghiem, diem_dochieu FROM dethi WHERE made = ? LIMIT 1");
+        if ($stmtMcq) {
+            $stmtMcq->bind_param('i', $made);
+            $stmtMcq->execute();
+            $resMcq = $stmtMcq->get_result()->fetch_assoc();
+            $stmtMcq->close();
+            if (isset($resMcq['diem_tracnghiem'])) {
+                $mcq_total_points = floatval($resMcq['diem_tracnghiem']);
+            }
+            if (isset($resMcq['diem_dochieu'])) {
+                $reading_total_points = floatval($resMcq['diem_dochieu']);
             }
         }
 
-        $diem_tracnghiem = $tongcau_tn > 0 ? round(10 * $socaudung_tn / $tongcau_tn, 2) : 0;
+        // Nếu không có cấu hình (<=0) thì fallback về 10 cho trắc nghiệm để giữ tương thích cũ
+        if ($mcq_total_points <= 0) {
+            $mcq_total_points = 10.0;
+        }
+
+        // Điểm mỗi câu trắc nghiệm = tổng điểm trắc nghiệm / tổng số câu trắc nghiệm
+        $per_mcq_point = ($tongcau_tn > 0) ? ($mcq_total_points / $tongcau_tn) : 0;
+
+        // Tổng điểm trắc nghiệm = số câu đúng * điểm mỗi câu
+        $diem_tracnghiem = round($per_mcq_point * $socaudung_tn, 2);
 
         // 3. Xử lý tự luận
         $this->xuLyTuLuan($makq);
@@ -135,11 +197,20 @@ class KetQuaModel extends DB
             $trangthai_tuluan = 'Chưa chấm';
         }
 
-        // 5. Lấy điểm đọc hiểu nếu có
+        // 5. Lấy/ Tính điểm đọc hiểu nếu có
         $diem_dochieu = 0;
         if ($total_reading > 0) {
-            $diem_dochieu = $_POST['diem_dochieu'] ?? 0; // hoặc tính tự động theo list câu trả lời reading
-            $diem_dochieu = floatval($diem_dochieu);
+            // Nếu frontend gửi điểm đọc hiểu (gv chấm thủ công), ưu tiên dùng nó
+            if (isset($_POST['diem_dochieu']) && is_numeric($_POST['diem_dochieu'])) {
+                $diem_dochieu = floatval($_POST['diem_dochieu']);
+            } else {
+                // Tính tự động: chia đều reading_total_points cho tổng câu reading
+                if (!isset($reading_total_points) || $reading_total_points <= 0) {
+                    $reading_total_points = 0.0;
+                }
+                $per_reading_point = ($total_reading > 0) ? ($reading_total_points / $total_reading) : 0;
+                $diem_dochieu = round($per_reading_point * ($socaudung_reading ?? 0), 2);
+            }
         }
 
         // 6. Tính tổng điểm

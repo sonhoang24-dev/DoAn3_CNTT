@@ -53,67 +53,22 @@
 
 <!-- Bảng danh sách đề thi - ĐẸP & HIỆN ĐẠI -->
 <div class="table-responsive rounded-4 overflow-hidden shadow-xl" style="border-radius: 20px;">
-    <table class="table table-hover align-middle mb-0 modern-table">
+    <table class="table table-hover align-middle mb-0 modern-table border-0">
         <thead>
-            <tr class="text-white text-uppercase fw-bold" 
+            <tr class="text-white text-uppercase fw-bold fs-6 tracking-wider"
                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                <th class="py-4 px-4">Tên đề thi</th>
-                <th class="py-4 px-4">Môn học</th>
-                <th class="py-4 px-4">Thời gian bắt đầu</th>
-                <th class="py-4 px-4">Kết thúc</th>
-                <th class="py-4 px-4">Nhóm</th>
-                <th class="py-4 px-4">Điểm</th>
-                <th class="py-4 px-4 text-center">Trạng thái</th>
-                <th class="py-4 px-4 text-center">Hành động</th>
+                <th class="py-4 ps-5">Tên đề thi</th>
+                <th class="py-4">Môn học</th>
+                <th class="py-4">Thời gian bắt đầu</th>
+                <th class="py-4">Kết thúc</th>
+                <th class="py-4">Nhóm</th>
+                <th class="py-4 text-center">Điểm</th>
+                <th class="py-4 text-center">Trạng thái</th>
+                <th class="py-4 text-end pe-5">Hành động</th>
             </tr>
         </thead>
         <tbody class="list-test bg-white fw-medium">
-            <!-- Ví dụ 1 đề thi -->
-            <tr class="border-bottom">
-                <td class="py-4 px-4">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="bg-primary bg-opacity-10 rounded-3 p-3">
-                            <i class="fas fa-file-alt text-primary fa-lg"></i>
-                        </div>
-                        <div>
-                            <h6 class="mb-0 fw-bold">Đề thi giữa kỳ - Toán Cao cấp</h6>
-                            <small class="text-muted">Mã đề: MATH2025-GK01</small>
-                        </div>
-                    </div>
-                </td>
-                <td class="py-4 px-4">
-                    <span class="badge bg-info bg-opacity-20 text-info px-3 py-2 rounded-pill fw-600">
-                        Toán Cao cấp
-                    </span>
-                </td>
-                <td class="py-4 px-4">
-                    <i class="far fa-clock text-primary me-2"></i>
-                    14:00 - 02/12/2025
-                </td>
-                <td class="py-4 px-4">
-                    <i class="far fa-calendar-times text-danger me-2"></i>
-                    16:00 - 02/12/2025
-                </td>
-                <td class="py-4 px-4">
-                    <div class="avatar-group">
-                        <span class="avatar avatar-sm rounded-circle bg-success text-white">L1</span>
-                        <span class="avatar avatar-sm rounded-circle bg-warning text-white">L2</span>
-                    </div>
-                </td>
-                <td class="py-4 px-4 fw-bold text-success fs-5">--</td>
-                <td class="py-4 px-4 text-center">
-                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-600">
-                        <i class="fas fa-hourglass-start me-1"></i> Chưa mở
-                    </span>
-                </td>
-                <td class="py-4 px-4 text-center">
-                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" disabled>
-                        <i class="fas fa-play me-1"></i> Làm bài
-                    </button>
-                </td>
-            </tr>
-
-            <!-- Thêm các dòng khác tương tự... -->
+            <!-- JS sẽ render vào đây -->
         </tbody>
     </table>
 </div>
@@ -135,51 +90,68 @@
     </div>
 </div>
 <style>
-.modern-table tr:hover {
-    background-color: #f8f9ff !important;
-    transform: translateY(-2px);
-    transition: all 0.3s ease;
-    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.1);
+/* =============== HOVER CHUẨN – CHỈ DÙNG 1 LẦN =============== */
+.modern-table tbody tr {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: 4px solid transparent;
+    position: relative;
+    z-index: 1;
 }
 
-.avatar-group .avatar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    font-size: 0.8rem;
-    font-weight: bold;
+.modern-table tbody tr:hover {
+    background: linear-gradient(90deg, #f8f9ff 0%, #f0f4ff 100%) !important;
+    border-left-color: #667eea;
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.18);
+    z-index: 10;
 }
 
-.search-filter-wrapper {
-    background: rgba(255, 255, 255, 0.95) !important;
-}
-
+/* =============== RESPONSIVE MOBILE – SIÊU ĐẸP =============== */
 @media (max-width: 768px) {
     .modern-table thead {
         display: none;
     }
-    .modern-table tr {
+    
+    .modern-table tbody tr {
         display: block;
-        margin-bottom: 1.5rem;
-        border: 1px solid #eee;
-        border-radius: 16px;
-        padding: 1rem;
-    }
-    .modern-table td {
-        display: block;
-        text-align: right !important;
-        padding: 0.5rem 0 !important;
+        margin: 1rem 0;
+        padding: 1.5rem;
+        border-radius: 20px;
         border: none;
+        background: white;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.1);
+        border-left: 5px solid #667eea;
     }
-    .modern-table td::before {
+
+    .modern-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border: none;
+        text-align: right;
+    }
+
+    .modern-table tbody td::before {
         content: attr(data-label);
-        float: left;
-        font-weight: bold;
+        font-weight: 600;
+        color: #667eea;
         text-transform: uppercase;
         font-size: 0.8rem;
-        color: #667eea;
+        flex: 1;
+        text-align: left;
+    }
+
+    /* Nút hành động nổi bật trên mobile */
+    .btn-mobile-round {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
     }
 }
 </style>

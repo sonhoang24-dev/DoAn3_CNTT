@@ -1,6 +1,8 @@
 Dashmix.helpersOnLoad(["js-flatpickr", "jq-datepicker", "jq-select2"]);
 
 let groups = [];
+let isSubmitting = false;
+let pointToastTimeout = null;
 
 function getSelectedQuestionTypes() {
   let types = [];
@@ -122,6 +124,33 @@ function getMinutesBetweenDates(start, end) {
   const endDate = new Date(end);
   const diffMs = endDate.getTime() - startDate.getTime();
   return Math.round(diffMs / 60000);
+}
+
+function showPointRequiredToast(typeName) {
+  // Xóa toast cũ nếu đang hiện
+  $("#point-required-toast").remove();
+  clearTimeout(pointToastTimeout);
+
+  const toastHtml = `
+    <div id="point-required-toast" class="position-fixed" style="top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999;">
+      <div class="alert alert-warning d-flex align-items-center shadow-lg border-0" role="alert" style="border-radius: 12px; min-width: 300px;">
+        <i class="fa fa-exclamation-circle fa-2x me-3 text-warning"></i>
+        <div>
+          <strong>Vui lòng nhập điểm</strong><br>
+          cho phần <strong class="text-primary">${typeName}</strong>
+        </div>
+      </div>
+    </div>
+  `;
+
+  $("body").append(toastHtml);
+
+  // Tự ẩn sau 3 giây
+  pointToastTimeout = setTimeout(() => {
+    $("#point-required-toast").fadeOut(300, function () {
+      $(this).remove();
+    });
+  }, 3000);
 }
 
 function showGroup() {
@@ -288,6 +317,53 @@ Dashmix.onLoad(() =>
         },
         "Thời gian làm bài phải lớn hơn 0 và nhỏ hơn tổng thời gian giữa bắt đầu và kết thúc"
       );
+      $.validator.addMethod(
+        "validTotalScore",
+        function (value, element) {
+          const mcq =
+            parseFloat($("#diem_tracnghiem").val().replace(",", ".")) || 0;
+          const essay =
+            parseFloat($("#diem_tuluan").val().replace(",", ".")) || 0;
+          const reading =
+            parseFloat($("#diem_dochieu").val().replace(",", ".")) || 0;
+          const total = mcq + essay + reading;
+
+          // Xóa thông báo cũ
+          $("#total-score-toast").remove();
+
+          if (total > 10) {
+            const toast = `
+        <div id="total-score-toast" 
+             class="position-fixed" 
+             style="top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: auto;">
+          <div class="alert alert-danger d-flex align-items-center mb-0 shadow-sm" role="alert"
+               style="border-radius: 8px;">
+            <i class="fa fa-exclamation-triangle me-2"></i>
+            <span>
+             Điểm hiện tại là <strong>${total.toFixed(
+               2
+             )}</strong> Vượt quá điểm <strong>10</strong>
+            </span>
+          </div>
+        </div>
+      `;
+
+            $("body").append(toast);
+
+            // Ẩn sau 3 giây
+            setTimeout(() => {
+              $("#total-score-toast").remove();
+            }, 3000);
+
+            return false;
+          }
+
+          return true;
+        },
+        function () {
+          return "";
+        }
+      );
 
       jQuery(".form-taodethi").validate({
         rules: {
@@ -296,6 +372,25 @@ Dashmix.onLoad(() =>
           "time-end": { required: true, validTimeEnd: true },
           "exam-time": { required: true, digits: true, validThoigianthi: true },
           "nhom-hp": { required: true },
+          diem_tracnghiem: {
+            required: false,
+            number: true,
+            min: 0.01,
+            validTotalScore: true,
+          },
+          diem_tuluan: {
+            required: false,
+            number: true,
+            min: 0.01,
+            validTotalScore: true,
+          },
+          diem_dochieu: {
+            required: false,
+            number: true,
+            min: 0.01,
+            validTotalScore: true,
+          },
+
           user_nhomquyen: { required: true },
           chuong: {
             required: function () {
@@ -352,12 +447,43 @@ Dashmix.onLoad(() =>
             digits: "Vui lòng nhập số",
           },
         },
+
+        showErrors: function (errorMap, errorList) {
+          if (!isSubmitting) {
+            // ẨN HOÀN TOÀN TẤT CẢ LỖI CỦA 3 Ô ĐIỂM KHI CHƯA BẤM LƯU
+            errorList = errorList.filter((item) => {
+              const id = item.element.id || "";
+              return ![
+                "diem_tracnghiem",
+                "diem_tuluan",
+                "diem_dochieu",
+              ].includes(id);
+            });
+
+            // XÓA SẠCH VIỀN ĐỎ + CHỮ LỖI CŨ
+            $("#diem_tracnghiem, #diem_tuluan, #diem_dochieu")
+              .removeClass("is-invalid is-valid")
+              .closest(".form-group, .col-md-4, .input-group") // tùy cấu trúc HTML của bạn
+              .find(".invalid-feedback, .valid-feedback")
+              .remove();
+          }
+
+          this.defaultShowErrors();
+        },
       });
     }
     static init() {
       this.initValidation();
     }
   }.init()
+);
+$(document).on(
+  "input change",
+  "#diem_tracnghiem, #diem_tuluan, #diem_dochieu",
+  function () {
+    // Validate lại toàn form → rule validTotalScore sẽ được kiểm tra
+    $(".form-taodethi").valid();
+  }
 );
 
 $(document).ready(function () {
@@ -409,214 +535,60 @@ $(document).ready(function () {
     $(".select-group-item").prop("checked", check);
   });
 
+  function tinhTongDiem() {
+    const tn = parseFloat($("#diem_tracnghiem").val().replace(",", ".")) || 0;
+    const tl = parseFloat($("#diem_tuluan").val().replace(",", ".")) || 0;
+    const dh = parseFloat($("#diem_dochieu").val().replace(",", ".")) || 0;
+    return Math.round((tn + tl + dh) * 100) / 100;
+  }
   // Xử lý nút tạo đề
-  $("#btn-add-test").click(function (e) {
-    e.preventDefault();
+  $("#btn-add-test")
+    .off("click")
+    .on("click", function (e) {
+      e.preventDefault();
+      isSubmitting = true;
 
-    if (!$(".form-taodethi").valid()) return;
-
-    let chapters = getSelectedChapters();
-    let selectedGroups = getGroupSelected();
-    let m = $("#nhom-hp").val() ? groups[$("#nhom-hp").val()].mamonhoc : 0;
-
-    // Lấy danh sách loại câu hỏi đã chọn (value: mcq, essay, reading)
-    let questionTypes = getSelectedQuestionTypes();
-    if (questionTypes.length === 0) {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        message: "Phải chọn ít nhất 1 loại câu hỏi!",
-      });
-      return;
-    }
-    if (selectedGroups.length === 0) {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        message: "Chọn ít nhất một nhóm học phần!",
-      });
-      return;
-    }
-    // Lấy trọng số điểm cho từng loại
-    let diem_tracnghiem = parseFloat($("#diem_tracnghiem").val()) || 0;
-    let diem_tuluan = parseFloat($("#diem_tuluan").val()) || 0;
-    let diem_dochieu = parseFloat($("#diem_dochieu").val()) || 0;
-
-    // Validate: nếu loại được chọn thì điểm phải > 0
-    if ($("#loai-tracnghiem").is(":checked") && diem_tracnghiem <= 0) {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        message: "Loại Trắc nghiệm phải có điểm > 0!",
-      });
-      return;
-    }
-    if ($("#loai-tuluan").is(":checked") && diem_tuluan <= 0) {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        message: "Loại Tự luận phải có điểm > 0!",
-      });
-      return;
-    }
-    if ($("#loai-doc-hieu").is(":checked") && diem_dochieu <= 0) {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        message: "Loại Đọc hiểu phải có điểm > 0!",
-      });
-      return;
-    }
-
-    // Map từ value checkbox → tên input thực tế
-    const typeMap = { mcq: "tracnghiem", essay: "tuluan", reading: "dochieu" };
-    const typeNameMap = {
-      mcq: "Trắc nghiệm",
-      essay: "Tự luận",
-      reading: "Đọc hiểu",
-    };
-
-    let socau = {};
-    let diem = {};
-    let valid = true;
-
-    // Lấy số lượng câu và điểm/câu
-    questionTypes.forEach((type) => {
-      let prefix = typeMap[type];
-      let de = parseInt($(`#coban_${prefix}`).val()) || 0;
-      let tb = parseInt($(`#trungbinh_${prefix}`).val()) || 0;
-      let kho = parseInt($(`#kho_${prefix}`).val()) || 0;
-      let total = de + tb + kho;
-
-      // Điểm/câu
-      let point = parseFloat($(`#diem_${prefix}`).val()) || 0;
-
-      if (total === 0) {
-        valid = false;
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: `Loại "${typeNameMap[type]}" phải có ít nhất 1 câu!`,
-        });
-        return;
-      }
-      if (point <= 0) {
-        valid = false;
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: `Loại "${typeNameMap[type]}" phải có điểm/câu > 0!`,
-        });
+      // Form validation cũ
+      if (!$(".form-taodethi").valid()) {
+        isSubmitting = false;
         return;
       }
 
-      socau[type] = { de, tb, kho };
-      diem[type] = point;
-    });
-
-    if (!valid) return;
-
-    // Kiểm tra số lượng câu trong ngân hàng
-    questionTypes.forEach((type) => {
-      let prefix = typeMap[type];
-      let tenLoai = typeNameMap[type];
-
-      let available = {
-        de: getTotalQuestionOfChapter(chapters, m, 1, [type]),
-        tb: getTotalQuestionOfChapter(chapters, m, 2, [type]),
-        kho: getTotalQuestionOfChapter(chapters, m, 3, [type]),
-      };
-      let required = socau[type];
-
-      if (available.de < required.de) {
-        valid = false;
+      const totalScore = tinhTongDiem();
+      if (totalScore !== 10) {
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: `${tenLoai}: chỉ có ${available.de} câu dễ, bạn cần ${required.de}`,
+          icon: "",
+          message: `
+        Tổng điểm phải đúng <strong class="text-danger">10 điểm</strong>! <br>
+        Hiện tại đang là <strong class="text-primary">${totalScore.toFixed(
+          2
+        )}</strong> điểm.
+ 
+  `,
+          delay: 8000,
         });
+
+        return;
       }
-      if (available.tb < required.tb) {
-        valid = false;
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: `${tenLoai}: chỉ có ${available.tb} câu trung bình, bạn cần ${required.tb}`,
-        });
+
+      if (!validUpdate()) {
+        return;
       }
-      if (available.kho < required.kho) {
-        valid = false;
+
+      let chapters = getSelectedChapters();
+      let selectedGroups = getGroupSelected();
+      let m = $("#nhom-hp").val() ? groups[$("#nhom-hp").val()].mamonhoc : 0;
+      let questionTypes = getSelectedQuestionTypes();
+
+      if (questionTypes.length === 0) {
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: `${tenLoai}: chỉ có ${available.kho} câu khó, bạn cần ${required.kho}`,
+          message: "Phải chọn ít nhất 1 loại câu hỏi!",
         });
+        return;
       }
-    });
-
-    if (!valid) return;
-
-    // Gửi dữ liệu lên server
-    $.ajax({
-      url: "./test/addTest",
-      type: "post",
-      data: {
-        mamonhoc: m,
-        tende: $("#name-exam").val(),
-        thoigianthi: parseInt($("#exam-time").val()) || 0,
-        thoigianbatdau: $("#time-start").val(),
-        thoigianketthuc: $("#time-end").val(),
-        socau: JSON.stringify(socau),
-        diem_tracnghiem: diem.mcq || 0,
-        diem_tuluan: diem.essay || 0,
-        diem_dochieu: diem.reading || 0,
-        chuong: chapters,
-        loaide: $("#tudongsoande").prop("checked") ? 1 : 0,
-        xemdiem: $("#xemdiem").prop("checked") ? 1 : 0,
-        xemdapan: $("#xemda").prop("checked") ? 1 : 0,
-        xembailam: $("#xembailam").prop("checked") ? 1 : 0,
-        daocauhoi: $("#daocauhoi").prop("checked") ? 1 : 0,
-        daodapan: $("#daodapan").prop("checked") ? 1 : 0,
-        tudongnop: $("#tudongnop").prop("checked") ? 1 : 0,
-        manhom: selectedGroups,
-        loaicauhoi: questionTypes,
-      },
-      dataType: "json",
-      success: function (res) {
-        if (res.success && res.made) {
-          Dashmix.helpers("jq-notify", {
-            type: "success",
-            message: `Tạo đề thành công! ID đề: ${res.made}`,
-          });
-          setTimeout(() => {
-            window.location.href = "./test";
-          }, 1500);
-        } else {
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            message: res.error || "Tạo đề thất bại!",
-          });
-        }
-      },
-      error: function (xhr) {
-        let msg = "Lỗi hệ thống";
-        try {
-          const json = JSON.parse(xhr.responseText);
-          if (json.error) msg = json.error;
-        } catch (e) {}
-        Dashmix.helpers("jq-notify", {
-          type: "danger",
-          message: `Lỗi: ${msg}`,
-        });
-      },
-    });
-  });
-
-  // Trong $("#btn-update-test").click
-  $("#btn-update-test").click(function (e) {
-    e.preventDefault();
-
-    // Kiểm tra form và thời gian
-    if (
-      (!checkDate(infodethi.thoigianbatdau) && $(".form-taodethi").valid()) ||
-      validUpdate()
-    ) {
-      const made = $(this).data("id");
-      const loaide = $("#tudongsoande").prop("checked") ? 1 : 0;
-
-      // Nhóm học phần
-      const manhom = getGroupSelected().map((x) => parseInt(x));
-      if (manhom.length === 0) {
+      if (selectedGroups.length === 0) {
         Dashmix.helpers("jq-notify", {
           type: "danger",
           message: "Chọn ít nhất một nhóm học phần!",
@@ -624,8 +596,212 @@ $(document).ready(function () {
         return;
       }
 
-      // Loại câu hỏi
+      // Kiểm tra điểm > 0 nếu loại được bật
+      if (
+        $("#loai-tracnghiem").is(":checked") &&
+        (parseFloat($("#diem_tracnghiem").val()) || 0) <= 0
+      ) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Loại Trắc nghiệm phải có điểm > 0!",
+        });
+        return;
+      }
+      if (
+        $("#loai-tuluan").is(":checked") &&
+        (parseFloat($("#diem_tuluan").val()) || 0) <= 0
+      ) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Loại Tự luận phải có điểm > 0!",
+        });
+        return;
+      }
+      if (
+        $("#loai-doc-hieu").is(":checked") &&
+        (parseFloat($("#diem_dochieu").val()) || 0) <= 0
+      ) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Loại Đọc hiểu phải có điểm > 0!",
+        });
+        return;
+      }
+
+      const typeMap = {
+        mcq: "tracnghiem",
+        essay: "tuluan",
+        reading: "dochieu",
+      };
+      const typeNameMap = {
+        mcq: "Trắc nghiệm",
+        essay: "Tự luận",
+        reading: "Đọc hiểu",
+      };
+
+      const socau = {};
+      const diem = {};
+      let valid = true;
+
+      questionTypes.forEach((type) => {
+        const prefix = typeMap[type];
+        const de = parseInt($(`#coban_${prefix}`).val()) || 0;
+        const tb = parseInt($(`#trungbinh_${prefix}`).val()) || 0;
+        const kho = parseInt($(`#kho_${prefix}`).val()) || 0;
+        const point =
+          parseFloat($(`#diem_${prefix}`).val().replace(",", ".")) || 0;
+
+        if (de + tb + kho === 0) {
+          valid = false;
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: `Loại "${typeNameMap[type]}" phải có ít nhất 1 câu!`,
+          });
+        }
+        if (point <= 0) {
+          valid = false;
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: `Loại "${typeNameMap[type]}" phải có điểm > 0!`,
+          });
+        }
+
+        socau[type] = { de, tb, kho };
+        diem[type] = point;
+      });
+      if (!valid) return;
+
+      // Kiểm tra số lượng câu trong ngân hàng
+      questionTypes.forEach((type) => {
+        const prefix = typeMap[type];
+        const tenLoai = typeNameMap[type];
+        const required = socau[type];
+        const available = {
+          de: getTotalQuestionOfChapter(chapters, m, 1, [type]),
+          tb: getTotalQuestionOfChapter(chapters, m, 2, [type]),
+          kho: getTotalQuestionOfChapter(chapters, m, 3, [type]),
+        };
+
+        if (available.de < required.de)
+          (valid = false),
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: `${tenLoai}: chỉ có ${available.de} câu dễ, cần ${required.de}`,
+            });
+        if (available.tb < required.tb)
+          (valid = false),
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: `${tenLoai}: chỉ có ${available.tb} câu trung bình, cần ${required.tb}`,
+            });
+        if (available.kho < required.kho)
+          (valid = false),
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: `${tenLoai}: chỉ có ${available.kho} câu khó, cần ${required.kho}`,
+            });
+      });
+      if (!valid) return;
+
+      // Gửi AJAX tạo đề
+      $.ajax({
+        url: "./test/addTest",
+        type: "post",
+        data: {
+          mamonhoc: m,
+          tende: $("#name-exam").val(),
+          thoigianthi: parseInt($("#exam-time").val()) || 0,
+          thoigianbatdau: $("#time-start").val(),
+          thoigianketthuc: $("#time-end").val(),
+          socau: JSON.stringify(socau),
+          diem_tracnghiem: diem.mcq || 0,
+          diem_tuluan: diem.essay || 0,
+          diem_dochieu: diem.reading || 0,
+          chuong: chapters,
+          loaide: $("#tudongsoande").prop("checked") ? 1 : 0,
+          xemdiem: $("#xemdiem").prop("checked") ? 1 : 0,
+          xemdapan: $("#xemda").prop("checked") ? 1 : 0,
+          xembailam: $("#xembailam").prop("checked") ? 1 : 0,
+          daocauhoi: $("#daocauhoi").prop("checked") ? 1 : 0,
+          daodapan: $("#daodapan").prop("checked") ? 1 : 0,
+          tudongnop: $("#tudongnop").prop("checked") ? 1 : 0,
+          manhom: selectedGroups,
+          loaicauhoi: questionTypes,
+        },
+        dataType: "json",
+        success: function (res) {
+          if (res.success && res.made) {
+            Dashmix.helpers("jq-notify", {
+              type: "success",
+              message: `Tạo đề thành công! ID đề: ${res.made}`,
+            });
+            setTimeout(() => (location.href = "./test"), 1500);
+          } else {
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: res.error || "Tạo đề thất bại!",
+            });
+          }
+        },
+        error: function () {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: "Lỗi hệ thống!",
+          });
+        },
+      });
+    });
+
+  $("#btn-update-test")
+    .off("click")
+    .on("click", function (e) {
+      e.preventDefault();
+      isSubmitting = true;
+      if (!$(".form-taodethi").valid()) {
+        isSubmitting = false;
+        Dashmix.helpers("jq-notify", {
+          type: "warning",
+          icon: "fa fa-exclamation-triangle me-1",
+          message: "Vui lòng kiểm tra lại các trường bắt buộc!",
+        });
+        return;
+      }
+
+      const totalScore = tinhTongDiem();
+      if (totalScore !== 10) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          icon: "",
+          message: `
+        Tổng điểm phải đúng <strong class="text-danger">10 điểm</strong>! <br>
+        Hiện tại đang là <strong class="text-primary">${totalScore.toFixed(
+          2
+        )}</strong> điểm.
+ 
+  `,
+          delay: 8000,
+        });
+
+        return;
+      }
+
+      if (!validUpdate()) {
+        return;
+      }
+
+      const loaide = $("#tudongsoande").prop("checked") ? 1 : 0;
+      const manhom = getGroupSelected().map((x) => parseInt(x));
       const loaicauhoi = getSelectedQuestionTypes();
+      const chapters = getSelectedChapters();
+      const m = groups[$("#nhom-hp").val()].mamonhoc;
+
+      if (manhom.length === 0) {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Chọn ít nhất một nhóm học phần!",
+        });
+        return;
+      }
       if (loaicauhoi.length === 0) {
         Dashmix.helpers("jq-notify", {
           type: "danger",
@@ -634,27 +810,29 @@ $(document).ready(function () {
         return;
       }
 
-      // Lấy số câu từng loại
-      const socau = {};
-      const diem = {};
-      let valid = true;
-
-      let typeMap = { mcq: "tracnghiem", essay: "tuluan", reading: "dochieu" };
-      let typeNameMap = {
+      const typeMap = {
+        mcq: "tracnghiem",
+        essay: "tuluan",
+        reading: "dochieu",
+      };
+      const typeNameMap = {
         mcq: "Trắc nghiệm",
         essay: "Tự luận",
         reading: "Đọc hiểu",
       };
 
+      const socau = {};
+      const diem = {};
+      let valid = true;
+
       loaicauhoi.forEach((type) => {
-        let prefix = typeMap[type];
+        const prefix = typeMap[type];
+        const de = parseInt($(`#coban_${prefix}`).val()) || 0;
+        const tb = parseInt($(`#trungbinh_${prefix}`).val()) || 0;
+        const kho = parseInt($(`#kho_${prefix}`).val()) || 0;
+        const point =
+          parseFloat($(`#diem_${prefix}`).val().replace(",", ".")) || 0;
 
-        let de = parseInt($(`#coban_${prefix}`).val()) || 0;
-        let tb = parseInt($(`#trungbinh_${prefix}`).val()) || 0;
-        let kho = parseInt($(`#kho_${prefix}`).val()) || 0;
-        let point = parseFloat($(`#diem_${prefix}`).val()) || 0;
-
-        // Validate số câu > 0
         if (de + tb + kho === 0) {
           valid = false;
           Dashmix.helpers("jq-notify", {
@@ -662,8 +840,6 @@ $(document).ready(function () {
             message: `Loại "${typeNameMap[type]}" phải có ít nhất 1 câu!`,
           });
         }
-
-        // Validate điểm > 0
         if (point <= 0) {
           valid = false;
           Dashmix.helpers("jq-notify", {
@@ -678,49 +854,42 @@ $(document).ready(function () {
 
       if (!valid) return;
 
-      // ===== CHECK SỐ LƯỢNG NHƯ ADD TEST =====
-      let chapters = getSelectedChapters();
-      let m = groups[$("#nhom-hp").val()].mamonhoc;
-
+      // Kiểm tra số lượng câu hỏi trong ngân hàng
       loaicauhoi.forEach((type) => {
-        let tenLoai = typeNameMap[type];
-        let required = socau[type];
-
-        let available = {
+        const tenLoai = typeNameMap[type];
+        const required = socau[type];
+        const available = {
           de: getTotalQuestionOfChapter(chapters, m, 1, [type]),
           tb: getTotalQuestionOfChapter(chapters, m, 2, [type]),
           kho: getTotalQuestionOfChapter(chapters, m, 3, [type]),
         };
 
-        if (available.de < required.de) {
-          valid = false;
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            message: `${tenLoai}: chỉ có ${available.de} câu dễ, bạn cần ${required.de}`,
-          });
-        }
-        if (available.tb < required.tb) {
-          valid = false;
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            message: `${tenLoai}: chỉ có ${available.tb} câu trung bình, bạn cần ${required.tb}`,
-          });
-        }
-        if (available.kho < required.kho) {
-          valid = false;
-          Dashmix.helpers("jq-notify", {
-            type: "danger",
-            message: `${tenLoai}: chỉ có ${available.kho} câu khó, bạn cần ${required.kho}`,
-          });
-        }
+        if (available.de < required.de)
+          (valid = false),
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: `${tenLoai}: chỉ có ${available.de} câu dễ, bạn cần ${required.de}`,
+            });
+        if (available.tb < required.tb)
+          (valid = false),
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: `${tenLoai}: chỉ có ${available.tb} câu trung bình, bạn cần ${required.tb}`,
+            });
+        if (available.kho < required.kho)
+          (valid = false),
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              message: `${tenLoai}: chỉ có ${available.kho} câu khó, bạn cần ${required.kho}`,
+            });
       });
 
       if (!valid) return;
 
-      // ========= GỬI AJAX UPDATE =========
+      // === GỬI DỮ LIỆU CẬP NHẬT ===
       const data = {
         made: infodethi.made,
-        mamonhoc: groups[$("#nhom-hp").val()].mamonhoc,
+        mamonhoc: m,
         tende: $("#name-exam").val(),
         thoigianthi: parseInt($("#exam-time").val()) || 0,
         thoigianbatdau: $("#time-start").val(),
@@ -753,43 +922,74 @@ $(document).ready(function () {
               icon: "fa fa-check me-1",
               message: "Cập nhật đề thi thành công!",
             });
-            setTimeout(() => {
-              location.href = "./test";
-            }, 1500);
+            setTimeout(() => (location.href = "./test"), 1500);
           } else {
             Dashmix.helpers("jq-notify", {
               type: "danger",
-              icon: "fa fa-times me-1",
               message: response.error || "Cập nhật đề thi không thành công!",
               delay: 10000,
             });
           }
         },
-        error: function (xhr, status, error) {
-          console.error("AJAX Error:", xhr.status, xhr.responseText);
+        error: function (xhr) {
           let msg = "Lỗi hệ thống";
-          if (xhr && xhr.responseJSON && xhr.responseJSON.error)
-            msg = xhr.responseJSON.error;
-          else if (xhr && xhr.responseText) {
-            try {
-              const json = JSON.parse(xhr.responseText);
-              if (json && json.error) msg = json.error;
-              else msg = xhr.responseText;
-            } catch (e) {
-              msg = xhr.responseText;
-            }
-          } else if (error) msg = error;
-
+          try {
+            msg = JSON.parse(xhr.responseText).error || msg;
+          } catch (e) {}
           Dashmix.helpers("jq-notify", {
             type: "danger",
-            icon: "fa fa-times me-1",
             message: `Lỗi: ${msg}`,
           });
         },
       });
-    }
-  });
+    });
+  //load điểm mỗi câu
+  // Tính và hiển thị điểm mỗi câu (cập nhật realtime)
+  function capNhatDiemMoiCau() {
+    const types = [
+      { prefix: "tracnghiem", display: "#diem-moi-cau-tn" },
+      { prefix: "tuluan", display: "#diem-moi-cau-tl" },
+      { prefix: "dochieu", display: "#diem-moi-cau-dh" },
+    ];
 
+    types.forEach((t) => {
+      const de = parseInt($(`#coban_${t.prefix}`).val()) || 0;
+      const tb = parseInt($(`#trungbinh_${t.prefix}`).val()) || 0;
+      const kho = parseInt($(`#kho_${t.prefix}`).val()) || 0;
+      const tongCau = de + tb + kho;
+
+      const diemTong =
+        parseFloat($(`#diem_${t.prefix}`).val().replace(",", ".")) || 0;
+
+      let diemMoi = 0;
+      if (tongCau > 0 && diemTong > 0) {
+        diemMoi = diemTong / tongCau;
+        diemMoi = Math.round(diemMoi * 1000) / 1000; // làm tròn 3 chữ số
+      }
+
+      // Hiển thị đẹp
+      $(t.display).html(`
+            Mỗi câu: <span class="text-danger fw-bold">${diemMoi
+              .toFixed(3)
+              .replace(/0+$/, "")
+              .replace(/\.$/, "")}</span> điểm
+        `);
+    });
+
+    // Trigger validate tổng điểm
+    // $(".form-taodethi").valid();
+  }
+
+  // Gọi khi thay đổi bất kỳ input nào liên quan
+  $(document).on(
+    "input change",
+    "input[id^='coban_'], input[id^='trungbinh_'], input[id^='kho_'], #diem_tracnghiem, #diem_tuluan, #diem_dochieu",
+    capNhatDiemMoiCau
+  );
+
+  $(document).ready(function () {
+    setTimeout(capNhatDiemMoiCau, 500);
+  });
   function checkDate(time) {
     let dateToCompare = new Date(time);
     let currentTime = new Date();
@@ -808,15 +1008,69 @@ $(document).ready(function () {
         $(targetId).removeClass("d-none");
       } else {
         $(targetId).addClass("d-none");
-        $(targetId).find("input").val(0); // reset số lượng khi bỏ chọn
+        $(targetId).find("input").val(0);
       }
     });
   }
+  // Ngăn trang tự động cuộn khi focus vào input số lượng câu hỏi
+  $(document).on(
+    "focus",
+    'input[type="number"], input[type="text"]',
+    function (e) {
+      const scrollTop = $(window).scrollTop();
 
+      setTimeout(function () {
+        $(window).scrollTop(scrollTop);
+      }, 0);
+    }
+  );
   // Gắn sự kiện khi checkbox thay đổi
   $(document).on("change", ".dang-hoi", toggleSocauType);
+  // $(document).on("change", ".dang-hoi", function () {
+  //   toggleSocauType();
+  //   $("#diem_tracnghiem, #diem_tuluan, #diem_dochieu").trigger("change");
+  // });
 
-  // Gọi 1 lần khi load trang
+  // Thay đoạn này (đã có rồi, chỉ sửa nhẹ)
+  // ======== FIX CUỐI CÙNG: ẨN HOÀN TOÀN LỖI ĐIỂM KHI CHƯA SUBMIT ========
+  $(document).on("change", ".dang-hoi", function () {
+    const $this = $(this);
+    const val = $this.val();
+    let fieldId = "";
+
+    if (val === "mcq" || val === "tracnghiem") fieldId = "#diem_tracnghiem";
+    else if (val === "essay" || val === "tuluan") fieldId = "#diem_tuluan";
+    else if (val === "reading" || val === "dochieu") fieldId = "#diem_dochieu";
+
+    if ($this.is(":checked")) {
+      // KHI TICK: hiện toast + focus + XÓA HẾT LỖI CŨ
+      const currentVal = parseFloat($(fieldId).val().replace(",", ".")) || 0;
+      if (currentVal <= 0) {
+        showPointRequiredToast(
+          val === "mcq" || val === "tracnghiem"
+            ? "Trắc nghiệm"
+            : val === "essay" || val === "tuluan"
+            ? "Tự luận"
+            : "Đọc hiểu"
+        );
+        setTimeout(() => $(fieldId).focus(), 100);
+      }
+    }
+
+    // LUÔN LUÔN XÓA LỖI KHI THAY ĐỔI CHECKBOX (tick hoặc bỏ tick)
+    $(fieldId).removeClass("is-invalid").siblings(".invalid-feedback").remove();
+  });
+
+  // Trigger lại validate khi nhập điểm để hiện lỗi chỉ khi bấm nút
+  $(document).on(
+    "input",
+    "#diem_tracnghiem, #diem_tuluan, #diem_dochieu",
+    function () {
+      if (isSubmitting) {
+        $(".form-taodethi").valid();
+      }
+    }
+  );
   toggleSocauType();
 
   function findIndexGroup(manhom) {

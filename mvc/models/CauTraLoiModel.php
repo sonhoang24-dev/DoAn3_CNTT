@@ -160,8 +160,8 @@ class CauTraLoiModel extends DB
 
         return $rows;
     }
-    //lấy câu tl tự luận
-    public function getAllEssaySubmissions($made)
+    //lấy câu tl tự luận; optional $search filters by student name or student id (MSSV)
+    public function getAllEssaySubmissions($made, $search = null, $status = 'all')
     {
         $sql = "
         SELECT 
@@ -182,16 +182,45 @@ INNER JOIN (
 ) tt ON tt.makq = k.makq
 LEFT JOIN nguoidung nd ON nd.id = k.manguoidung
 WHERE k.made = ?
-ORDER BY (k.thoigianvaothi + INTERVAL k.thoigianlambai SECOND) DESC;
+";
 
-    ";
+        $params = [];
+        $types = "ii"; // made, made
+        $params[] = $made;
+        $params[] = $made;
+
+        if ($search !== null && trim($search) !== '') {
+            $sql .= " AND (nd.hoten LIKE ? OR k.manguoidung LIKE ?) ";
+            $types .= "ss";
+            $like = '%' . $search . '%';
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        // Apply status filter: 'all' | 'graded' | 'ungraded'
+        if ($status === 'graded') {
+            $sql .= " AND (k.diem_tuluan IS NOT NULL AND k.diem_tuluan > 0) ";
+        } elseif ($status === 'ungraded') {
+            $sql .= " AND (k.diem_tuluan IS NULL OR k.diem_tuluan = 0) ";
+        }
+
+        $sql .= " ORDER BY (k.thoigianvaothi + INTERVAL k.thoigianlambai SECOND) DESC;";
 
         $stmt = mysqli_prepare($this->con, $sql);
         if (!$stmt) {
-            return ['success' => false, 'message' => 'Lỗi chuẩn bị truy vấn'];
+            return ['success' => false, 'message' => 'Lỗi chuẩn bị truy vấn: ' . mysqli_error($this->con)];
         }
 
-        mysqli_stmt_bind_param($stmt, "ii", $made, $made);
+        // Bind params dynamically
+        $bind_names[] = $types;
+        for ($i = 0; $i < count($params); $i++) {
+            $bind_name = 'bind' . $i;
+            $$bind_name = $params[$i];
+            $bind_names[] = &$$bind_name;
+        }
+
+        call_user_func_array('mysqli_stmt_bind_param', array_merge([$stmt], $bind_names));
+
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
 
