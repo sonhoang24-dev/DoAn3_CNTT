@@ -53,185 +53,217 @@ class KetQuaModel extends DB
         }
         return $socaudung;
     }
+public function submit($made, $nguoidung, $thoigian = null)
+{
+    error_log("Test::submit called with made=$made, user=$nguoidung");
+    date_default_timezone_set('Asia/Ho_Chi_Minh');
+    $this->con->query("SET time_zone = '+07:00'");
 
-    public function submit($made, $nguoidung, $thoigian)
-    {
-        error_log("Test::submit called with made=$made, user=$nguoidung");
-        error_log("Raw POST: " . print_r($_POST, true));
-        error_log("FILES: " . print_r($_FILES, true));
+  
+    $stmt = $this->con->prepare("
+        SELECT makq, thoigianvaothi 
+        FROM ketqua 
+        WHERE made = ? AND manguoidung = ? AND diemthi IS NULL
+    ");
+    if (!$stmt) {
+        error_log("Prepare SELECT failed: " . $this->con->error);
+        return false;
+    }
+    $stmt->bind_param("is", $made, $nguoidung);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
 
-        // 1. Lấy makq và thời gian vào thi
-        $stmt = $this->con->prepare("SELECT makq, thoigianvaothi FROM ketqua WHERE made = ? AND manguoidung = ? AND diemthi IS NULL");
-        if (!$stmt) {
-            error_log("Prepare SELECT ketqua failed: " . $this->con->error);
-            return false;
+    if (!$row) {
+        error_log("Không tìm thấy bản ghi ketqua hoặc đã nộp bài rồi");
+        return false;
+    }
+
+    $makq = $row['makq'];
+    $thoigianvaothi = $row['thoigianvaothi']; // giữ nguyên string datetime
+
+    // ================================
+    // XỬ LÝ THỜI GIAN KẾT THÚC (CHÍNH XÁC NHẤT)
+    // ================================
+    $thoigianketthuc = date('Y-m-d H:i:s'); // thời gian server (luôn đúng)
+
+    // Nếu client gửi thời gian → kiểm tra xem có hợp lý không (chênh ≤ 30 giây thì dùng)
+    if (!empty($_POST['thoigian'])) {
+        $client_time = $_POST['thoigian'];
+        if (strtotime($client_time) !== false) {
+            $client_dt = date('Y-m-d H:i:s', strtotime($client_time));
+            $diff = abs(strtotime($client_dt) - time());
+            if ($diff <= 30) { // chấp nhận sai lệch nhỏ
+                $thoigianketthuc = $client_dt;
+            }
         }
-        $stmt->bind_param("is", $made, $nguoidung);
+    }
+
+    // Tính thời gian làm bài (giây)
+    $thoigianlambai = max(strtotime($thoigianketthuc) - strtotime($thoigianvaothi), 0);
+
+    // Log để dễ debug
+    error_log("Vào thi: $thoigianvaothi | Nộp bài: $thoigianketthuc | Làm bài: {$thoigianlambai} giây");
+
+    // ================================
+    // 2. XỬ LÝ TRẮC NGHIỆM (giữ nguyên logic cũ, chỉ gọn hơn chút)
+    // ================================
+    $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
+    $socaudung_tn = 0;
+    $socaudung_reading = 0;
+
+    // Lấy tổng số câu MCQ
+    $tongcau_tn = 0;
+    $stmt = $this->con->prepare("
+        SELECT SUM(CASE WHEN ch.loai = 'mcq' THEN 1 ELSE 0 END) AS total_mcq
+        FROM chitietdethi ctd 
+        JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi 
+        WHERE ctd.made = ?
+    ");
+    if ($stmt) {
+        $stmt->bind_param('i', $made);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $row = $result->fetch_assoc();
+        $tongcau_tn = (int)$stmt->get_result()->fetch_assoc()['total_mcq'];
         $stmt->close();
+    }
 
-        if (!$row) {
-            error_log("No ketqua found or already submitted.");
-            return false;
+    // Map loại câu hỏi (mcq / reading)
+    $questionTypes = [];
+    $macList = array_column($listCauTraLoi, 'macauhoi');
+    if (!empty($macList)) {
+        $placeholders = str_repeat('?,', count($macList) - 1) . '?';
+        $stmt = $this->con->prepare("SELECT macauhoi, loai FROM cauhoi WHERE macauhoi IN ($placeholders)");
+        $stmt->bind_param(str_repeat('i', count($macList)), ...$macList);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($r = $res->fetch_assoc()) {
+            $questionTypes[$r['macauhoi']] = $r['loai'];
         }
+        $stmt->close();
+    }
 
-        $makq = $row['makq'];
-        $thoigianvaothi = strtotime($row['thoigianvaothi']);
-        $thoigian_str = is_array($thoigian) ? ($_POST['thoigian'] ?? date('Y-m-d H:i:s')) : $thoigian;
-        $thoigianlambai = max(strtotime($thoigian_str) - $thoigianvaothi, 0);
+    foreach ($listCauTraLoi as $ans) {
+        $macauhoi = (int)($ans['macauhoi'] ?? 0);
+        $cautraloi = (int)($ans['cautraloi'] ?? 0);
 
-        // 2. Xử lý trắc nghiệm
-        $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
-        $socaudung_tn = 0;
-
-        // Tính tổng số câu trắc nghiệm trong đề (lấy từ chitietdethi JOIN cauhoi)
-        $total_mcq = 0;
-        $stmtTotal = $this->con->prepare("SELECT SUM(CASE WHEN ch.loai = 'mcq' THEN 1 ELSE 0 END) AS total_mcq FROM chitietdethi ctd JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi WHERE ctd.made = ?");
-        if ($stmtTotal) {
-            $stmtTotal->bind_param('i', $made);
-            $stmtTotal->execute();
-            $resTotal = $stmtTotal->get_result()->fetch_assoc();
-            $stmtTotal->close();
-            $total_mcq = isset($resTotal['total_mcq']) ? (int)$resTotal['total_mcq'] : 0;
-        }
-
-        // Nếu không tìm được số lượng câu trắc nghiệm, fallback về 0
-        $tongcau_tn = max(0, $total_mcq);
-
-        // Tạo map loại câu (loai) cho các câu trong listCauTraLoi để phân biệt reading vs mcq
-        $questionTypes = [];
-        $macList = array_column($listCauTraLoi, 'macauhoi');
-        $macList = array_map('intval', $macList);
-        if (!empty($macList)) {
-            $in = implode(',', $macList);
-            $sqlTypes = "SELECT macauhoi, loai FROM cauhoi WHERE macauhoi IN ($in)";
-            $resTypes = mysqli_query($this->con, $sqlTypes);
-            if ($resTypes) {
-                while ($r = mysqli_fetch_assoc($resTypes)) {
-                    $questionTypes[(int)$r['macauhoi']] = $r['loai'];
-                }
-            }
-        }
-
-        $socaudung_reading = 0;
-
-        foreach ($listCauTraLoi as $ans) {
-            $macauhoi = intval($ans['macauhoi']);
-            $cautraloi = intval($ans['cautraloi'] ?? 0);
-
-            // Lưu đáp án (kể cả khi không chọn -> lưu 0) để ghi đè đáp án cũ
-            // Kiểm tra đúng chỉ khi có chọn (không kiểm khi = 0)
-            if ($cautraloi != 0) {
-                $check = $this->con->prepare("SELECT 1 FROM cautraloi WHERE macauhoi = ? AND macautl = ? AND ladapan = 1");
-                if ($check) {
-                    $check->bind_param("ii", $macauhoi, $cautraloi);
-                    $check->execute();
-                    $resCheck = $check->get_result();
-                    if ($resCheck->num_rows > 0) {
-                        // Phân loại: nếu câu là reading thì cộng vào bộ đếm reading, ngược lại là mcq
-                        if (isset($questionTypes[$macauhoi]) && $questionTypes[$macauhoi] === 'reading') {
-                            $socaudung_reading++;
-                        } else {
-                            $socaudung_tn++;
-                        }
+        if ($cautraloi != 0) {
+            $check = $this->con->prepare("
+                SELECT 1 FROM cautraloi 
+                WHERE macauhoi = ? AND macautl = ? AND ladapan = 1
+            ");
+            if ($check) {
+                $check->bind_param("ii", $macauhoi, $cautraloi);
+                $check->execute();
+                if ($check->get_result()->num_rows > 0) {
+                    $loai = $questionTypes[$macauhoi] ?? 'mcq';
+                    if ($loai === 'reading') {
+                        $socaudung_reading++;
+                    } else {
+                        $socaudung_tn++;
                     }
-                    $check->close();
                 }
-            }
-
-            // Ghi đáp án vào chitietketqua luôn, dùng ON DUPLICATE KEY UPDATE để ghi đè
-            $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
-        }
-
-        // Lấy điểm tối đa cho phần trắc nghiệm và đọc hiểu từ dethi
-        $mcq_total_points = 0.0;
-        $reading_total_points = 0.0;
-        $stmtMcq = $this->con->prepare("SELECT diem_tracnghiem, diem_dochieu FROM dethi WHERE made = ? LIMIT 1");
-        if ($stmtMcq) {
-            $stmtMcq->bind_param('i', $made);
-            $stmtMcq->execute();
-            $resMcq = $stmtMcq->get_result()->fetch_assoc();
-            $stmtMcq->close();
-            if (isset($resMcq['diem_tracnghiem'])) {
-                $mcq_total_points = floatval($resMcq['diem_tracnghiem']);
-            }
-            if (isset($resMcq['diem_dochieu'])) {
-                $reading_total_points = floatval($resMcq['diem_dochieu']);
+                $check->close();
             }
         }
 
-        // Nếu không có cấu hình (<=0) thì fallback về 10 cho trắc nghiệm để giữ tương thích cũ
-        if ($mcq_total_points <= 0) {
-            $mcq_total_points = 10.0;
-        }
+        // Lưu đáp án (có hoặc không chọn)
+        $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
+    }
 
-        // Điểm mỗi câu trắc nghiệm = tổng điểm trắc nghiệm / tổng số câu trắc nghiệm
-        $per_mcq_point = ($tongcau_tn > 0) ? ($mcq_total_points / $tongcau_tn) : 0;
+    // Lấy điểm tối đa
+    $mcq_total_points = 10.0;
+    $reading_total_points = 0.0;
+    $stmt = $this->con->prepare("SELECT diem_tracnghiem, diem_dochieu FROM dethi WHERE made = ?");
+    if ($stmt) {
+        $stmt->bind_param('i', $made);
+        $stmt->execute();
+        $res = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $mcq_total_points = $res['diem_tracnghiem'] > 0 ? floatval($res['diem_tracnghiem']) : 10.0;
+        $reading_total_points = floatval($res['diem_dochieu'] ?? 0);
+    }
 
-        // Tổng điểm trắc nghiệm = số câu đúng * điểm mỗi câu
-        $diem_tracnghiem = round($per_mcq_point * $socaudung_tn, 2);
+    // Tính điểm trắc nghiệm
+    $per_mcq_point = $tongcau_tn > 0 ? $mcq_total_points / $tongcau_tn : 0;
+    $diem_tracnghiem = round($per_mcq_point * $socaudung_tn, 2);
 
-        // 3. Xử lý tự luận
-        $this->xuLyTuLuan($makq);
+    // Xử lý tự luận
+    $this->xuLyTuLuan($makq);
 
-        // 4. Kiểm tra đề có câu tự luận
-        $stmtCheckTL = $this->con->prepare("
-        SELECT COUNT(*) AS total_tl,
-               SUM(CASE WHEN ch.loai = 'reading' THEN 1 ELSE 0 END) AS total_reading
+    // Kiểm tra có tự luận thật sự không (loại trừ reading)
+    $total_reading = 0;
+    $has_tuluan = false;
+    $stmt = $this->con->prepare("
+        SELECT 
+            COUNT(*) AS total,
+            SUM(CASE WHEN ch.loai = 'reading' THEN 1 ELSE 0 END) AS reading_count
         FROM chitietdethi ctd
         JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi
         WHERE ctd.made = ?
     ");
-        $total_reading = 0;
-        if ($stmtCheckTL) {
-            $stmtCheckTL->bind_param("i", $made);
-            $stmtCheckTL->execute();
-            $resTL = $stmtCheckTL->get_result()->fetch_assoc();
-            $stmtCheckTL->close();
+    if ($stmt) {
+        $stmt->bind_param("i", $made);
+        $stmt->execute();
+        $res = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $total_reading = (int)($res['reading_count'] ?? 0);
+        $has_tuluan = ($res['total'] > $total_reading);
+    }
+    $trangthai_tuluan = $has_tuluan ? 'Chưa chấm' : 'Đã chấm';
 
-            $trangthai_tuluan = ($resTL['total_tl'] - $resTL['total_reading'] == 0) ? 'Đã chấm' : 'Chưa chấm';
-            $total_reading = (int)$resTL['total_reading'];
+    // Điểm đọc hiểu
+    $diem_dochieu = 0;
+    if ($total_reading > 0) {
+        if (isset($_POST['diem_dochieu']) && is_numeric($_POST['diem_dochieu'])) {
+            $diem_dochieu = floatval($_POST['diem_dochieu']);
         } else {
-            $trangthai_tuluan = 'Chưa chấm';
+            $per_reading = $total_reading > 0 ? $reading_total_points / $total_reading : 0;
+            $diem_dochieu = round($per_reading * $socaudung_reading, 2);
         }
+    }
 
-        // 5. Lấy/ Tính điểm đọc hiểu nếu có
-        $diem_dochieu = 0;
-        if ($total_reading > 0) {
-            // Nếu frontend gửi điểm đọc hiểu (gv chấm thủ công), ưu tiên dùng nó
-            if (isset($_POST['diem_dochieu']) && is_numeric($_POST['diem_dochieu'])) {
-                $diem_dochieu = floatval($_POST['diem_dochieu']);
-            } else {
-                // Tính tự động: chia đều reading_total_points cho tổng câu reading
-                if (!isset($reading_total_points) || $reading_total_points <= 0) {
-                    $reading_total_points = 0.0;
-                }
-                $per_reading_point = ($total_reading > 0) ? ($reading_total_points / $total_reading) : 0;
-                $diem_dochieu = round($per_reading_point * ($socaudung_reading ?? 0), 2);
-            }
-        }
+    // Tổng điểm
+    $diemthi = $diem_tracnghiem + $diem_dochieu;
 
-        // 6. Tính tổng điểm
-        $diemthi = $diem_tracnghiem + $diem_dochieu;
-
-        // 7. Cập nhật ketqua
-        $stmt = $this->con->prepare("
+    // ================================
+    // CẬP NHẬT KETQUA – ĐÃ THÊM thoigianketthuc
+    // ================================
+    $stmt = $this->con->prepare("
         UPDATE ketqua 
-        SET diemthi = ?, thoigianlambai = ?, socaudung = ?, trangthai = 'Đã nộp', trangthai_tuluan = ?
+        SET 
+            diemthi = ?,
+            thoigianlambai = ?,
+            thoigianketthuc = ?,
+            socaudung = ?,
+            trangthai = 'Đã nộp',
+            trangthai_tuluan = ?
         WHERE makq = ?
     ");
-        if (!$stmt) {
-            error_log("Prepare UPDATE ketqua failed: " . $this->con->error);
-            return false;
-        }
-        $stmt->bind_param("diisi", $diemthi, $thoigianlambai, $socaudung_tn, $trangthai_tuluan, $makq);
-        $stmt->execute();
-        $stmt->close();
 
-        return true;
+    if (!$stmt) {
+        error_log("Prepare UPDATE ketqua failed: " . $this->con->error);
+        return false;
     }
+
+    $stmt->bind_param(
+        "disisi",
+        $diemthi,
+        $thoigianlambai,
+        $thoigianketthuc,
+        $socaudung_tn,
+        $trangthai_tuluan,
+        $makq
+    );
+
+    $success = $stmt->execute();
+    if (!$success) {
+        error_log("Execute UPDATE failed: " . $stmt->error);
+    }
+    $stmt->close();
+
+    return $success;
+}
 
 
     private function xuLyTuLuan($makq)

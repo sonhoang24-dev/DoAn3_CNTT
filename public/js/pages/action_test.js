@@ -1228,7 +1228,9 @@ $(document).ready(function () {
 
   function validUpdate() {
     let check = true;
-    if ($("#name-exam").val() == "") {
+
+    // 1. Kiểm tra tên đề
+    if ($("#name-exam").val().trim() === "") {
       Dashmix.helpers("jq-notify", {
         type: "danger",
         icon: "fa fa-times me-1",
@@ -1236,43 +1238,77 @@ $(document).ready(function () {
       });
       check = false;
     }
-    let startTime = new Date($("#time-start").val());
-    let endTime = new Date($("#time-end").val());
 
+    // 2. Lấy thời gian từ form
+    const startTimeStr = $("#time-start").val();
+    const endTimeStr = $("#time-end").val();
+
+    if (!startTimeStr || !endTimeStr) {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        icon: "fa fa-times me-1",
+        message: "Vui lòng chọn đầy đủ thời gian bắt đầu và kết thúc!",
+      });
+      return false;
+    }
+
+    const startTime = new Date(startTimeStr);
+    const endTime = new Date(endTimeStr);
+
+    // Kiểm tra hợp lệ ngày
+    if (isNaN(startTime) || isNaN(endTime)) {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: "Thời gian không hợp lệ!",
+      });
+      return false;
+    }
+
+    // 3. Thời gian kết thúc phải > thời gian bắt đầu
     if (endTime <= startTime) {
       Dashmix.helpers("jq-notify", {
         type: "danger",
         icon: "fa fa-times me-1",
-        message: "Thời gian kết thúc không được bé hơn thời gian bắt đầu",
+        message: "Thời gian kết thúc phải lớn hơn thời gian bắt đầu!",
       });
       check = false;
     }
 
-    if (endTime < new Date(infodethi.thoigianketthuc)) {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        icon: "fa fa-times me-1",
-        message: "Thời gian kết thúc không được bé hơn thời gian kết thúc cũ",
-      });
-      check = false;
-    }
+    // ================= CHỈ KIỂM TRA KHI ĐANG SỬA ĐỀ (infodethi tồn tại) =================
+    if (typeof infodethi !== "undefined" && infodethi) {
+      // 3.1. Không được giảm thời gian kết thúc so với cũ
+      if (infodethi.thoigianketthuc) {
+        const oldEndTime = new Date(infodethi.thoigianketthuc);
+        if (endTime < oldEndTime) {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            icon: "fa fa-times me-1",
+            message:
+              "Thời gian kết thúc không được nhỏ hơn thời gian kết thúc cũ!",
+          });
+          check = false;
+        }
+      }
 
-    if (
-      endTime > startTime &&
-      getMinutesBetweenDates(startTime, endTime) <
-        parseInt(infodethi.thoigianthi)
-    ) {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        icon: "fa fa-times me-1",
-        message: "Thời gian làm bài không hợp lệ",
-      });
-      check = false;
+      // 3.2. Thời gian làm bài phải >= thời gian thi cũ
+      if (infodethi.thoigianthi) {
+        const oldMinutes = parseInt(infodethi.thoigianthi) || 0;
+        const newMinutes = getMinutesBetweenDates(startTime, endTime);
+
+        if (newMinutes < oldMinutes) {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            icon: "fa fa-times me-1",
+            message: `Thời gian làm bài phải ít nhất ${oldMinutes} phút (như cũ)!`,
+          });
+          check = false;
+        }
+      }
     }
+    // Nếu là tạo mới → bỏ qua 2 kiểm tra trên → không lỗi nữa
 
     return check;
   }
-
   showGroup();
 
   $("#btn-update-quesoftest").hide();
