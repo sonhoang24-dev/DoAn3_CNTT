@@ -201,24 +201,27 @@ class Test extends Controller
             $this->view("single_layout", ["Page" => "error/page_404", "Title" => "Lỗi !"]);
         }
     }
-    public function get_subjects()
-    {
-        $model = new DeThiModel();
+public function get_subjects()
+{
+    $model = new DeThiModel();
 
-        $userid = $_SESSION['userid'] ?? null;
-        if (!$userid) {
-            echo json_encode([]);
-            exit;
-        }
-
-        $subjects = $model->getAllSubjects($userid);
-
-        header('Content-Type: application/json');
-        echo json_encode($subjects);
-        exit;
-
-
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
     }
+
+    $userid = $_SESSION['user_id'] ?? null;
+    if (!$userid) {
+        error_log("get_subjects: no user in session. SESSION keys: " . json_encode(array_keys($_SESSION)));
+        echo json_encode([]);
+        exit;
+    }
+
+    $subjects = $model->getAllSubjects($userid);
+
+    header('Content-Type: application/json');
+    echo json_encode($subjects);
+    exit;
+}
 
     public function get_groups()
     {

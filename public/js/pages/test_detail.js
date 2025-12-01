@@ -627,6 +627,15 @@ function showChart(data) {
 $(document).ready(function () {
   // Ẩn badge số lượng chưa chấm lúc đầu
   $("#count-chua-cham").hide();
+  // Load số lượng bài cần chấm ngay khi tải trang để badge hiển thị ngay
+  try {
+    var madeInitial = $("#chitietdethi").data("id");
+    if (madeInitial && madeInitial > 0) {
+      loadStudentsEssayToGrade(madeInitial);
+    }
+  } catch (e) {
+    console.error('Lỗi khi load số bài tự luận ban đầu:', e);
+  }
 });
 
 // ==================== 1. KHI MỞ TAB CHẤM TỰ LUẬN ====================

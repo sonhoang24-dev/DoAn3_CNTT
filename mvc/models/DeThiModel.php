@@ -1081,34 +1081,43 @@ class DeThiModel extends DB
     }
 
 
-    public function getAllSubjects($userid)
-    {
-        // --- 1. Chuẩn bị query join user_subject ---
-        $sql = "SELECT MH.mamonhoc, MH.tenmonhoc
-FROM monhoc MH
-JOIN user_subject US ON US.mamonhoc = MH.mamonhoc
-WHERE US.userid = ? AND MH.trangthai != 0
-ORDER BY MH.tenmonhoc ASC";
+ public function getAllSubjects($userid)
+{
+    $sql = "
+        SELECT DISTINCT MH.mamonhoc, MH.tenmonhoc
+        FROM monhoc MH
+        JOIN phancong PC ON PC.mamonhoc = MH.mamonhoc
+        WHERE PC.manguoidung = ? 
+          AND PC.trangthai = 1
+        ORDER BY MH.tenmonhoc ASC
+    ";
 
-        $stmt = mysqli_prepare($this->con, $sql);
-        if (!$stmt) {
-            die("Lỗi prepare: " . mysqli_error($this->con));
-        }
+    $stmt = mysqli_prepare($this->con, $sql);
 
-        mysqli_stmt_bind_param($stmt, "i", $userid);
-        mysqli_stmt_execute($stmt);
-
-        $result = mysqli_stmt_get_result($stmt);
-        $rows = array();
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row;
-        }
-
-        mysqli_stmt_close($stmt);
-
-        return $rows;
-
+    if (!$stmt) {
+        throw new Exception("Lỗi prepare: " . mysqli_error($this->con));
     }
+
+    mysqli_stmt_bind_param($stmt, "s", $userid);
+
+    if (!mysqli_stmt_execute($stmt)) {
+        throw new Exception("Lỗi execute: " . mysqli_stmt_error($stmt));
+    }
+
+    $result = mysqli_stmt_get_result($stmt);
+    if (!$result) {
+        mysqli_stmt_close($stmt);
+        throw new Exception("Lỗi get_result: " . mysqli_error($this->con));
+    }
+
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $rows[] = $row;
+    }
+
+    mysqli_stmt_close($stmt);
+    return $rows;
+}
 
 
     public function getMaDe($made, $user)

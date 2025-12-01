@@ -634,12 +634,12 @@ $(document).ready(function () {
   $.get(
     "./subject/getSubjectAssignment",
     function (data) {
-      let html = "<option></option>";
+      let html = "<option value=\"0\">Tất cả chương</option>";
       data.forEach((item) => {
         html += `<option value="${item.mamonhoc}">${item.tenmonhoc}</option>`;
       });
       $(".data-monhoc").html(html);
-      $("#main-page-monhoc").html(html);
+      $("#main-page-monhoc").html(html).val("").trigger("change");
     },
     "json"
   );
@@ -648,7 +648,7 @@ $(document).ready(function () {
   $(".data-monhoc").on("change", function () {
     let selectedValue = $(this).val();
     let id = $(this).data("tab");
-    let html = "<option></option>";
+    let html = "<option value=\"0\">Tất cả chương</option>";
     $.ajax({
       type: "post",
       url: "./subject/getAllChapter",
@@ -660,7 +660,7 @@ $(document).ready(function () {
         data.forEach((item) => {
           html += `<option value="${item.machuong}">${item.tenchuong}</option>`;
         });
-        $(`.data-chuong[data-tab="${id}"]`).html(html);
+        $(`.data-chuong[data-tab="${id}"]`).html(html).val("0").trigger("change");
       },
     });
   });
@@ -669,7 +669,7 @@ $(document).ready(function () {
   $("#main-page-monhoc").on("change", function () {
     let mamonhoc = $(this).val();
     let id = $(this).data("tab");
-    let html = "<option></option>";
+    let html = "<option value=\"0\">Tất cả chương</option>";
     $.ajax({
       type: "post",
       url: "./subject/getAllChapter",
@@ -681,7 +681,8 @@ $(document).ready(function () {
         data.forEach((item) => {
           html += `<option value="${item.machuong}">${item.tenchuong}</option>`;
         });
-        $(`#main-page-chuong[data-tab="${id}"]`).html(html);
+        // main page chapter select has id #main-page-chuong — update it directly and refresh select2
+        $("#main-page-chuong").html(html).val("0").trigger("change");
       },
     });
 

@@ -556,7 +556,9 @@ class KetQuaModel extends DB
         $count_only = $args['count_only'] ?? false;
 
         $absent_query = $this->getListAbsentFromTest($filter, $input, $args);
-        $query = "SELECT DISTINCT KQ.*, email, hoten, avatar FROM ketqua KQ, nguoidung ND, chitietnhom CTN WHERE KQ.manguoidung = ND.id AND CTN.manguoidung = ND.id AND KQ.made = ".$args['made'];
+        // Use an explicit, ordered column list so UNION branches match exactly
+        $cols = "KQ.makq, KQ.made, KQ.manguoidung, KQ.diemthi, KQ.diem_tuluan, KQ.trangthai, KQ.trangthai_tuluan, KQ.thoigianvaothi, KQ.thoigianlambai, KQ.socaudung, KQ.solanchuyentab, ND.email, ND.hoten, ND.avatar";
+        $query = "SELECT DISTINCT $cols FROM ketqua KQ JOIN nguoidung ND ON KQ.manguoidung = ND.id JOIN chitietnhom CTN ON CTN.manguoidung = ND.id WHERE KQ.made = " . $args['made'];
         if (is_array($args['manhom'])) {
             $list = implode(", ", $args['manhom']);
             $query .= " AND CTN.manhom IN ($list)";
@@ -564,6 +566,19 @@ class KetQuaModel extends DB
             $query .= " AND CTN.manhom = ".$args['manhom'];
         }
         $present_query = $query;
+        // Ensure absent_query returns the same column order/aliases as present_query
+        // absent_query from getListAbsentFromTest currently returns: makq, made, manguoidung, diemthi, thoigianvaothi, thoigianlambai, socaudung, solanchuyentab, email, hoten, avatar
+        // We need to align it with $cols (including diem_tuluan, trangthai, trangthai_tuluan which will be NULL for absent rows)
+        if (strpos($absent_query, 'SELECT') === 0) {
+            // rewrite absent_query to replace its SELECT ... FROM clause with the explicit columns + FROM
+            $absent_query = preg_replace(
+                '/SELECT\s+.*?\s+FROM\s+/is',
+                'SELECT KQ.makq, KQ.made, CTN.manguoidung, KQ.diemthi, KQ.diem_tuluan, KQ.trangthai, KQ.trangthai_tuluan, KQ.thoigianvaothi, KQ.thoigianlambai, KQ.socaudung, KQ.solanchuyentab, ND.email, ND.hoten, ND.avatar FROM ',
+                $absent_query,
+                1
+            );
+        }
+
         $query = "($present_query) UNION ($absent_query)";
 
         // Bỏ ORDER nếu đang đếm
@@ -692,9 +707,10 @@ class KetQuaModel extends DB
     public function getTestAll($made, $ds)
     {
         $list = implode(", ", $ds);
-        $sql = "(SELECT KQ.makq, KQ.made, CTN.manguoidung, KQ.diemthi, KQ.thoigianvaothi, KQ.thoigianlambai, KQ.socaudung, KQ.solanchuyentab, email, hoten, avatar FROM chitietnhom CTN JOIN nguoidung ND ON ND.id = CTN.manguoidung LEFT JOIN ketqua KQ ON CTN.manguoidung = KQ.manguoidung AND KQ.made = $made WHERE KQ.made IS NULL AND CTN.manhom IN ($list))
+        $cols = "KQ.makq, KQ.made, CTN.manguoidung, KQ.diemthi, KQ.diem_tuluan, KQ.trangthai, KQ.trangthai_tuluan, KQ.thoigianvaothi, KQ.thoigianlambai, KQ.socaudung, KQ.solanchuyentab, ND.email, ND.hoten, ND.avatar";
+        $sql = "(SELECT $cols FROM chitietnhom CTN JOIN nguoidung ND ON ND.id = CTN.manguoidung LEFT JOIN ketqua KQ ON CTN.manguoidung = KQ.manguoidung AND KQ.made = $made WHERE KQ.made IS NULL AND CTN.manhom IN ($list))
         UNION
-        (SELECT DISTINCT KQ.*, email, hoten, avatar FROM ketqua KQ, nguoidung ND, chitietnhom CTN WHERE KQ.manguoidung = ND.id AND CTN.manguoidung = ND.id AND KQ.made = $made  AND CTN.manhom IN ($list))
+        (SELECT DISTINCT $cols FROM ketqua KQ JOIN nguoidung ND ON KQ.manguoidung = ND.id JOIN chitietnhom CTN ON CTN.manguoidung = ND.id WHERE KQ.made = $made AND CTN.manhom IN ($list))
         ORDER BY manguoidung ASC";
         $result = mysqli_query($this->con, $sql);
         $rows = array();
