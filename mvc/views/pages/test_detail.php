@@ -134,7 +134,7 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold">Điểm tự luận (tổng: <span id="tong-diem-tuluan">0</span> điểm)</label>
                             <input type="number" step="0.25" min="0" class="form-control form-control-lg text-center fw-bold text-primary" 
-                                   id="diem-tuluan-input" value="0" style="font-size: 2rem;">
+                                   id="diem-tuluan-input" value="0" style="font-size: 2rem;" readonly>
                         </div>
                         <div class="text-center">
     <button type="submit" class="btn btn-success btn-lg px-5">

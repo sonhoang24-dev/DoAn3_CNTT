@@ -46,7 +46,7 @@ class Roles extends Controller
         $result = $this->NhomQuyenModel->getAllSl();
         echo json_encode($result);
     }
-    
+
 
     // Hiển thị bên user
     public function getAll()

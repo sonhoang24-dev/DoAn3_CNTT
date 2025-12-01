@@ -1,4 +1,17 @@
 function showData(data) {
+  console.log("Toàn bộ data:", data);
+
+  data.forEach((Element, index) => {
+    console.log(`---- [Item ${index}] ----`);
+    console.log("manguoidung:", Element["manguoidung"]);
+    console.log("hoten:", Element["hoten"]);
+    console.log("thoigianvaothi:", Element["thoigianvaothi"]);
+    console.log("thoigianbatdau:", Element["thoigianbatdau"]);
+    console.log("thoigianketthuc:", Element["thoigianketthuc"]);
+    console.log("thoigianlambai:", Element["thoigianlambai"]);
+    console.log("------------------------");
+  });
+
   let html = "";
   let now = new Date();
   let start = new Date(Element["thoigianbatdau"]);
@@ -783,7 +796,7 @@ $(document).on(
           </div>
 
           <div class="mb-4">
-            <strong class="text-success"><i class="fas fa-pen me-2"></i>Trả lời:</strong>
+            <strong class="text-success"><i class="fas fa-pen me-2"></i>Câu trả lời:</strong>
             <div class="bg-white p-3 rounded border mt-2 min-vh-20">
               ${
                 c.noidung_tra_loi

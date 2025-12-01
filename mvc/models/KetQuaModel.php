@@ -54,113 +54,113 @@ class KetQuaModel extends DB
         return $socaudung;
     }
 
-   public function submit($made, $nguoidung, $thoigian)
-{
-    error_log("Test::submit called with made=$made, user=$nguoidung");
-    error_log("Raw POST: " . print_r($_POST, true));
-    error_log("FILES: " . print_r($_FILES, true));
+    public function submit($made, $nguoidung, $thoigian)
+    {
+        error_log("Test::submit called with made=$made, user=$nguoidung");
+        error_log("Raw POST: " . print_r($_POST, true));
+        error_log("FILES: " . print_r($_FILES, true));
 
-    // 1. Lấy makq và thời gian vào thi
-    $stmt = $this->con->prepare("SELECT makq, thoigianvaothi FROM ketqua WHERE made = ? AND manguoidung = ? AND diemthi IS NULL");
-    if (!$stmt) {
-        error_log("Prepare SELECT ketqua failed: " . $this->con->error);
-        return false;
-    }
-    $stmt->bind_param("is", $made, $nguoidung);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $stmt->close();
-
-    if (!$row) {
-        error_log("No ketqua found or already submitted.");
-        return false;
-    }
-
-    $makq = $row['makq'];
-    $thoigianvaothi = strtotime($row['thoigianvaothi']);
-    $thoigian_str = is_array($thoigian) ? ($_POST['thoigian'] ?? date('Y-m-d H:i:s')) : $thoigian;
-    $thoigianlambai = max(strtotime($thoigian_str) - $thoigianvaothi, 0);
-
-    // 2. Xử lý trắc nghiệm
-    $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
-    $socaudung_tn = 0;
-    $tongcau_tn = 0;
-
-    foreach ($listCauTraLoi as $ans) {
-        $macauhoi = intval($ans['macauhoi']);
-        $cautraloi = intval($ans['cautraloi'] ?? 0);
-
-        if ($cautraloi != 0) {
-            $tongcau_tn++;
-
-            $check = $this->con->prepare("SELECT 1 FROM cautraloi WHERE macauhoi = ? AND macautl = ? AND ladapan = 1");
-            if ($check) {
-                $check->bind_param("ii", $macauhoi, $cautraloi);
-                $check->execute();
-                $resCheck = $check->get_result();
-                if ($resCheck->num_rows > 0) {
-                    $socaudung_tn++;
-                }
-                $check->close();
-            }
-
-            $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
+        // 1. Lấy makq và thời gian vào thi
+        $stmt = $this->con->prepare("SELECT makq, thoigianvaothi FROM ketqua WHERE made = ? AND manguoidung = ? AND diemthi IS NULL");
+        if (!$stmt) {
+            error_log("Prepare SELECT ketqua failed: " . $this->con->error);
+            return false;
         }
-    }
+        $stmt->bind_param("is", $made, $nguoidung);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $stmt->close();
 
-    $diem_tracnghiem = $tongcau_tn > 0 ? round(10 * $socaudung_tn / $tongcau_tn, 2) : 0;
+        if (!$row) {
+            error_log("No ketqua found or already submitted.");
+            return false;
+        }
 
-    // 3. Xử lý tự luận
-    $this->xuLyTuLuan($makq);
+        $makq = $row['makq'];
+        $thoigianvaothi = strtotime($row['thoigianvaothi']);
+        $thoigian_str = is_array($thoigian) ? ($_POST['thoigian'] ?? date('Y-m-d H:i:s')) : $thoigian;
+        $thoigianlambai = max(strtotime($thoigian_str) - $thoigianvaothi, 0);
 
-    // 4. Kiểm tra đề có câu tự luận
-    $stmtCheckTL = $this->con->prepare("
+        // 2. Xử lý trắc nghiệm
+        $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
+        $socaudung_tn = 0;
+        $tongcau_tn = 0;
+
+        foreach ($listCauTraLoi as $ans) {
+            $macauhoi = intval($ans['macauhoi']);
+            $cautraloi = intval($ans['cautraloi'] ?? 0);
+
+            if ($cautraloi != 0) {
+                $tongcau_tn++;
+
+                $check = $this->con->prepare("SELECT 1 FROM cautraloi WHERE macauhoi = ? AND macautl = ? AND ladapan = 1");
+                if ($check) {
+                    $check->bind_param("ii", $macauhoi, $cautraloi);
+                    $check->execute();
+                    $resCheck = $check->get_result();
+                    if ($resCheck->num_rows > 0) {
+                        $socaudung_tn++;
+                    }
+                    $check->close();
+                }
+
+                $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
+            }
+        }
+
+        $diem_tracnghiem = $tongcau_tn > 0 ? round(10 * $socaudung_tn / $tongcau_tn, 2) : 0;
+
+        // 3. Xử lý tự luận
+        $this->xuLyTuLuan($makq);
+
+        // 4. Kiểm tra đề có câu tự luận
+        $stmtCheckTL = $this->con->prepare("
         SELECT COUNT(*) AS total_tl,
                SUM(CASE WHEN ch.loai = 'reading' THEN 1 ELSE 0 END) AS total_reading
         FROM chitietdethi ctd
         JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi
         WHERE ctd.made = ?
     ");
-    $total_reading = 0;
-    if ($stmtCheckTL) {
-        $stmtCheckTL->bind_param("i", $made);
-        $stmtCheckTL->execute();
-        $resTL = $stmtCheckTL->get_result()->fetch_assoc();
-        $stmtCheckTL->close();
+        $total_reading = 0;
+        if ($stmtCheckTL) {
+            $stmtCheckTL->bind_param("i", $made);
+            $stmtCheckTL->execute();
+            $resTL = $stmtCheckTL->get_result()->fetch_assoc();
+            $stmtCheckTL->close();
 
-        $trangthai_tuluan = ($resTL['total_tl'] - $resTL['total_reading'] == 0) ? 'Đã chấm' : 'Chưa chấm';
-        $total_reading = (int)$resTL['total_reading'];
-    } else {
-        $trangthai_tuluan = 'Chưa chấm';
-    }
+            $trangthai_tuluan = ($resTL['total_tl'] - $resTL['total_reading'] == 0) ? 'Đã chấm' : 'Chưa chấm';
+            $total_reading = (int)$resTL['total_reading'];
+        } else {
+            $trangthai_tuluan = 'Chưa chấm';
+        }
 
-    // 5. Lấy điểm đọc hiểu nếu có
-    $diem_dochieu = 0;
-    if ($total_reading > 0) {
-        $diem_dochieu = $_POST['diem_dochieu'] ?? 0; // hoặc tính tự động theo list câu trả lời reading
-        $diem_dochieu = floatval($diem_dochieu);
-    }
+        // 5. Lấy điểm đọc hiểu nếu có
+        $diem_dochieu = 0;
+        if ($total_reading > 0) {
+            $diem_dochieu = $_POST['diem_dochieu'] ?? 0; // hoặc tính tự động theo list câu trả lời reading
+            $diem_dochieu = floatval($diem_dochieu);
+        }
 
-    // 6. Tính tổng điểm
-    $diemthi = $diem_tracnghiem + $diem_dochieu;
+        // 6. Tính tổng điểm
+        $diemthi = $diem_tracnghiem + $diem_dochieu;
 
-    // 7. Cập nhật ketqua
-    $stmt = $this->con->prepare("
+        // 7. Cập nhật ketqua
+        $stmt = $this->con->prepare("
         UPDATE ketqua 
         SET diemthi = ?, thoigianlambai = ?, socaudung = ?, trangthai = 'Đã nộp', trangthai_tuluan = ?
         WHERE makq = ?
     ");
-    if (!$stmt) {
-        error_log("Prepare UPDATE ketqua failed: " . $this->con->error);
-        return false;
-    }
-    $stmt->bind_param("diisi", $diemthi, $thoigianlambai, $socaudung_tn, $trangthai_tuluan, $makq);
-    $stmt->execute();
-    $stmt->close();
+        if (!$stmt) {
+            error_log("Prepare UPDATE ketqua failed: " . $this->con->error);
+            return false;
+        }
+        $stmt->bind_param("diisi", $diemthi, $thoigianlambai, $socaudung_tn, $trangthai_tuluan, $makq);
+        $stmt->execute();
+        $stmt->close();
 
-    return true;
-}
+        return true;
+    }
 
 
     private function xuLyTuLuan($makq)
@@ -239,6 +239,34 @@ class KetQuaModel extends DB
     }
 
 
+    public function kiemTraDiemTuluan($makq, $diemCham)
+    {
+        $sql = "
+            SELECT d.diem_tuluan AS diem_tuluan_max
+            FROM ketqua k
+            JOIN dethi d ON k.made = d.made
+            WHERE k.makq = ?
+            LIMIT 1
+        ";
+
+        $stmt = $this->con->prepare($sql);
+        if (!$stmt) {
+            throw new Exception("Lỗi prepare: " . $this->con->error);
+        }
+
+        $stmt->bind_param("i", $makq);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return false; // makq không tồn tại
+        }
+
+        // So sánh điểm chấm với điểm tối đa
+        return $diemCham <= (float)$row['diem_tuluan_max'];
+    }
 
     // Hàm lưu đáp án trắc nghiệm
     private function luuDapAnTracNghiem($makq, $macauhoi, $dapanchon)
@@ -269,6 +297,35 @@ class KetQuaModel extends DB
             return ['success' => false, 'message' => 'Mã kết quả không hợp lệ'];
         }
 
+        // --- Kiểm tra điểm tự luận với điểm tối đa ---
+        $sql = "
+        SELECT d.diem_tuluan AS diem_tuluan_max
+        FROM ketqua k
+        JOIN dethi d ON k.made = d.made
+        WHERE k.makq = ?
+        LIMIT 1
+    ";
+        $stmtCheck = mysqli_prepare($this->con, $sql);
+        mysqli_stmt_bind_param($stmtCheck, "i", $makq);
+        mysqli_stmt_execute($stmtCheck);
+        $resultCheck = mysqli_stmt_get_result($stmtCheck);
+        $rowCheck = mysqli_fetch_assoc($resultCheck);
+        mysqli_stmt_close($stmtCheck);
+
+        if (!$rowCheck) {
+            return ['success' => false, 'message' => 'Kết quả không tồn tại'];
+        }
+
+        $diemMax = (float)$rowCheck['diem_tuluan_max'];
+        if ($diemTong > $diemMax) {
+            return [
+                'success' => false,
+                'message' => "Điểm chấm <span style='color:green; font-size:1.5em; font-weight:bold;'>$diemTong </span>điểm vượt quá tối đa <span style='color:red; font-size:1.5em; font-weight:bold;'>$diemMax</span> điểm cho phần tự luận"
+            ];
+        }
+
+
+        // --- Bắt đầu transaction ---
         mysqli_begin_transaction($this->con);
 
         try {
@@ -297,8 +354,6 @@ class KetQuaModel extends DB
                          . " ON DUPLICATE KEY UPDATE diem = VALUES(diem)";
 
                     $stmt = mysqli_prepare($this->con, $sql);
-
-                    // bind_param với số lượng tham số động
                     mysqli_stmt_bind_param($stmt, $types, ...$params);
                     mysqli_stmt_execute($stmt);
                     mysqli_stmt_close($stmt);
@@ -561,7 +616,19 @@ class KetQuaModel extends DB
         if ($filter == "absent") {
             $query = $this->getListAbsentFromTest($filter, $input, $args);
         } else {
-            $query = "SELECT DISTINCT KQ.*, email, hoten, avatar FROM ketqua KQ, nguoidung ND, chitietnhom CTN WHERE KQ.manguoidung = ND.id AND CTN.manguoidung = ND.id AND KQ.made = ".$args['made'];
+            $query = "SELECT DISTINCT 
+            KQ.*, 
+            ND.email, 
+            ND.hoten, 
+            ND.avatar,
+            DT.thoigianbatdau,
+            DT.thoigianketthuc
+          FROM ketqua KQ
+          JOIN nguoidung ND ON KQ.manguoidung = ND.id
+          JOIN chitietnhom CTN ON CTN.manguoidung = ND.id
+          JOIN dethi DT ON DT.made = KQ.made
+          WHERE KQ.made = ".$args['made'];
+
             switch ($filter) {
                 case "present":
                     $query .= " AND diemthi IS NOT NULL";
@@ -637,26 +704,21 @@ class KetQuaModel extends DB
         return $rows;
     }
 
-    public function chuyentab($made, $id) //hàm check xem đề thi đó có quy định rằng nếu có chuyển tab thì nộp bài ngay lập tức
+    public function chuyentab($made, $id)
     {
-        // 1. Lấy kết quả làm bài của người dùng với mã đề tương ứng
         $sql_dethi = "SELECT * FROM ketqua WHERE made='$made' AND manguoidung='$id'";
         $result = mysqli_query($this->con, $sql_dethi);
         $data_dethi = mysqli_fetch_assoc($result);
 
-        // 2. Tăng số lần chuyển tab lên 1
         $solan = $data_dethi['solanchuyentab'];
         $solan++;
 
-        // 3. Cập nhật lại số lần chuyển tab vào CSDL
         $sql_update = "UPDATE ketqua SET solanchuyentab = '$solan' WHERE made='$made' AND manguoidung='$id'";
         $result_update = mysqli_query($this->con, $sql_update);
 
-        // 4. Lấy quy định của đề thi về việc có cho nộp bài khi chuyển tab hay không
         $sql_check = "SELECT * FROM dethi where made = '$made'";
         $result_check = mysqli_query($this->con, $sql_check);
         $data_check = mysqli_fetch_assoc($result_check);
-        // 5. Trả về cờ "nopbaichuyentab" (1: nộp bài khi chuyển tab, 0: không) rồi chuyền ngược về hàm gọi ở đây là test.php trong controller
         return $data_check['nopbaichuyentab'];
     }
 }
