@@ -186,14 +186,22 @@ $(document).ready(function () {
     let lastContext = null;
 
     questions.forEach((item, index) => {
-      let dadung = item.cautraloi ? item.cautraloi.find((op) => op.ladapan == 1) : null;
+      let dadung = item.cautraloi
+        ? item.cautraloi.find((op) => op.ladapan == 1)
+        : null;
       let dapanchon = item.dapanchon || null;
 
       // Nếu là câu thuộc dạng 'reading' thì hiển thị đoạn văn/tiêu đề một lần
-      if (item.loai === 'reading' && item.context && item.context !== lastContext) {
+      if (
+        item.loai === "reading" &&
+        item.context &&
+        item.context !== lastContext
+      ) {
         html += `<div class="card mb-3">
             <div class="card-body bg-light">
-              <h6 class="mb-2">${item.tieude_context ? item.tieude_context : 'Đoạn văn'}</h6>
+              <h6 class="mb-2">${
+                item.tieude_context ? item.tieude_context : "Đoạn văn"
+              }</h6>
               <div class="small text-muted">${item.context}</div>
             </div>
           </div>`;
@@ -206,39 +214,66 @@ $(document).ready(function () {
           <p class="fw-bold mb-3">${index + 1}. ${item.noidung}</p>`;
 
       // Nếu là câu tự luận → hiển thị câu trả lời và điểm giáo viên (nếu có)
-      if (item.loai === 'essay') {
+      if (item.loai === "essay") {
         html += `<div class="mb-4">
             <strong class="text-success"><i class="fas fa-pen me-2"></i>Câu trả lời của thí sinh:</strong>
             <div class="bg-white p-3 rounded border mt-2 min-vh-20">
-              ${item.noidung_tra_loi ? item.noidung_tra_loi : '<em class="text-muted">Chưa làm</em>'}
+              ${
+                item.noidung_tra_loi
+                  ? item.noidung_tra_loi
+                  : '<em class="text-muted">Chưa làm</em>'
+              }
             </div>
           </div>`;
 
         // Hiển thị điểm giáo viên cho câu này (nếu đã chấm)
-        const diemCau = item.diem_cham_tuluan !== null && item.diem_cham_tuluan !== undefined ? parseFloat(item.diem_cham_tuluan).toFixed(2) : null;
+        const diemCau =
+          item.diem_cham_tuluan !== null && item.diem_cham_tuluan !== undefined
+            ? parseFloat(item.diem_cham_tuluan).toFixed(2)
+            : null;
 
         html += `<div class="mt-2 mb-3">
             <span class="fw-bold">Điểm giáo viên:</span>
-            <span class="ms-2">${diemCau !== null ? diemCau + ' điểm' : '<em class="text-muted">Chưa chấm</em>'}</span>
+            <span class="ms-2">${
+              diemCau !== null
+                ? diemCau + " điểm"
+                : '<em class="text-muted">Chưa chấm</em>'
+            }</span>
           </div>`;
 
         html += `</div>`; // đóng question-top
         html += `</div>`; // đóng question
-
       } else {
         // Nếu có student essay data for a reading subquestion, prefer showing it
-        if ((item.noidung_tra_loi !== undefined && item.noidung_tra_loi !== null) || (item.diem_cham_tuluan !== undefined && item.diem_cham_tuluan !== null)) {
+        if (
+          (item.noidung_tra_loi !== undefined &&
+            item.noidung_tra_loi !== null) ||
+          (item.diem_cham_tuluan !== undefined &&
+            item.diem_cham_tuluan !== null)
+        ) {
           html += `<div class="mb-4">
               <strong class="text-success"><i class="fas fa-pen me-2"></i>Câu trả lời của thí sinh:</strong>
               <div class="bg-white p-3 rounded border mt-2 min-vh-20">
-                ${item.noidung_tra_loi ? item.noidung_tra_loi : '<em class="text-muted">Chưa làm</em>'}
+                ${
+                  item.noidung_tra_loi
+                    ? item.noidung_tra_loi
+                    : '<em class="text-muted">Chưa làm</em>'
+                }
               </div>
             </div>`;
 
-          const diemCau = item.diem_cham_tuluan !== null && item.diem_cham_tuluan !== undefined ? parseFloat(item.diem_cham_tuluan).toFixed(2) : null;
+          const diemCau =
+            item.diem_cham_tuluan !== null &&
+            item.diem_cham_tuluan !== undefined
+              ? parseFloat(item.diem_cham_tuluan).toFixed(2)
+              : null;
           html += `<div class="mt-2 mb-3">
               <span class="fw-bold">Điểm giáo viên:</span>
-              <span class="ms-2">${diemCau !== null ? diemCau + ' điểm' : '<em class="text-muted">Chưa chấm</em>'}</span>
+              <span class="ms-2">${
+                diemCau !== null
+                  ? diemCau + " điểm"
+                  : '<em class="text-muted">Chưa chấm</em>'
+              }</span>
             </div>`;
 
           html += `</div>`; // đóng question-top
@@ -690,7 +725,7 @@ $(document).ready(function () {
       loadStudentsEssayToGrade(madeInitial);
     }
   } catch (e) {
-    console.error('Lỗi khi load số bài tự luận ban đầu:', e);
+    console.error("Lỗi khi load số bài tự luận ban đầu:", e);
   }
 });
 
@@ -710,7 +745,10 @@ function loadStudentsEssayToGrade(made, q, status) {
   var postData = { made: made };
   if (q && q.toString().trim() !== "") postData.q = q.toString().trim();
   // status param: 'all' | 'graded' | 'ungraded'
-  status = typeof status !== 'undefined' ? status : ($('#essay-filter-status').val() || 'all');
+  status =
+    typeof status !== "undefined"
+      ? status
+      : $("#essay-filter-status").val() || "all";
   postData.status = status;
 
   $.ajax({
@@ -817,11 +855,11 @@ function loadStudentsEssayToGrade(made, q, status) {
 
 // Add a small search UI for essay grader list (search by student name or MSSV)
 function ensureEssaySearchUI() {
-  if (document.getElementById('essay-search-container')) return;
+  if (document.getElementById("essay-search-container")) return;
 
-  var container = document.createElement('div');
-  container.id = 'essay-search-container';
-  container.className = 'mb-3';
+  var container = document.createElement("div");
+  container.id = "essay-search-container";
+  container.className = "mb-3";
   container.innerHTML = `
     <div class="row mb-2">
       <div class="col-12">
@@ -839,42 +877,40 @@ function ensureEssaySearchUI() {
           <option value="graded">Đã chấm</option>
         </select>
       </div>
-      <div class="col">
-        <small class="text-muted">Nhập tên / MSSV để lọc</small>
-      </div>
+      
     </div>
   `;
 
-  var target = document.getElementById('danh-sach-sinhvien-tuluan');
+  var target = document.getElementById("danh-sach-sinhvien-tuluan");
   if (target && target.parentNode) {
     target.parentNode.insertBefore(container, target);
 
-    var $input = $('#essay-search-input');
-    var $clear = $('#essay-search-clear');
-    var $status = $('#essay-filter-status');
+    var $input = $("#essay-search-input");
+    var $clear = $("#essay-search-clear");
+    var $status = $("#essay-filter-status");
 
     // debounce helper
     var timer = null;
-    $input.on('input', function () {
+    $input.on("input", function () {
       clearTimeout(timer);
       var q = $(this).val();
       timer = setTimeout(function () {
-        var made = $('#chitietdethi').data('id');
+        var made = $("#chitietdethi").data("id");
         var st = $status.val();
         loadStudentsEssayToGrade(made, q, st);
       }, 400);
     });
 
-    $clear.on('click', function () {
-      $input.val('');
-      var made = $('#chitietdethi').data('id');
+    $clear.on("click", function () {
+      $input.val("");
+      var made = $("#chitietdethi").data("id");
       var st = $status.val();
-      loadStudentsEssayToGrade(made, '', st);
+      loadStudentsEssayToGrade(made, "", st);
       $input.focus();
     });
 
-    $status.on('change', function () {
-      var made = $('#chitietdethi').data('id');
+    $status.on("change", function () {
+      var made = $("#chitietdethi").data("id");
       var q = $input.val();
       loadStudentsEssayToGrade(made, q, $(this).val());
     });

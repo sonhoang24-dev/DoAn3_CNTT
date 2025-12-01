@@ -366,32 +366,47 @@ Dashmix.onLoad(() =>
       );
 
       jQuery(".form-taodethi").validate({
+        // ===== QUAN TRỌNG: Dynamic rules cho điểm theo checkbox =====
         rules: {
           "name-exam": { required: true },
           "time-start": { required: true, validTimeStart: true },
           "time-end": { required: true, validTimeEnd: true },
           "exam-time": { required: true, digits: true, validThoigianthi: true },
           "nhom-hp": { required: true },
+          user_nhomquyen: { required: true },
+
+          // ĐIỂM CHỈ BẮT BUỘC KHI LOẠI CÂU HỎI ĐƯỢC CHỌN
           diem_tracnghiem: {
-            required: false,
+            required: function () {
+              return $("#loai-tracnghiem").is(":checked");
+            },
             number: true,
-            min: 0.01,
+            min: function () {
+              return $("#loai-tracnghiem").is(":checked") ? 0.01 : 0;
+            },
             validTotalScore: true,
           },
           diem_tuluan: {
-            required: false,
+            required: function () {
+              return $("#loai-tuluan").is(":checked");
+            },
             number: true,
-            min: 0.01,
+            min: function () {
+              return $("#loai-tuluan").is(":checked") ? 0.01 : 0;
+            },
             validTotalScore: true,
           },
           diem_dochieu: {
-            required: false,
+            required: function () {
+              return $("#loai-doc-hieu").is(":checked");
+            },
             number: true,
-            min: 0.01,
+            min: function () {
+              return $("#loai-doc-hieu").is(":checked") ? 0.01 : 0;
+            },
             validTotalScore: true,
           },
 
-          user_nhomquyen: { required: true },
           chuong: {
             required: function () {
               return getSelectedChapters().length > 0;
@@ -416,41 +431,37 @@ Dashmix.onLoad(() =>
             atLeastOneQuestion: true,
           },
         },
+
         messages: {
           "name-exam": { required: "Vui lòng nhập tên đề kiểm tra" },
           "time-start": {
-            required: "Vui lòng chọn thời điểm bắt đầu của bài kiểm tra",
-            validTimeStart:
-              "Thời gian bắt đầu không được bé hơn thời gian hiện tại",
+            required: "Vui lòng chọn thời điểm bắt đầu",
+            validTimeStart: "Thời gian bắt đầu không được nhỏ hơn hiện tại",
           },
           "time-end": {
-            required: "Vui lòng chọn thời điểm kết thúc của bài kiểm tra",
+            required: "Vui lòng chọn thời điểm kết thúc",
             validTimeEnd: "Thời gian kết thúc không hợp lệ",
           },
-          "exam-time": {
-            required: "Vui lòng chọn thời gian làm bài kiểm tra",
+          "exam-time": { required: "Vui lòng nhập thời gian làm bài" },
+          "nhom-hp": { required: "Vui lòng chọn nhóm học phần" },
+
+          diem_tracnghiem: {
+            required: "Vui lòng nhập điểm cho phần Trắc nghiệm",
+            min: "Điểm phải lớn hơn 0",
           },
-          "nhom-hp": { required: "Vui lòng chọn nhóm học phần giảng dạy" },
-          chuong: {
-            required: "Vui lòng chọn ít nhất một chương cho đề kiểm tra",
+          diem_tuluan: {
+            required: "Vui lòng nhập điểm cho phần Tự luận",
+            min: "Điểm phải lớn hơn 0",
           },
-          coban: {
-            required: "Vui lòng cho biết số câu dễ",
-            digits: "Vui lòng nhập số",
-          },
-          trungbinh: {
-            required: "Vui lòng cho biết số câu trung bình",
-            digits: "Vui lòng nhập số",
-          },
-          kho: {
-            required: "Vui lòng cho biết số câu khó",
-            digits: "Vui lòng nhập số",
+          diem_dochieu: {
+            required: "Vui lòng nhập điểm cho phần Đọc hiểu",
+            min: "Điểm phải lớn hơn 0",
           },
         },
 
+        // ===== ẨN LỖI ĐIỂM KHI CHƯA BẤM LƯU (vẫn giữ nguyên logic cũ) =====
         showErrors: function (errorMap, errorList) {
           if (!isSubmitting) {
-            // ẨN HOÀN TOÀN TẤT CẢ LỖI CỦA 3 Ô ĐIỂM KHI CHƯA BẤM LƯU
             errorList = errorList.filter((item) => {
               const id = item.element.id || "";
               return ![
@@ -460,15 +471,18 @@ Dashmix.onLoad(() =>
               ].includes(id);
             });
 
-            // XÓA SẠCH VIỀN ĐỎ + CHỮ LỖI CŨ
             $("#diem_tracnghiem, #diem_tuluan, #diem_dochieu")
               .removeClass("is-invalid is-valid")
-              .closest(".form-group, .col-md-4, .input-group") // tùy cấu trúc HTML của bạn
+              .closest(".form-group, .col-md-4, .input-group")
               .find(".invalid-feedback, .valid-feedback")
               .remove();
           }
-
           this.defaultShowErrors();
+        },
+
+        // Trigger validate lại khi thay đổi checkbox loại câu hỏi
+        invalidHandler: function () {
+          isSubmitting = false;
         },
       });
     }
@@ -1059,6 +1073,31 @@ $(document).ready(function () {
 
     // LUÔN LUÔN XÓA LỖI KHI THAY ĐỔI CHECKBOX (tick hoặc bỏ tick)
     $(fieldId).removeClass("is-invalid").siblings(".invalid-feedback").remove();
+  });
+  $(document).on("change", ".dang-hoi", function () {
+    toggleSocauType();
+    capNhatDiemMoiCau();
+
+    // QUAN TRỌNG: Re-validate các ô điểm khi thay đổi loại
+    $("#diem_tracnghiem, #diem_tuluan, #diem_dochieu").each(function () {
+      $(this).valid(); // Kích hoạt lại rule required/min động
+    });
+
+    // Xóa lỗi cũ nếu bỏ tick
+    if (!$(this).is(":checked")) {
+      const map = {
+        mcq: "#diem_tracnghiem",
+        tracnghiem: "#diem_tracnghiem",
+        essay: "#diem_tuluan",
+        tuluan: "#diem_tuluan",
+        reading: "#diem_dochieu",
+        dochieu: "#diem_dochieu",
+      };
+      $(map[$(this).val()])
+        .removeClass("is-invalid")
+        .siblings(".invalid-feedback")
+        .remove();
+    }
   });
 
   // Trigger lại validate khi nhập điểm để hiện lỗi chỉ khi bấm nút
