@@ -199,8 +199,12 @@ class DeThiModel extends DB
                 throw new Exception("Insert_id invalid");
             }
 
-            if (!empty($chuong)) $this->create_chuongdethi($made, $chuong);
-            if (!empty($nhom))   $this->create_giaodethi($made, $nhom);
+            if (!empty($chuong)) {
+                $this->create_chuongdethi($made, $chuong);
+            }
+            if (!empty($nhom)) {
+                $this->create_giaodethi($made, $nhom);
+            }
 
             if ($loaide == 1 && !empty($socau)) {
                 $this->addQuestionsToAutoTest($made, $socau, $chuong, $monthi, $loaicauhoi);
@@ -563,6 +567,33 @@ class DeThiModel extends DB
         $diem_dochieu = 0
     ) {
         try {
+            $made_int = (int)$made;
+
+            $checkSql = "SELECT makq FROM ketqua WHERE made = ? LIMIT 1";
+            $checkStmt = mysqli_prepare($this->con, $checkSql);
+            mysqli_stmt_bind_param($checkStmt, "i", $made_int);
+            mysqli_stmt_execute($checkStmt);
+            mysqli_stmt_store_result($checkStmt);
+            $hasResult = mysqli_stmt_num_rows($checkStmt) > 0;
+            mysqli_stmt_close($checkStmt);
+
+            $sqlOld = "SELECT diem_tracnghiem, diem_tuluan, diem_dochieu FROM dethi WHERE made = ?";
+            $stmtOld = mysqli_prepare($this->con, $sqlOld);
+            mysqli_stmt_bind_param($stmtOld, "i", $made_int);
+            mysqli_stmt_execute($stmtOld);
+            mysqli_stmt_bind_result($stmtOld, $old_tracnghiem, $old_tuluan, $old_dochieu);
+            mysqli_stmt_fetch($stmtOld);
+            mysqli_stmt_close($stmtOld);
+
+            if ($hasResult &&
+               ($diem_tracnghiem != $old_tracnghiem ||
+                $diem_tuluan != $old_tuluan ||
+                $diem_dochieu != $old_dochieu)) {
+                return [
+                    'success' => false,
+                    'error' => "Đề này đã có thí sinh làm bài, KHÔNG được cập nhật điểm!"
+                ];
+            }
             $monthi         = trim($monthi);
             $nguoitao       = trim($nguoitao);
             $tende          = trim($tende);
@@ -585,14 +616,18 @@ class DeThiModel extends DB
             }
 
             $socau = json_decode($socau_json, true);
-            if (!is_array($socau)) $socau = [];
+            if (!is_array($socau)) {
+                $socau = [];
+            }
 
             $mcq_de = $mcq_tb = $mcq_kho = 0;
             $essay_de = $essay_tb = $essay_kho = 0;
             $reading_de = $reading_tb = $reading_kho = 0;
 
             foreach ($loaicauhoi as $type) {
-                if (!isset($socau[$type])) continue;
+                if (!isset($socau[$type])) {
+                    continue;
+                }
 
                 $de  = (int)($socau[$type]['de'] ?? 0);
                 $tb  = (int)($socau[$type]['tb'] ?? 0);
@@ -625,7 +660,9 @@ class DeThiModel extends DB
             WHERE made=?";
 
             $stmt = mysqli_prepare($this->con, $sql);
-            if (!$stmt) throw new Exception("Prepare failed: " . mysqli_error($this->con));
+            if (!$stmt) {
+                throw new Exception("Prepare failed: " . mysqli_error($this->con));
+            }
 
             $types = "sssissiiiiiiiiiiiiiiiidddi";
 

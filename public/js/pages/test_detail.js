@@ -1,92 +1,168 @@
 function showData(data) {
-  console.log("Toàn bộ data:", data);
+  console.log("Data:", data);
 
-  data.forEach((Element, index) => {
-    console.log(`---- [Item ${index}] ----`);
-    console.log("manguoidung:", Element["manguoidung"]);
-    console.log("hoten:", Element["hoten"]);
-    console.log("thoigianvaothi:", Element["thoigianvaothi"]);
-    console.log("thoigianbatdau:", Element["thoigianbatdau"]);
-    console.log("thoigianketthuc:", Element["thoigianketthuc"]);
-    console.log("thoigianlambai:", Element["thoigianlambai"]);
-    console.log("------------------------");
-  });
+  // Sắp xếp theo thời gian vào thi (mới nhất trước)
+  data.sort((a, b) =>
+    (b.thoigianvaothi || "").localeCompare(a.thoigianvaothi || "")
+  );
 
   let html = "";
-  let now = new Date();
-  let start = new Date(Element["thoigianbatdau"]);
-  let end = new Date(Element["thoigianketthuc"]);
-  let statusText = "";
+  const now = new Date();
 
-  if (!Element["thoigianvaothi"]) {
-    if (now > end) {
-      statusText = "(Vắng thi)";
-    } else if (now >= start && now <= end) {
-      statusText = "(Chưa thi)";
+  data.forEach((item) => {
+    const daThi = !!item.thoigianvaothi;
+    const disabled = !daThi ? "opacity-50 pe-none" : "";
+
+    // Xử lý điểm tự luận
+    const trangThaiTuLuan = item.trangthai_tuluan || "Chưa chấm";
+    const daChamTuLuan = trangThaiTuLuan === "Đã chấm";
+    const diemTuLuan = daChamTuLuan ? parseFloat(item.diem_tuluan || 0) : 0;
+
+    // Tính tổng điểm (chỉ cộng điểm tự luận nếu đã chấm)
+    const diemTracNghiem = parseFloat(item.diemthi ?? 0);
+    const tongDiem = daChamTuLuan
+      ? (diemTracNghiem + diemTuLuan).toFixed(2)
+      : diemTracNghiem.toFixed(2);
+
+    // Hiển thị điểm trên giao diện
+    const hienThiDiem = daChamTuLuan
+      ? `<span class="fw-bold fs-5 ${
+          tongDiem >= 5 ? "text-success" : "text-danger"
+        }">
+        ${tongDiem}
+      </span>`
+      : `<div class="text-center">
+        <div class="fw-bold text-danger">${diemTracNghiem.toFixed(2)}</div>
+        <small class="text-muted">(Chưa chấm tự luận)</small>
+      </div>`;
+
+    // Trạng thái thời gian vào thi
+    let statusText = "";
+    if (!item.thoigianvaothi) {
+      const start = new Date(item.thoigianbatdau);
+      const end = new Date(item.thoigianketthuc);
+      if (now > end) {
+        statusText = '<span class="text-danger fw-bold">(Vắng thi)</span>';
+      } else if (now >= start && now <= end) {
+        statusText = '<span class="text-warning fw-bold">(Đang thi)</span>';
+      } else {
+        statusText = '<span class="text-muted">(Chưa tới giờ)</span>';
+      }
     } else {
-      statusText = "(Chưa tới giờ thi)";
+      statusText = new Date(item.thoigianvaothi).toLocaleString("vi-VN");
     }
-  } else {
-    statusText = Element["thoigianvaothi"];
-  }
-  data.forEach((Element) => {
-    var totalSeconds = Element["thoigianlambai"] || 0;
-    var hours = Math.floor(totalSeconds / 3600);
-    var minutes = Math.floor((totalSeconds % 3600) / 60);
-    var seconds = Math.floor(totalSeconds % 60);
-    var formattedTime =
-      hours.toString().padStart(2, "0") +
-      ":" +
-      minutes.toString().padStart(2, "0") +
-      ":" +
-      seconds.toString().padStart(2, "0");
-    html += `<tr>
-        <td class="text-center">${Element["manguoidung"]}</td>
-        <td class="fs-sm d-flex align-items-center">
-            <img class="img-avatar img-avatar48 me-3"
-               src="./public/media/avatars/${
-                 Element["avatar"] && Element["avatar"].trim() !== ""
-                   ? Element["avatar"]
-                   : "ANHSV.png"
-               }"
 
-                }" alt="${Element["hoten"]}">
-            <div class="d-flex flex-column">
-                <strong class="text-primary">${Element["hoten"]}</strong>
-                <span class="fw-normal fs-sm text-muted">${
-                  Element["email"]
-                }</span>
-            </div>
-        </td>
-        <td class="text-center">
-  ${((Element["diemthi"] ?? 0) + (Element["diem_tuluan"] ?? 0)).toFixed(2)}
-</td>
+    // Thời gian làm bài
+    const t = item.thoigianlambai || 0;
+    const formattedTime = `${String(Math.floor(t / 3600)).padStart(
+      2,
+      "0"
+    )}:${String(Math.floor((t % 3600) / 60)).padStart(2, "0")}:${String(
+      t % 60
+    ).padStart(2, "0")}`;
 
+    // Có bài tự luận cần chấm không?
+    const coTuLuan = ["Chưa chấm", "Đã chấm"].includes(trangThaiTuLuan);
 
-
-        <td class="text-center">${
-          Element["thoigianvaothi"] || "(Vắng thi)"
+    html += `
+      <tr>
+        <td data-title="MSSV" class="text-center fw-semibold">${
+          item.manguoidung
         }</td>
-        <td class="text-center">${formattedTime}</td>
-        <td class="text-center">${Element["solanchuyentab"] || 0}</td>
-        <td class="text-center">
-            <a class="btn btn-sm btn-alt-secondary show-exam-detail" href="javascript:void(0)" data-bs-toggle="tooltip" aria-label="Xem chi tiết" data-bs-original-title="Xem chi tiết" data-id="${
-              Element["makq"] || ""
-            }">
-                <i class="fa fa-fw fa-eye"></i>
-            </a>
-            <a class="btn btn-sm btn-alt-secondary print-pdf" href="javascript:void(0)" data-bs-toggle="tooltip" aria-label="In bài làm" data-bs-original-title="In bài làm" data-id="${
-              Element["makq"] || ""
-            }">
-                <i class="fa fa-fw fa-print"></i>
-            </a>
-        </td>
-    </tr>`;
-  });
-  $("#took_the_exam").html(html);
-  $('[data-bs-toggle="tooltip"]').tooltip();
-}
 
+        <td data-title="Họ tên">
+          <div class="d-flex align-items-center py-1">
+            <img
+              class="img-avatar img-avatar48 me-3 rounded-circle flex-shrink-0"
+              src="./public/media/avatars/${item.avatar?.trim() || "ANHSV.png"}"
+              onerror="this.src='./public/media/avatars/ANHSV.png'"
+              alt=""
+            >
+            <div class="min-w-0">
+              <div class="fw-bold text-primary text-truncate">${
+                item.hoten
+              }</div>
+              <div class="text-muted small text-truncate">${item.email}</div>
+            </div>
+          </div>
+        </td>
+
+        <!-- CỘT ĐIỂM - ẨN ĐIỂM TỰ LUẬN NẾU CHƯA CHẤM -->
+        <td data-title="Điểm" class="text-center align-middle">
+          ${hienThiDiem}
+        </td>
+
+        <td data-title="Thời gian vào thi" class="text-center align-middle">
+          ${statusText}
+        </td>
+
+        <td data-title="Thời gian thi" class="text-center align-middle">
+          <span class="badge bg-primary px-3 py-2">${formattedTime}</span>
+        </td>
+
+        <td data-title="Số lần thoát" class="text-center align-middle">
+          <span class="badge rounded-pill ${
+            item.solanchuyentab > 3 ? "bg-danger" : "bg-warning"
+          } px-3">
+            ${item.solanchuyentab || 0}
+          </span>
+        </td>
+
+        <td data-title="Hành động" class="text-center align-middle">
+          <div class="btn-group btn-group-sm" role="group">
+            <button
+              type="button"
+              class="btn btn-alt-secondary show-exam-detail ${disabled}"
+              data-id="${item.makq || ""}"
+              title="Xem chi tiết bài thi"
+            >
+              <i class="fa fa-eye"></i>
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-alt-secondary print-pdf ${disabled}"
+              data-id="${item.makq || ""}"
+              title="In bài làm (PDF)"
+            >
+              <i class="fa fa-print"></i>
+            </button>
+
+            ${
+              coTuLuan
+                ? `
+            <button
+              type="button"
+              class="btn ${
+                daChamTuLuan ? "btn-success" : "btn-warning text-dark"
+              }
+              btn-cham-tuluan-tu-bang"
+              data-makq="${item.makq}"
+              data-hoten="${item.hoten}"
+              data-mssv="${item.manguoidung}"
+              title="${
+                daChamTuLuan
+                  ? "Đã chấm: " + diemTuLuan.toFixed(2) + " điểm"
+                  : "Chưa chấm tự luận"
+              }"
+            >
+              <i class="fa fa-marker"></i>
+            </button>`
+                : ""
+            }
+          </div>
+        </td>
+      </tr>`;
+  });
+
+  $("#took_the_exam").html(html);
+
+  // Khởi tạo lại tooltip nếu có
+  const tooltipElements = document.querySelectorAll(
+    '[data-bs-toggle="tooltip"]'
+  );
+  tooltipElements.forEach((el) => bootstrap.Tooltip.getOrCreateInstance(el));
+}
 const made = document.getElementById("chitietdethi").dataset.id;
 
 // Lấy danh sách mã nhóm
@@ -545,27 +621,59 @@ $(document).ready(function () {
     }
   });
 
-  $("#export_excel").click(function () {
-    let manhom = $(".filtered-by-group.active").data("value");
-    let ds = mainPagePagination.option.manhom;
+  $(document).on("click", "#export_excel", function () {
+    const $btn = $(this);
+    const oldHtml = $btn.html();
+
+    // Lấy nhóm hiện tại
+    const manhom = $(".filtered-by-group.active").data("value") || 0;
+    const ds = Array.isArray(mainPagePagination.option.manhom)
+      ? mainPagePagination.option.manhom
+      : [];
+
+    // Disable nút + hiện loading
+    $btn
+      .prop("disabled", true)
+      .html('<i class="fa fa-spinner fa-spin"></i> Đang xuất...');
+
     $.ajax({
-      method: "post",
       url: "./test/exportExcel",
-      dataType: "json",
+      method: "POST",
       data: {
         made: made,
         manhom: manhom,
         ds: ds,
       },
-      success: function (response) {
-        var $a = $("<a>");
-        $a.attr("href", response.file);
+      dataType: "json",
+      timeout: 90000, // 90 giây vì xuất Excel có thể lâu
+    })
+      .done(function (response) {
+        if (!response || !response.file) {
+          Swal.fire("Lỗi", "Không nhận được file từ server!", "error");
+          return;
+        }
+
+        // Tạo link tải ẩn
+        const $a = $("<a>", {
+          href: response.file,
+          download:
+            response.filename ||
+            `Bang_diem_${new Date().toLocaleDateString("vi-VN")}.xlsx`,
+        });
+
         $("body").append($a);
-        $a.attr("download", "Kết quả bài thi.xls");
         $a[0].click();
         $a.remove();
-      },
-    });
+
+        pushMessage("success", "Xuất file Excel thành công!");
+      })
+      .fail(function (jqXHR) {
+        console.error("Export Excel lỗi:", jqXHR.responseText);
+        Swal.fire("Lỗi", "Không thể xuất file. Vui lòng thử lại!", "error");
+      })
+      .always(function () {
+        $btn.prop("disabled", false).html(oldHtml);
+      });
   });
 });
 
@@ -780,7 +888,6 @@ function loadStudentsEssayToGrade(made, q, status) {
         if (!daCham) chuaCham++;
 
         const hoten = item.hoten?.trim() || item.manguoidung;
-        const avatarLetter = hoten.charAt(0).toUpperCase();
 
         const badge = daCham
           ? `<div class="badge bg-success rounded-pill px-3 py-2"><i class="fas fa-check me-1"></i>${tl}</div>`
@@ -797,17 +904,23 @@ function loadStudentsEssayToGrade(made, q, status) {
               
               <!-- Avatar + Tên + MSSV -->
               <div class="d-flex align-items-center flex-grow-1 min-width-0">
-                <div class="avatar-bg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 me-3"
-                     style="width:48px; height:48px; font-size:20px; font-weight:bold;">
-                  ${avatarLetter}
-                </div>
-                <div class="min-width-0">
-                  <h6 class="mb-1 fw-bold text-dark text-truncate">${hoten}</h6>
-                  <small class="text-muted"><i class="fas fa-id-card me-1"></i>${
-                    item.manguoidung
-                  }</small>
-                </div>
-              </div>
+  <!-- Avatar hoặc ảnh mặc định -->
+  <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 me-3"
+       style="width:48px; height:48px; font-size:20px; font-weight:bold;">
+    <img src="${item.avatar?.trim() || "./public/media/avatars/ANHSV.png"}"
+         alt="${hoten}"
+         class="rounded-circle"
+         style="width:100%; height:100%; object-fit:cover;">
+  </div>
+  <!-- Thông tin người dùng -->
+  <div class="min-width-0">
+    <h6 class="mb-1 fw-bold text-dark text-truncate">${hoten}</h6>
+    <small class="text-muted">
+      <i class="fas fa-id-card me-1"></i>${item.manguoidung}
+    </small>
+  </div>
+</div>
+
 
               <!-- ĐIỂM - RESPONSIVE HOÀN HẢO -->
               <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
@@ -857,7 +970,7 @@ function loadStudentsEssayToGrade(made, q, status) {
 function ensureEssaySearchUI() {
   if (document.getElementById("essay-search-container")) return;
 
-  var container = document.createElement("div");
+  const container = document.createElement("div");
   container.id = "essay-search-container";
   container.className = "mb-3";
   container.innerHTML = `
@@ -865,10 +978,13 @@ function ensureEssaySearchUI() {
       <div class="col-12">
         <div class="input-group">
           <input id="essay-search-input" type="text" class="form-control" placeholder="Tìm theo tên hoặc MSSV...">
-          <button id="essay-search-clear" class="btn btn-outline-secondary" type="button"><i class="fa fa-times"></i></button>
+          <button id="essay-search-clear" class="btn btn-outline-secondary" type="button">
+            <i class="fa fa-times"></i>
+          </button>
         </div>
       </div>
     </div>
+
     <div class="row">
       <div class="col-auto">
         <select id="essay-filter-status" class="form-select">
@@ -877,45 +993,45 @@ function ensureEssaySearchUI() {
           <option value="graded">Đã chấm</option>
         </select>
       </div>
-      
     </div>
   `;
 
-  var target = document.getElementById("danh-sach-sinhvien-tuluan");
+  const target = document.getElementById("danh-sach-sinhvien-tuluan");
   if (target && target.parentNode) {
     target.parentNode.insertBefore(container, target);
 
-    var $input = $("#essay-search-input");
-    var $clear = $("#essay-search-clear");
-    var $status = $("#essay-filter-status");
+    const $input = $("#essay-search-input");
+    const $clear = $("#essay-search-clear");
+    const $status = $("#essay-filter-status");
 
-    // debounce helper
-    var timer = null;
+    // Debounce helper
+    let timer = null;
     $input.on("input", function () {
       clearTimeout(timer);
-      var q = $(this).val();
-      timer = setTimeout(function () {
-        var made = $("#chitietdethi").data("id");
-        var st = $status.val();
-        loadStudentsEssayToGrade(made, q, st);
+      const query = $(this).val();
+      timer = setTimeout(() => {
+        const made = $("#chitietdethi").data("id");
+        const status = $status.val();
+        loadStudentsEssayToGrade(made, query, status);
       }, 400);
     });
 
     $clear.on("click", function () {
       $input.val("");
-      var made = $("#chitietdethi").data("id");
-      var st = $status.val();
-      loadStudentsEssayToGrade(made, "", st);
+      const made = $("#chitietdethi").data("id");
+      const status = $status.val();
+      loadStudentsEssayToGrade(made, "", status);
       $input.focus();
     });
 
     $status.on("change", function () {
-      var made = $("#chitietdethi").data("id");
-      var q = $input.val();
-      loadStudentsEssayToGrade(made, q, $(this).val());
+      const made = $("#chitietdethi").data("id");
+      const query = $input.val();
+      loadStudentsEssayToGrade(made, query, $(this).val());
     });
   }
 }
+
 // ==================== 3. KHI CLICK VÀO 1 SINH VIÊN ====================
 $(document).on(
   "click",
@@ -1027,6 +1143,53 @@ $(document).on("input change", ".diem-cau", function () {
   });
   $("#tong-diem-tuluan").text(tong.toFixed(2));
   $("#diem-tuluan-input").val(tong.toFixed(2));
+});
+// ==================== CHẤM TRỰC TIẾP ====================
+$(document).on("click", ".btn-cham-tuluan-tu-bang", function () {
+  const makq = $(this).data("makq");
+  const hoten = $(this).data("hoten");
+  const mssv = $(this).data("mssv");
+
+  if (!makq) {
+    alert("Không tìm thấy mã kết quả!");
+    return;
+  }
+
+  // 1. Chuyển sang tab Chấm tự luận
+  const $tabLink = $(
+    '[data-bs-toggle="tab"][data-bs-target="#cham-tuluan"], a[href="#cham-tuluan"]'
+  );
+  if ($tabLink.length > 0) {
+    $tabLink.tab("show");
+  } else {
+    $("#cham-tuluan").addClass("show active");
+    $(".tab-pane").not("#cham-tuluan").removeClass("show active");
+    $(
+      `.nav-link[data-bs-target="#cham-tuluan"], .nav-link[href="#cham-tuluan"]`
+    ).addClass("active");
+  }
+
+  // 2. Đợi tab hiện + danh sách sinh viên đã load xong → tự động click vào sinh viên tương ứng
+  const waitAndClickStudent = () => {
+    const $studentItem = $(
+      `#danh-sach-sinhvien-tuluan .student-item[data-makq="${makq}"]`
+    );
+
+    if ($studentItem.length > 0) {
+      // Tìm thấy → click luôn để load form chấm
+      $studentItem.trigger("click");
+    } else {
+      // Chưa load xong danh sách → đợi thêm chút rồi thử lại (tối đa 3 lần)
+      if (waitAndClickStudent.attempts < 6) {
+        waitAndClickStudent.attempts++;
+        setTimeout(waitAndClickStudent, 300);
+      }
+    }
+  };
+  waitAndClickStudent.attempts = 0;
+
+  // 3. Bắt đầu đợi và click
+  setTimeout(waitAndClickStudent, 500); // Đảm bảo tab đã chuyển + danh sách bắt đầu load
 });
 
 // ==================== 5. LƯU ĐIỂM TỰ LUẬN ====================

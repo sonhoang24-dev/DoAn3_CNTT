@@ -90,7 +90,7 @@
                                     <th class="text-center">Hành động</th>
                                 </tr>
                             </thead>
-                            <tbody id="took_the_exam"></tbody>
+                            <tbody id="took_the_exam" class="js-table-sections-body"></tbody>
                         </table>
                     </div>
                     <?php if (isset($data["Plugin"]["pagination"])): ?>

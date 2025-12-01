@@ -164,10 +164,11 @@ class CauTraLoiModel extends DB
     public function getAllEssaySubmissions($made, $search = null, $status = 'all')
     {
         $sql = "
-        SELECT 
+       SELECT 
     k.makq,
     k.manguoidung,
     COALESCE(nd.hoten, k.manguoidung) AS hoten,
+    nd.avatar, -- Thêm cột avatar
     k.diemthi,
     k.diem_tuluan,
     k.trangthai_tuluan,
@@ -182,6 +183,7 @@ INNER JOIN (
 ) tt ON tt.makq = k.makq
 LEFT JOIN nguoidung nd ON nd.id = k.manguoidung
 WHERE k.made = ?
+
 ";
 
         $params = [];
@@ -253,14 +255,16 @@ WHERE k.made = ?
         // 1. Lấy manguoidung + hoten (rất chuẩn!)
         $manguoidung = null;
         $hoten = null;
+        $avatar = null;
 
         $sqlUser = "SELECT 
-                kq.manguoidung, 
-                COALESCE(nd.hoten, kq.manguoidung) AS hoten 
-            FROM ketqua kq 
-            LEFT JOIN nguoidung nd ON nd.id = kq.manguoidung 
-            WHERE kq.makq = ? 
-            LIMIT 1";
+        kq.manguoidung, 
+        COALESCE(nd.hoten, kq.manguoidung) AS hoten,
+        nd.avatar
+    FROM ketqua kq 
+    LEFT JOIN nguoidung nd ON nd.id = kq.manguoidung 
+    WHERE kq.makq = ? 
+    LIMIT 1";
 
         $stmtUser = mysqli_prepare($this->con, $sqlUser);
         if ($stmtUser) {
@@ -269,7 +273,8 @@ WHERE k.made = ?
             $resUser = mysqli_stmt_get_result($stmtUser);
             if ($rowUser = mysqli_fetch_assoc($resUser)) {
                 $manguoidung = $rowUser['manguoidung'];
-                $hoten = $rowUser['hoten'];  // ← Đây là tên đầy đủ hoặc MSSV nếu không có tên
+                $hoten = $rowUser['hoten'];  
+                $avatar      = $rowUser['avatar'];
             }
             mysqli_stmt_close($stmtUser);
         }
@@ -354,6 +359,7 @@ WHERE k.made = ?
             'makq'            => $makq,
             'manguoidung'     => $manguoidung,
             'hoten'           => $hoten,
+            'avatar'           => $avatar,
             'tong_diem_tuluan' => round($tongDiemTuLuan, 2),
             'tong_cau'        => count($cauhoiArr),
             'da_cham'         => $soCauDaCham,

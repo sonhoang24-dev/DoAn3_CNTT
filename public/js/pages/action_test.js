@@ -946,13 +946,19 @@ $(document).ready(function () {
           }
         },
         error: function (xhr) {
-          let msg = "Lỗi hệ thống";
+          let msg = "Lỗi hệ thống!";
+
           try {
-            msg = JSON.parse(xhr.responseText).error || msg;
+            const res = JSON.parse(xhr.responseText);
+            if (res.error) msg = res.error;
           } catch (e) {}
+
           Dashmix.helpers("jq-notify", {
-            type: "danger",
-            message: `Lỗi: ${msg}`,
+            type: "danger", 
+            icon: "fa fa-exclamation-triangle me-1",
+            message: msg, 
+            close: true, 
+            timeout: 5000, 
           });
         },
       });

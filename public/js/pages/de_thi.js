@@ -265,11 +265,64 @@ $(document).ready(function () {
                   btnDelete.innerHTML = "×";
                   btnDelete.onclick = (e) => {
                     e.stopPropagation();
-                    answers[index].images.splice(i, 1);
+                    // Load stored answers from localStorage to avoid stale in-memory state
+                    let s = JSON.parse(localStorage.getItem(answerKey) || "[]");
+                    if (!Array.isArray(s)) s = [];
+                    if (!s[index]) s[index] = {};
+                    s[index].images = s[index].images || [];
+
+                    // Remove by exact match or filename fallback
+                    const findExact = s[index].images.findIndex(
+                      (im) => im === src
+                    );
+                    if (findExact >= 0) {
+                      s[index].images.splice(findExact, 1);
+                    } else {
+                      const getName = (u) =>
+                        u ? u.split("/").pop().split("?")[0] : "";
+                      const name = getName(src);
+                      const byName = s[index].images.findIndex(
+                        (im) => getName(im) === name
+                      );
+                      if (byName >= 0) s[index].images.splice(byName, 1);
+                    }
+
+                    // Persist and sync in-memory
+                    localStorage.setItem(answerKey, JSON.stringify(s));
+                    answers[index] = answers[index] || {};
+                    answers[index].images = s[index].images;
+
+                    // Safely remove matching <img> elements from editor content
                     try {
-                      editor.setData(editor.getData().split(src).join(""));
-                    } catch {}
-                    localStorage.setItem(answerKey, JSON.stringify(answers));
+                      const edData = editor.getData();
+                      const tmp = document.createElement("div");
+                      tmp.innerHTML = edData;
+                      const imgs = Array.from(tmp.querySelectorAll("img"));
+                      const getName = (u) =>
+                        u ? u.split("/").pop().split("?")[0] : "";
+                      imgs.forEach((imgEl) => {
+                        const imgSrc = imgEl.src || "";
+                        if (
+                          imgSrc === src ||
+                          (imgSrc && imgSrc.indexOf(src) !== -1) ||
+                          getName(imgSrc) === getName(src)
+                        ) {
+                          imgEl.remove();
+                        }
+                      });
+                      const newData = tmp.innerHTML;
+                      if (newData !== edData)
+                        editor.setData(newData).catch(() => {});
+                    } catch (err) {
+                      console.warn("remove image from editor failed", err);
+                    }
+
+                    // Remove thumbnail element for responsiveness
+                    try {
+                      wrapper.remove();
+                    } catch (err) {}
+
+                    showBtnSideBar(questions, answers);
                     renderImages();
                   };
                   wrapper.appendChild(img);

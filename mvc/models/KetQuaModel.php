@@ -53,148 +53,148 @@ class KetQuaModel extends DB
         }
         return $socaudung;
     }
-public function submit($made, $nguoidung, $thoigian = null)
-{
-    error_log("Test::submit called with made=$made, user=$nguoidung");
-    date_default_timezone_set('Asia/Ho_Chi_Minh');
-    $this->con->query("SET time_zone = '+07:00'");
+    public function submit($made, $nguoidung, $thoigian = null)
+    {
+        error_log("Test::submit called with made=$made, user=$nguoidung");
+        date_default_timezone_set('Asia/Ho_Chi_Minh');
+        $this->con->query("SET time_zone = '+07:00'");
 
-  
-    $stmt = $this->con->prepare("
+
+        $stmt = $this->con->prepare("
         SELECT makq, thoigianvaothi 
         FROM ketqua 
         WHERE made = ? AND manguoidung = ? AND diemthi IS NULL
     ");
-    if (!$stmt) {
-        error_log("Prepare SELECT failed: " . $this->con->error);
-        return false;
-    }
-    $stmt->bind_param("is", $made, $nguoidung);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $stmt->close();
+        if (!$stmt) {
+            error_log("Prepare SELECT failed: " . $this->con->error);
+            return false;
+        }
+        $stmt->bind_param("is", $made, $nguoidung);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $stmt->close();
 
-    if (!$row) {
-        error_log("Không tìm thấy bản ghi ketqua hoặc đã nộp bài rồi");
-        return false;
-    }
+        if (!$row) {
+            error_log("Không tìm thấy bản ghi ketqua hoặc đã nộp bài rồi");
+            return false;
+        }
 
-    $makq = $row['makq'];
-    $thoigianvaothi = $row['thoigianvaothi']; // giữ nguyên string datetime
+        $makq = $row['makq'];
+        $thoigianvaothi = $row['thoigianvaothi']; // giữ nguyên string datetime
 
-    // ================================
-    // XỬ LÝ THỜI GIAN KẾT THÚC (CHÍNH XÁC NHẤT)
-    // ================================
-    $thoigianketthuc = date('Y-m-d H:i:s'); // thời gian server (luôn đúng)
+        // ================================
+        // XỬ LÝ THỜI GIAN KẾT THÚC (CHÍNH XÁC NHẤT)
+        // ================================
+        $thoigianketthuc = date('Y-m-d H:i:s'); // thời gian server (luôn đúng)
 
-    // Nếu client gửi thời gian → kiểm tra xem có hợp lý không (chênh ≤ 30 giây thì dùng)
-    if (!empty($_POST['thoigian'])) {
-        $client_time = $_POST['thoigian'];
-        if (strtotime($client_time) !== false) {
-            $client_dt = date('Y-m-d H:i:s', strtotime($client_time));
-            $diff = abs(strtotime($client_dt) - time());
-            if ($diff <= 30) { // chấp nhận sai lệch nhỏ
-                $thoigianketthuc = $client_dt;
+        // Nếu client gửi thời gian → kiểm tra xem có hợp lý không (chênh ≤ 30 giây thì dùng)
+        if (!empty($_POST['thoigian'])) {
+            $client_time = $_POST['thoigian'];
+            if (strtotime($client_time) !== false) {
+                $client_dt = date('Y-m-d H:i:s', strtotime($client_time));
+                $diff = abs(strtotime($client_dt) - time());
+                if ($diff <= 30) { // chấp nhận sai lệch nhỏ
+                    $thoigianketthuc = $client_dt;
+                }
             }
         }
-    }
 
-    // Tính thời gian làm bài (giây)
-    $thoigianlambai = max(strtotime($thoigianketthuc) - strtotime($thoigianvaothi), 0);
+        // Tính thời gian làm bài (giây)
+        $thoigianlambai = max(strtotime($thoigianketthuc) - strtotime($thoigianvaothi), 0);
 
-    // Log để dễ debug
-    error_log("Vào thi: $thoigianvaothi | Nộp bài: $thoigianketthuc | Làm bài: {$thoigianlambai} giây");
+        // Log để dễ debug
+        error_log("Vào thi: $thoigianvaothi | Nộp bài: $thoigianketthuc | Làm bài: {$thoigianlambai} giây");
 
-    // ================================
-    // 2. XỬ LÝ TRẮC NGHIỆM (giữ nguyên logic cũ, chỉ gọn hơn chút)
-    // ================================
-    $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
-    $socaudung_tn = 0;
-    $socaudung_reading = 0;
+        // ================================
+        // 2. XỬ LÝ TRẮC NGHIỆM (giữ nguyên logic cũ, chỉ gọn hơn chút)
+        // ================================
+        $listCauTraLoi = json_decode($_POST['listCauTraLoi'] ?? '[]', true);
+        $socaudung_tn = 0;
+        $socaudung_reading = 0;
 
-    // Lấy tổng số câu MCQ
-    $tongcau_tn = 0;
-    $stmt = $this->con->prepare("
+        // Lấy tổng số câu MCQ
+        $tongcau_tn = 0;
+        $stmt = $this->con->prepare("
         SELECT SUM(CASE WHEN ch.loai = 'mcq' THEN 1 ELSE 0 END) AS total_mcq
         FROM chitietdethi ctd 
         JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi 
         WHERE ctd.made = ?
     ");
-    if ($stmt) {
-        $stmt->bind_param('i', $made);
-        $stmt->execute();
-        $tongcau_tn = (int)$stmt->get_result()->fetch_assoc()['total_mcq'];
-        $stmt->close();
-    }
-
-    // Map loại câu hỏi (mcq / reading)
-    $questionTypes = [];
-    $macList = array_column($listCauTraLoi, 'macauhoi');
-    if (!empty($macList)) {
-        $placeholders = str_repeat('?,', count($macList) - 1) . '?';
-        $stmt = $this->con->prepare("SELECT macauhoi, loai FROM cauhoi WHERE macauhoi IN ($placeholders)");
-        $stmt->bind_param(str_repeat('i', count($macList)), ...$macList);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        while ($r = $res->fetch_assoc()) {
-            $questionTypes[$r['macauhoi']] = $r['loai'];
+        if ($stmt) {
+            $stmt->bind_param('i', $made);
+            $stmt->execute();
+            $tongcau_tn = (int)$stmt->get_result()->fetch_assoc()['total_mcq'];
+            $stmt->close();
         }
-        $stmt->close();
-    }
 
-    foreach ($listCauTraLoi as $ans) {
-        $macauhoi = (int)($ans['macauhoi'] ?? 0);
-        $cautraloi = (int)($ans['cautraloi'] ?? 0);
+        // Map loại câu hỏi (mcq / reading)
+        $questionTypes = [];
+        $macList = array_column($listCauTraLoi, 'macauhoi');
+        if (!empty($macList)) {
+            $placeholders = str_repeat('?,', count($macList) - 1) . '?';
+            $stmt = $this->con->prepare("SELECT macauhoi, loai FROM cauhoi WHERE macauhoi IN ($placeholders)");
+            $stmt->bind_param(str_repeat('i', count($macList)), ...$macList);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($r = $res->fetch_assoc()) {
+                $questionTypes[$r['macauhoi']] = $r['loai'];
+            }
+            $stmt->close();
+        }
 
-        if ($cautraloi != 0) {
-            $check = $this->con->prepare("
+        foreach ($listCauTraLoi as $ans) {
+            $macauhoi = (int)($ans['macauhoi'] ?? 0);
+            $cautraloi = (int)($ans['cautraloi'] ?? 0);
+
+            if ($cautraloi != 0) {
+                $check = $this->con->prepare("
                 SELECT 1 FROM cautraloi 
                 WHERE macauhoi = ? AND macautl = ? AND ladapan = 1
             ");
-            if ($check) {
-                $check->bind_param("ii", $macauhoi, $cautraloi);
-                $check->execute();
-                if ($check->get_result()->num_rows > 0) {
-                    $loai = $questionTypes[$macauhoi] ?? 'mcq';
-                    if ($loai === 'reading') {
-                        $socaudung_reading++;
-                    } else {
-                        $socaudung_tn++;
+                if ($check) {
+                    $check->bind_param("ii", $macauhoi, $cautraloi);
+                    $check->execute();
+                    if ($check->get_result()->num_rows > 0) {
+                        $loai = $questionTypes[$macauhoi] ?? 'mcq';
+                        if ($loai === 'reading') {
+                            $socaudung_reading++;
+                        } else {
+                            $socaudung_tn++;
+                        }
                     }
+                    $check->close();
                 }
-                $check->close();
             }
+
+            // Lưu đáp án (có hoặc không chọn)
+            $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
         }
 
-        // Lưu đáp án (có hoặc không chọn)
-        $this->luuDapAnTracNghiem($makq, $macauhoi, $cautraloi);
-    }
+        // Lấy điểm tối đa
+        $mcq_total_points = 10.0;
+        $reading_total_points = 0.0;
+        $stmt = $this->con->prepare("SELECT diem_tracnghiem, diem_dochieu FROM dethi WHERE made = ?");
+        if ($stmt) {
+            $stmt->bind_param('i', $made);
+            $stmt->execute();
+            $res = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            $mcq_total_points = $res['diem_tracnghiem'] > 0 ? floatval($res['diem_tracnghiem']) : 10.0;
+            $reading_total_points = floatval($res['diem_dochieu'] ?? 0);
+        }
 
-    // Lấy điểm tối đa
-    $mcq_total_points = 10.0;
-    $reading_total_points = 0.0;
-    $stmt = $this->con->prepare("SELECT diem_tracnghiem, diem_dochieu FROM dethi WHERE made = ?");
-    if ($stmt) {
-        $stmt->bind_param('i', $made);
-        $stmt->execute();
-        $res = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        $mcq_total_points = $res['diem_tracnghiem'] > 0 ? floatval($res['diem_tracnghiem']) : 10.0;
-        $reading_total_points = floatval($res['diem_dochieu'] ?? 0);
-    }
+        // Tính điểm trắc nghiệm
+        $per_mcq_point = $tongcau_tn > 0 ? $mcq_total_points / $tongcau_tn : 0;
+        $diem_tracnghiem = round($per_mcq_point * $socaudung_tn, 2);
 
-    // Tính điểm trắc nghiệm
-    $per_mcq_point = $tongcau_tn > 0 ? $mcq_total_points / $tongcau_tn : 0;
-    $diem_tracnghiem = round($per_mcq_point * $socaudung_tn, 2);
+        // Xử lý tự luận
+        $this->xuLyTuLuan($makq);
 
-    // Xử lý tự luận
-    $this->xuLyTuLuan($makq);
-
-    // Kiểm tra có tự luận thật sự không (loại trừ reading)
-    $total_reading = 0;
-    $has_tuluan = false;
-    $stmt = $this->con->prepare("
+        // Kiểm tra có tự luận thật sự không (loại trừ reading)
+        $total_reading = 0;
+        $has_tuluan = false;
+        $stmt = $this->con->prepare("
         SELECT 
             COUNT(*) AS total,
             SUM(CASE WHEN ch.loai = 'reading' THEN 1 ELSE 0 END) AS reading_count
@@ -202,34 +202,34 @@ public function submit($made, $nguoidung, $thoigian = null)
         JOIN cauhoi ch ON ctd.macauhoi = ch.macauhoi
         WHERE ctd.made = ?
     ");
-    if ($stmt) {
-        $stmt->bind_param("i", $made);
-        $stmt->execute();
-        $res = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        $total_reading = (int)($res['reading_count'] ?? 0);
-        $has_tuluan = ($res['total'] > $total_reading);
-    }
-    $trangthai_tuluan = $has_tuluan ? 'Chưa chấm' : 'Đã chấm';
-
-    // Điểm đọc hiểu
-    $diem_dochieu = 0;
-    if ($total_reading > 0) {
-        if (isset($_POST['diem_dochieu']) && is_numeric($_POST['diem_dochieu'])) {
-            $diem_dochieu = floatval($_POST['diem_dochieu']);
-        } else {
-            $per_reading = $total_reading > 0 ? $reading_total_points / $total_reading : 0;
-            $diem_dochieu = round($per_reading * $socaudung_reading, 2);
+        if ($stmt) {
+            $stmt->bind_param("i", $made);
+            $stmt->execute();
+            $res = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            $total_reading = (int)($res['reading_count'] ?? 0);
+            $has_tuluan = ($res['total'] > $total_reading);
         }
-    }
+        $trangthai_tuluan = $has_tuluan ? 'Chưa chấm' : 'Đã chấm';
 
-    // Tổng điểm
-    $diemthi = $diem_tracnghiem + $diem_dochieu;
+        // Điểm đọc hiểu
+        $diem_dochieu = 0;
+        if ($total_reading > 0) {
+            if (isset($_POST['diem_dochieu']) && is_numeric($_POST['diem_dochieu'])) {
+                $diem_dochieu = floatval($_POST['diem_dochieu']);
+            } else {
+                $per_reading = $total_reading > 0 ? $reading_total_points / $total_reading : 0;
+                $diem_dochieu = round($per_reading * $socaudung_reading, 2);
+            }
+        }
 
-    // ================================
-    // CẬP NHẬT KETQUA – ĐÃ THÊM thoigianketthuc
-    // ================================
-    $stmt = $this->con->prepare("
+        // Tổng điểm
+        $diemthi = $diem_tracnghiem + $diem_dochieu;
+
+        // ================================
+        // CẬP NHẬT KETQUA – ĐÃ THÊM thoigianketthuc
+        // ================================
+        $stmt = $this->con->prepare("
         UPDATE ketqua 
         SET 
             diemthi = ?,
@@ -241,29 +241,29 @@ public function submit($made, $nguoidung, $thoigian = null)
         WHERE makq = ?
     ");
 
-    if (!$stmt) {
-        error_log("Prepare UPDATE ketqua failed: " . $this->con->error);
-        return false;
+        if (!$stmt) {
+            error_log("Prepare UPDATE ketqua failed: " . $this->con->error);
+            return false;
+        }
+
+        $stmt->bind_param(
+            "disisi",
+            $diemthi,
+            $thoigianlambai,
+            $thoigianketthuc,
+            $socaudung_tn,
+            $trangthai_tuluan,
+            $makq
+        );
+
+        $success = $stmt->execute();
+        if (!$success) {
+            error_log("Execute UPDATE failed: " . $stmt->error);
+        }
+        $stmt->close();
+
+        return $success;
     }
-
-    $stmt->bind_param(
-        "disisi",
-        $diemthi,
-        $thoigianlambai,
-        $thoigianketthuc,
-        $socaudung_tn,
-        $trangthai_tuluan,
-        $makq
-    );
-
-    $success = $stmt->execute();
-    if (!$success) {
-        error_log("Execute UPDATE failed: " . $stmt->error);
-    }
-    $stmt->close();
-
-    return $success;
-}
 
 
     private function xuLyTuLuan($makq)
@@ -745,7 +745,8 @@ public function submit($made, $nguoidung, $thoigian = null)
           JOIN nguoidung ND ON KQ.manguoidung = ND.id
           JOIN chitietnhom CTN ON CTN.manguoidung = ND.id
           JOIN dethi DT ON DT.made = KQ.made
-          WHERE KQ.made = ".$args['made'];
+          WHERE KQ.made = ".$args['made'] ;
+          
 
             switch ($filter) {
                 case "present":
