@@ -376,10 +376,9 @@ Dashmix.onLoad(() =>
           user_nhomquyen: { required: true },
 
           // ĐIỂM CHỈ BẮT BUỘC KHI LOẠI CÂU HỎI ĐƯỢC CHỌN
+          // 1. XÓA HOÀN TOÀN rule "required" của 3 ô điểm (đây là nguyên nhân chính!)
           diem_tracnghiem: {
-            required: function () {
-              return $("#loai-tracnghiem").is(":checked");
-            },
+            // required: function() { return $("#loai-tracnghiem").is(":checked"); },  ← XÓA DÒNG NÀY
             number: true,
             min: function () {
               return $("#loai-tracnghiem").is(":checked") ? 0.01 : 0;
@@ -387,9 +386,6 @@ Dashmix.onLoad(() =>
             validTotalScore: true,
           },
           diem_tuluan: {
-            required: function () {
-              return $("#loai-tuluan").is(":checked");
-            },
             number: true,
             min: function () {
               return $("#loai-tuluan").is(":checked") ? 0.01 : 0;
@@ -397,16 +393,12 @@ Dashmix.onLoad(() =>
             validTotalScore: true,
           },
           diem_dochieu: {
-            required: function () {
-              return $("#loai-doc-hieu").is(":checked");
-            },
             number: true,
             min: function () {
               return $("#loai-doc-hieu").is(":checked") ? 0.01 : 0;
             },
             validTotalScore: true,
           },
-
           chuong: {
             required: function () {
               return getSelectedChapters().length > 0;
@@ -446,15 +438,12 @@ Dashmix.onLoad(() =>
           "nhom-hp": { required: "Vui lòng chọn nhóm học phần" },
 
           diem_tracnghiem: {
-            required: "Vui lòng nhập điểm cho phần Trắc nghiệm",
             min: "Điểm phải lớn hơn 0",
           },
           diem_tuluan: {
-            required: "Vui lòng nhập điểm cho phần Tự luận",
             min: "Điểm phải lớn hơn 0",
           },
           diem_dochieu: {
-            required: "Vui lòng nhập điểm cho phần Đọc hiểu",
             min: "Điểm phải lớn hơn 0",
           },
         },
@@ -718,6 +707,36 @@ $(document).ready(function () {
       if (!valid) return;
 
       // Gửi AJAX tạo đề
+      const ajaxData = {
+        mamonhoc: m,
+        tende: $("#name-exam").val(),
+        thoigianthi: parseInt($("#exam-time").val()) || 0,
+        thoigianbatdau: $("#time-start").val(),
+        thoigianketthuc: $("#time-end").val(),
+        socau: JSON.stringify(socau),
+        diem_tracnghiem: diem.mcq || 0,
+        diem_tuluan: diem.essay || 0,
+        diem_dochieu: diem.reading || 0,
+        chuong: chapters,
+        loaide: $("#tudongsoande").prop("checked") ? 1 : 0,
+        xemdiem: $("#xemdiem").prop("checked") ? 1 : 0,
+        xemdapan: $("#xemda").prop("checked") ? 1 : 0,
+        xembailam: $("#xembailam").prop("checked") ? 1 : 0,
+        daocauhoi: $("#daocauhoi").prop("checked") ? 1 : 0,
+        daodapan: $("#daodapan").prop("checked") ? 1 : 0,
+        tudongnop: $("#tudongnop").prop("checked") ? 1 : 0,
+        manhom: selectedGroups,
+        loaicauhoi: questionTypes,
+      };
+
+      // Log dữ liệu ra console
+      console.log("AJAX data to send (object):", ajaxData);
+      console.log(
+        "AJAX data to send (JSON):",
+        JSON.stringify(ajaxData, null, 2)
+      );
+      //return; // <- dừng tại đây, không gửi AJAX
+
       $.ajax({
         url: "./test/addTest",
         type: "post",
@@ -742,14 +761,27 @@ $(document).ready(function () {
           manhom: selectedGroups,
           loaicauhoi: questionTypes,
         },
+
         dataType: "json",
         success: function (res) {
           if (res.success && res.made) {
             Dashmix.helpers("jq-notify", {
               type: "success",
-              message: `Tạo đề thành công! ID đề: ${res.made}`,
+              message: "Tạo đề thi thành công!",
             });
-            setTimeout(() => (location.href = "./test"), 1500);
+
+            // Lấy loại đề vừa tạo
+            const loaide = $("#tudongsoande").prop("checked") ? 1 : 0;
+
+            setTimeout(() => {
+              if (loaide === 0) {
+                // Đề thủ công → chuyển sang trang chọn câu hỏi
+                location.href = `./test/select/${res.made}`;
+              } else {
+                // Đề tự động → về danh sách đề
+                location.href = "./test";
+              }
+            }, 1500);
           } else {
             Dashmix.helpers("jq-notify", {
               type: "danger",
@@ -934,7 +966,7 @@ $(document).ready(function () {
             Dashmix.helpers("jq-notify", {
               type: "success",
               icon: "fa fa-check me-1",
-              message: "Cập nhật đề thi thành công!",
+              message: "Cập nhật đề thi thành",
             });
             setTimeout(() => (location.href = "./test"), 1500);
           } else {
@@ -954,11 +986,11 @@ $(document).ready(function () {
           } catch (e) {}
 
           Dashmix.helpers("jq-notify", {
-            type: "danger", 
+            type: "danger",
             icon: "fa fa-exclamation-triangle me-1",
-            message: msg, 
-            close: true, 
-            timeout: 5000, 
+            message: msg,
+            close: true,
+            timeout: 5000,
           });
         },
       });

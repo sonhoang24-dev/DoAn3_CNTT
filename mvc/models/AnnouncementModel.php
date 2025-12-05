@@ -222,9 +222,6 @@ class AnnouncementModel extends DB
 
     public function getQuery($filter, $input, $args)
     {
-        error_log("Filter: " . json_encode($filter));
-        error_log("Input: " . $input);
-        error_log("Args: " . json_encode($args));
 
         $query = "
         SELECT 
@@ -268,10 +265,6 @@ class AnnouncementModel extends DB
 
         // Gộp và sắp xếp
         $query .= " GROUP BY TB.matb ORDER BY TB.thoigiantao DESC";
-
-        error_log("Query: " . $query);
-        error_log("Params: " . json_encode($params));
-
         return ['query' => $query, 'params' => $params];
     }
 

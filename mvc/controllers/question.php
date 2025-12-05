@@ -112,13 +112,14 @@ class Question extends Controller
     // === THAY TOÀN BỘ HÀM xulyDocx() BẰNG ĐOẠN NÀY ===
     public function xulydoanvan()
     {
-        ob_clean(); // xóa sạch mọi output rác
+        ob_clean();
         header("Content-Type: application/json; charset=utf-8");
 
         try {
 
             // ============= CHECK FILE =============
-            if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
+            if ($_SERVER["REQUEST_METHOD"] !== "POST" ||
+                !AuthCore::checkPermission("cauhoi", "create")) {
                 throw new Exception("Unauthorized");
             }
 
@@ -144,6 +145,7 @@ class Question extends Controller
             $text = "";
             $extract = function ($el) use (&$extract) {
                 $out = "";
+
                 if (is_string($el)) {
                     return $el;
                 }
@@ -172,52 +174,62 @@ class Question extends Controller
                 }
             }
 
-            // ============= SPLIT LINES ============
-            $lines = array_values(array_filter(array_map("trim", preg_split("/\r\n|\n|\r/", $text))));
+            // ================= CLEAN HTML =================
+            // Convert &lt;br&gt -> <br>
+            $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+
+            // Chặn script/style nhưng giữ lại br, p,...
+            $text = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#is', '', $text);
+
+            // Giữ lại xuống dòng bằng <br>
+            $text = nl2br($text);
+
+            // ============= SPLIT LINES =============
+            // Do đã có <br>, tách lại theo <br>
+            $rawLines = preg_split('/<br\s*\/?>/i', $text);
+            $lines = array_values(array_filter(array_map("trim", $rawLines)));
             $total = count($lines);
 
             $result = [];
             $i = 0;
 
-            // ============= PARSER ============
+            // ============= PARSER =============
             while ($i < $total) {
 
                 $line = $lines[$i];
 
-                // detect Reading block: [Reading][x] - Tiêu đề -
+                // detect Reading block
                 if (preg_match('/^\[Reading\]\[(\d+)\]\s*-\s*(.+?)\s*-\s*$/iu', $line, $m)) {
 
-                    $levelHeader = intval($m[1]);       // mức độ
-                    $title = trim($m[2]);               // tiêu đề
-                    $passage = "";                       // passage
+                    $levelHeader = intval($m[1]);
+                    $title = trim($m[2]);
+                    $passage = "";
                     $i++;
 
                     // ===== GOM PASSAGE =====
                     while ($i < $total) {
                         $next = $lines[$i];
 
-                        if (preg_match('/^\[Reading\]/i', $next)) {
-                            break;
-                        }  // block mới
-                        if (preg_match('/\?$/', $next)) {
-                            break;
-                        }           // câu hỏi bắt đầu
-                        if (preg_match('/^\d+[\.\)]\s+/', $next)) {
-                            break;
-                        }
-                        if (preg_match('/^[A-D][)\.]\s+/', $next)) {
-                            break;
-                        }
-                        if (preg_match('/^ANSWER:/i', $next)) {
+                        if (
+                            preg_match('/^\[Reading\]/i', $next) ||
+                            preg_match('/\?$/', $next) ||
+                            preg_match('/^\d+[\.\)]\s+/', $next) ||
+                            preg_match('/^[A-D][)\.]\s+/', $next) ||
+                            preg_match('/^ANSWER:/i', $next)
+                        ) {
                             break;
                         }
 
-                        $passage .= " " . trim($next);
+                        $passage .= "<br>" . trim($next);
                         $i++;
                     }
 
+                    // Remove <br> đầu tiên
+                    $passage = ltrim($passage, "<br>");
+
                     // ===== PARSE QUESTIONS =====
                     $subQuestions = [];
+
                     while ($i < $total && preg_match('/\?$/', $lines[$i])) {
 
                         $questionText = trim($lines[$i]);
@@ -234,10 +246,11 @@ class Question extends Controller
 
                         while ($i < $total) {
                             $l = trim($lines[$i]);
-                            if (preg_match('/^\[Reading\]/i', $l)) {
-                                break;
-                            }
-                            if (preg_match('/\?$/', $l)) {
+
+                            if (
+                                preg_match('/^\[Reading\]/i', $l) ||
+                                preg_match('/\?$/', $l)
+                            ) {
                                 break;
                             }
 
@@ -245,9 +258,11 @@ class Question extends Controller
                                 $letter = strtoupper($mm[1]);
                                 $opts[$letter] = trim($mm[2]);
                             }
+
                             if (preg_match('/^ANSWER:\s*([A-D])$/i', $l, $ans)) {
                                 $correct = strtoupper($ans[1]);
                             }
+
                             $i++;
                         }
 
@@ -282,7 +297,7 @@ class Question extends Controller
                 $i++;
             }
 
-            // ============= RETURN JSON ============
+            // ============= RETURN JSON =============
             ob_clean();
             echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             exit;
@@ -297,6 +312,7 @@ class Question extends Controller
             exit;
         }
     }
+
     public function xulytracnghiem()
     {
         if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
@@ -341,7 +357,7 @@ class Question extends Controller
                 return $out;
             };
 
-            // Lấy tất cả text
+            // Lấy toàn bộ text
             $text = "";
             foreach ($phpWord->getSections() as $section) {
                 foreach ($section->getElements() as $e) {
@@ -352,7 +368,7 @@ class Question extends Controller
                 }
             }
 
-            // Tách từng dòng
+            // Tách dòng
             $lines = array_values(array_filter(array_map("trim", preg_split("/\r\n|\n|\r/", $text))));
             $total = count($lines);
             $result = [];
@@ -361,25 +377,43 @@ class Question extends Controller
             while ($i < $total) {
                 $line = $lines[$i];
 
-                // detect MCQ block: [mcq][x] Câu hỏi...
-                if (preg_match('/^\[mcq\]\[(\d+)\]\s*(.+)$/i', $line, $m)) {
+                // Detect MCQ: [mcq][level] Câu hỏi
+                if (preg_match('/^\[mcq\]\[(\d+)\]\s*(.+)$/iu', $line, $m)) {
+
                     $level = intval($m[1]);
                     $questionText = trim($m[2]);
-                    $i++;
 
+                    // Decode HTML entity để hiện <br>
+                    $questionText = html_entity_decode($questionText, ENT_QUOTES | ENT_HTML5, "UTF-8");
+                    // Xóa ký tự zero-width nếu Word sinh ra
+                    $questionText = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $questionText);
+
+                    $i++;
                     $options = [];
                     $answer = null;
 
-                    // Lấy các option và ANSWER
                     while ($i < $total) {
                         $l = trim($lines[$i]);
-                        if (preg_match('/^[A-D][)\.]\s*(.+)$/', $l, $opt)) {
-                            $letter = strtoupper($l[0]);
-                            $options[$letter] = trim($opt[1]);
-                        } elseif (preg_match('/^ANSWER:\s*([A-D])/i', $l, $ans)) {
+
+                        // OPTION: A. hoặc A) hoặc A ) hoặc A .
+                        if (preg_match('/^([A-D])\s*[)\.]\s*(.+)$/u', $l, $opt)) {
+
+                            $letter = strtoupper($opt[1]);
+                            $textOption = trim($opt[2]);
+
+                            // Decode HTML entity (phòng <br> nằm trong đáp án)
+                            $textOption = html_entity_decode($textOption, ENT_QUOTES | ENT_HTML5, "UTF-8");
+                            $textOption = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $textOption);
+
+                            $options[$letter] = $textOption;
+
+                        }
+                        // ANSWER: A
+                        elseif (preg_match('/^ANSWER:\s*([A-D])\b/i', trim($l), $ans)) {
                             $answer = strtoupper($ans[1]);
                             break;
                         }
+
                         $i++;
                     }
 
@@ -387,9 +421,11 @@ class Question extends Controller
                         throw new Exception("Missing options or ANSWER in question: $questionText");
                     }
 
-                    // Sắp xếp option theo A-D
+                    // Sắp xếp A → D
                     uksort($options, fn ($a, $b) => ord($a) - ord($b));
                     $optionsArr = array_values($options);
+
+                    // Convert A/B/C/D → 1/2/3/4
                     $answerNumber = array_search($answer, array_keys($options)) + 1;
 
                     $result[] = [
@@ -415,8 +451,12 @@ class Question extends Controller
             exit;
         }
     }
+
     public function xulytuluan()
     {
+        ob_clean();
+        header("Content-Type: application/json; charset=utf-8");
+
         if ($_SERVER["REQUEST_METHOD"] !== "POST" || !AuthCore::checkPermission("cauhoi", "create")) {
             echo json_encode(["status" => "error", "message" => "Unauthorized"]);
             exit;
@@ -443,14 +483,12 @@ class Question extends Controller
                 if (is_string($el)) {
                     return $el;
                 }
-
                 if (is_object($el) && method_exists($el, 'getText')) {
                     try {
                         $out .= $el->getText();
                     } catch (\Throwable $t) {
                     }
                 }
-
                 if (is_object($el) && method_exists($el, 'getElements')) {
                     foreach ($el->getElements() as $child) {
                         $out .= $extract($child);
@@ -470,12 +508,25 @@ class Question extends Controller
                 }
             }
 
-            // Tách từng dòng
-            $lines = array_values(array_filter(array_map("trim", preg_split("/\r\n|\n|\r/", $text))));
+            // ============= CLEAN HTML =============
+            // Decode HTML entities
+            $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+
+            // Loại bỏ script/style
+            $text = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#is', '', $text);
+
+            // Chuyển xuống dòng thành <br>
+            $text = nl2br($text);
+
+            // ============= SPLIT LINES =============
+            $rawLines = preg_split('/<br\s*\/?>/i', $text);
+            $lines = array_values(array_filter(array_map("trim", $rawLines)));
             $total = count($lines);
+
             $result = [];
             $i = 0;
 
+            // ============= PARSER =============
             while ($i < $total) {
                 $line = $lines[$i];
 
@@ -483,6 +534,9 @@ class Question extends Controller
                 if (preg_match('/^\[essay\]\[(\d+)\]\s*(.+)$/i', $line, $m)) {
                     $level = intval($m[1]);
                     $questionText = trim($m[2]);
+
+                    // Decode HTML entity + giữ <br> trong question
+                    $questionText = html_entity_decode($questionText, ENT_QUOTES, 'UTF-8');
 
                     $result[] = [
                         "type" => "essay",
@@ -496,10 +550,12 @@ class Question extends Controller
                 }
             }
 
+            ob_clean();
             echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             exit;
 
         } catch (Exception $e) {
+            ob_clean();
             echo json_encode([
                 "status" => "error",
                 "message" => $e->getMessage()
@@ -507,6 +563,7 @@ class Question extends Controller
             exit;
         }
     }
+
 
     public function updateQuestionJSON()
     {
@@ -630,23 +687,26 @@ class Question extends Controller
 
         $errors = [];
         $inserted = 0;
-        $ansValues = []; // Lưu tất cả đáp án tạm thời
+        $ansValues = [];
 
         try {
-            // ===================== Insert câu hỏi =====================
             foreach ($items as $idx => $item) {
                 if (!isset($item["type"])) {
                     $errors[] = "Mục $idx: Dữ liệu sai";
                     continue;
                 }
 
-                // --- READING ---
+                // ===================== READING =====================
                 if ($item["type"] === "reading") {
                     $passage = trim($item["passage"] ?? "");
                     if ($passage === "") {
                         $errors[] = "Mục $idx: Đoạn văn trống";
                         continue;
                     }
+
+                    // Encode HTML trước khi lưu
+                    $passage = htmlspecialchars($passage, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $passage = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $passage);
 
                     $madv = $this->cauHoiModel->createWithDoanVan(
                         "",
@@ -658,6 +718,7 @@ class Question extends Controller
                         $passage,
                         $item["title"] ?? null
                     );
+
                     if (!$madv) {
                         $errors[] = "Mục $idx: Lỗi tạo đoạn văn";
                         continue;
@@ -674,6 +735,9 @@ class Question extends Controller
                             continue;
                         }
 
+                        $qText = htmlspecialchars($qText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        $qText = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $qText);
+
                         $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
                         $dokho   = intval($sub["level"] ?? 1);
 
@@ -682,9 +746,10 @@ class Question extends Controller
                         mysqli_query($this->cauHoiModel->con, $sqlQ);
                         $qId = mysqli_insert_id($this->cauHoiModel->con);
 
-                        // Lưu đáp án tạm
                         foreach ($opts as $i => $opt) {
-                            $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, trim($opt));
+                            $opt = htmlspecialchars(trim($opt), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                            $opt = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $opt);
+                            $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, $opt);
                             $ladapan = ($i + 1 == $ans) ? 1 : 0;
                             $ansValues[] = "($qId, '$noidungtl', $ladapan)";
                         }
@@ -694,7 +759,7 @@ class Question extends Controller
                     continue;
                 }
 
-                // --- MCQ ---
+                // ===================== MCQ =====================
                 if ($item["type"] === "mcq") {
                     $qText = trim($item["question"] ?? "");
                     $opts  = $item["option"] ?? [];
@@ -705,6 +770,9 @@ class Question extends Controller
                         continue;
                     }
 
+                    $qText = htmlspecialchars($qText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $qText = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $qText);
+
                     $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
                     $dokho   = intval($item["level"] ?? 1);
 
@@ -714,20 +782,26 @@ class Question extends Controller
                     $qId = mysqli_insert_id($this->cauHoiModel->con);
 
                     foreach ($opts as $i => $opt) {
-                        $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, trim($opt));
+                        $opt = htmlspecialchars(trim($opt), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        $opt = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $opt);
+                        $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, $opt);
                         $ladapan = ($i + 1 == $ans) ? 1 : 0;
                         $ansValues[] = "($qId, '$noidungtl', $ladapan)";
                     }
 
                     $inserted++;
                 }
-                // --- ESSAY ---
+
+                // ===================== ESSAY =====================
                 elseif ($item["type"] === "essay") {
                     $qText = trim($item["question"] ?? "");
                     if ($qText === "") {
                         $errors[] = "Mục $idx: Câu hỏi trống";
                         continue;
                     }
+
+                    $qText = htmlspecialchars($qText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $qText = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $qText);
 
                     $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
                     $dokho   = intval($item["level"] ?? 1);
@@ -744,11 +818,10 @@ class Question extends Controller
                     $errors[] = "Mục $idx: Loại câu hỏi không hợp lệ";
                     continue;
                 }
-
             }
 
             // ===================== Batch insert đáp án =====================
-            $batchSize = 500; // 500 đáp án mỗi batch
+            $batchSize = 500;
             $totalAns = count($ansValues);
             for ($start = 0; $start < $totalAns; $start += $batchSize) {
                 $batch = array_slice($ansValues, $start, $batchSize);
@@ -772,6 +845,7 @@ class Question extends Controller
             ]);
         }
     }
+
 
 
 
@@ -838,13 +912,13 @@ class Question extends Controller
         $mamon = $_POST['mamon'] ?? null;
         $machuong = $_POST['machuong'] ?? null;
         $dokho = $_POST['dokho'] ?? null;
-        $noidungCH = trim(strip_tags($_POST['noidung'] ?? ''));
+        $noidungCH = trim($_POST['noidung'] ?? '');
         $loai = $_POST['loai'] ?? 'mcq';
         $nguoitao = $_SESSION['user_id'] ?? null;
         $madv = null;
 
         $cautraloi_json = $_POST['cautraloi'] ?? '[]';
-        $noidungDV = trim(strip_tags($_POST['doanvan_noidung'] ?? ''));
+        $noidungDV = trim($_POST['doanvan_noidung'] ?? '');
 
         $hinhanh = null;
         if (isset($_FILES['hinhanh']) && $_FILES['hinhanh']['error'] === UPLOAD_ERR_OK) {
@@ -868,22 +942,52 @@ class Question extends Controller
             switch ($loai) {
                 case 'mcq':
                 case 'essay':
+                    // Encode HTML cho câu hỏi
+                    $noidungCH = htmlspecialchars($noidungCH, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $noidungCH = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $noidungCH);
+
                     $macauhoi = $this->cauHoiModel->create($noidungCH, $dokho, $mamon, $machuong, $nguoitao, $loai, $madv, $hinhanh);
 
-                    foreach ($cautraloi as $i => $x) {
-                        $content = trim(strip_tags($x['content'] ?? ''));
-                        if ($content === '') {
+                    $optionFiles = $_FILES['option_hinhanh'] ?? ['tmp_name' => [], 'error' => []];
+                    $fileIndex = 0;
+
+                    foreach ($cautraloi as $i => $ans) {
+
+                        // text đáp án
+                        $content = trim($ans['content'] ?? '');
+                        $content = htmlspecialchars($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        $content = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $content);
+
+                        $check = ($loai === 'mcq' && !empty($ans['check']) && $ans['check'] == 1) ? 1 : 0;
+
+                        // ========== XỬ LÝ HÌNH ẢNH THEO ĐÚNG ƯU TIÊN ==========
+                        $optImage = null;
+
+                        // ƯU TIÊN 1: File mới (dùng fileIndex, không dùng $i)
+                        if (isset($optionFiles['tmp_name'][$fileIndex]) &&
+                            $optionFiles['error'][$fileIndex] === UPLOAD_ERR_OK) {
+
+                            $optImage = file_get_contents($optionFiles['tmp_name'][$fileIndex]);
+                            $fileIndex++;
+                        }
+                        // ƯU TIÊN 2: Ảnh base64 gửi từ frontend (nếu có)
+                        elseif (!empty($ans['image'])) {
+
+                            if (preg_match('/^data:image\/.+;base64,/', $ans['image'])) {
+                                $optImage = base64_decode(explode(',', $ans['image'])[1]);
+                            } else {
+                                $optImage = base64_decode($ans['image']);
+                            }
+                        }
+
+                        // ⚠ KHÔNG continue khi content rỗng nhưng có ảnh
+                        if ($content === '' && $optImage === null) {
                             continue;
                         }
-                        $check = ($loai === 'mcq' && (isset($x['check']) && ($x['check'] === true || $x['check'] == 1))) ? 1 : 0;
 
-                        $hinhanhDL = null;
-                        if (!empty($optionFiles['tmp_name'][$i]) && $optionFiles['error'][$i] === UPLOAD_ERR_OK) {
-                            $hinhanhDL = file_get_contents($optionFiles['tmp_name'][$i]);
-                        }
-
-                        $this->cauTraLoiModel->create($macauhoi, $content, $check, $hinhanhDL);
+                        $this->cauTraLoiModel->create($macauhoi, $content, $check, $optImage);
                     }
+
                     break;
 
                 case 'reading':
@@ -892,21 +996,66 @@ class Question extends Controller
                         return;
                     }
 
+                    // Encode HTML cho đoạn văn
+                    $noidungDV = htmlspecialchars($noidungDV, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $noidungDV = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $noidungDV);
+
                     $madv = $this->cauHoiModel->createWithDoanVan('', $dokho, $mamon, $machuong, $nguoitao, $loai, $noidungDV, '', $hinhanh);
 
                     foreach ($cautraloi as $i => $subQuestion) {
-                        $subContent = trim(strip_tags($subQuestion['content'] ?? ''));
+                        $subContent = trim($subQuestion['content'] ?? '');
                         if ($subContent === '') {
                             continue;
                         }
 
+                        // Encode HTML cho câu hỏi con
+                        $subContent = htmlspecialchars($subContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        $subContent = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $subContent);
+
                         $subMacauhoi = $this->cauHoiModel->create($subContent, $dokho, $mamon, $machuong, $nguoitao, 'mcq', $madv);
 
                         foreach ($subQuestion['options'] as $j => $option) {
-                            $content = trim(strip_tags($option['content'] ?? ''));
-                            if ($content === '') {
-                                continue;
+                            $content = trim($option['content'] ?? '');
+                            $subOptionFiles = $_FILES['suboption_hinhanh'] ?? [];
+                            $fileIndex = 0;
+
+                            foreach ($subQuestion['options'] as $j => $option) {
+
+                                $optContent = trim($option['content'] ?? '');
+                                $optContent = htmlspecialchars($optContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                                $check = (!empty($option['check']) && $option['check'] == 1) ? 1 : 0;
+
+                                $optImage = null;
+
+                                // 1. Ảnh file
+                                if (isset($subOptionFiles['tmp_name'][$fileIndex]) &&
+                                    $subOptionFiles['error'][$fileIndex] === UPLOAD_ERR_OK) {
+
+                                    $optImage = file_get_contents($subOptionFiles['tmp_name'][$fileIndex]);
+                                    $fileIndex++;
+                                }
+                                // 2. Ảnh base64 giữ nguyên
+                                elseif (!empty($option['image'])) {
+                                    if (preg_match('/^data:image\/.+;base64,/', $option['image'])) {
+                                        $optImage = base64_decode(explode(',', $option['image'])[1]);
+                                    } else {
+                                        $optImage = base64_decode($option['image']);
+                                    }
+                                }
+
+                                if ($optContent === '' && $optImage === null) {
+                                    continue;
+                                }
+
+                                $this->cauTraLoiModel->create($subMacauhoi, $optContent, $check, $optImage);
                             }
+
+
+                            // Encode HTML cho option
+                            $content = htmlspecialchars($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                            $content = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $content);
+
                             $check = (isset($option['check']) && ($option['check'] === true || $option['check'] == 1)) ? 1 : 0;
 
                             $hinhanhDL = null;
@@ -927,6 +1076,7 @@ class Question extends Controller
         }
     }
 
+
     public function editQuesion()
     {
         if (!AuthCore::checkPermission("cauhoi", "update")) {
@@ -939,23 +1089,18 @@ class Question extends Controller
             return;
         }
 
-        $id           = $_POST['id'] ?? null;
-        $mamon        = $_POST['mamon'] ?? null;
-        $machuong     = $_POST['machuong'] ?? null;
-        $dokho        = $_POST['dokho'] ?? null;
-        $nguoitao     = $_SESSION['user_id'];
-        $loai         = $_POST['loai'] ?? 'mcq';
+        $id       = $_POST['id'] ?? null;
+        $mamon    = $_POST['mamon'] ?? null;
+        $machuong = $_POST['machuong'] ?? null;
+        $dokho    = $_POST['dokho'] ?? null;
+        $nguoitao = $_SESSION['user_id'];
+        $loai     = $_POST['loai'] ?? 'mcq';
         $cautraloi_json = $_POST['cautraloi'] ?? '[]';
-        $tieudeDV     = trim(strip_tags($_POST['doanvan_tieude'] ?? ''));
-
-        // THÊM DÒNG NÀY: Xử lý xóa ảnh câu hỏi chính
+        $tieudeDV = $_POST['doanvan_tieude'] ?? '';
         $delete_question_image = (!empty($_POST['delete_question_image']) && $_POST['delete_question_image'] == '1');
 
-        $noidungRaw   = $_POST['noidung'] ?? '';
-
-        // Xử lý ảnh mới (nếu có upload)
-        $hinhanhFile  = $_FILES['hinhanh']['tmp_name'] ?? null;
-        $hinhanh      = null;
+        $hinhanhFile = $_FILES['hinhanh']['tmp_name'] ?? null;
+        $hinhanh = null;
         if ($hinhanhFile && $_FILES['hinhanh']['error'] === UPLOAD_ERR_OK) {
             $hinhanh = file_get_contents($hinhanhFile);
         }
@@ -978,49 +1123,68 @@ class Question extends Controller
                 return;
             }
 
-            // XỬ LÝ ẢNH CÂU HỎI CHÍNH TRƯỚC KHI UPDATE
             if ($delete_question_image) {
                 $hinhanh = null;
             }
 
+            // ================================
+            // Lưu HTML escape (thẻ <br> thành &lt;br&gt;)
+            // ================================
 
             if ($loai === 'reading') {
-                $madv = $question['madv'];
+                $madv = $question['madv'] ?? null;
 
-                $noidungDV = trim(strip_tags($noidungRaw));
+                $noidungDV = $_POST['doanvan_noidung'] ?? '';
+                $noidungDV = htmlspecialchars(trim($noidungDV), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
                 if ($noidungDV === '') {
                     echo json_encode(["status" => "error", "message" => "Vui lòng nhập nội dung đoạn văn"]);
                     return;
                 }
+
                 if (empty($cautraloi)) {
                     echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 câu hỏi con"]);
                     return;
                 }
 
-                $sql = "UPDATE doan_van SET noidung = ?, tieude = ?, mamonhoc = ?, machuong = ?, nguoitao = ? WHERE madv = ?";
-                $stmt = $this->cauHoiModel->con->prepare($sql);
+                // Cập nhật đoạn văn
+                $stmt = $this->cauHoiModel->con->prepare(
+                    "UPDATE doan_van SET noidung = ?, tieude = ?, mamonhoc = ?, machuong = ?, nguoitao = ? WHERE madv = ?"
+                );
                 $stmt->bind_param("sssssi", $noidungDV, $tieudeDV, $mamon, $machuong, $nguoitao, $madv);
                 $stmt->execute();
                 $stmt->close();
 
+                // Xóa câu hỏi con cũ
                 $subQuestions = $this->cauHoiModel->getSubQuestions($madv);
                 foreach ($subQuestions as $sub) {
                     $this->cauTraLoiModel->deletebyanswer($sub['macauhoi']);
                     $this->cauHoiModel->delete($sub['macauhoi']);
                 }
 
+                $optionImages = $_FILES['option_hinhanh'] ?? ['tmp_name' => [], 'error' => []];
+                $fileIndex = 0;
+
+                // Thêm câu hỏi con mới
                 foreach ($cautraloi as $subQ) {
-                    $subContent = trim(strip_tags($subQ['content'] ?? ''));
+                    $subContent = htmlspecialchars(trim($subQ['content'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     if ($subContent === '') {
                         continue;
                     }
 
+                    $subDeleteImage = (!empty($subQ['delete_image']) && $subQ['delete_image'] == 1);
                     $subHinhanh = null;
-                    if (!empty($subQ['file'])) {
-                        $subHinhanh = file_get_contents($subQ['file']);
+
+                    if ($subDeleteImage) {
+                        $subHinhanh = null;
+                    } elseif (!empty($subQ['image'])) {
+                        $subHinhanh = base64_decode($subQ['image']);
+                    } elseif (isset($optionImages['tmp_name'][$fileIndex]) && $optionImages['error'][$fileIndex] === UPLOAD_ERR_OK) {
+                        $subHinhanh = file_get_contents($optionImages['tmp_name'][$fileIndex]);
+                        $fileIndex++;
                     }
 
-                    $subId = $this->cauHoiModel->create(
+                    $subMacauhoi = $this->cauHoiModel->create(
                         $subContent,
                         $dokho,
                         $mamon,
@@ -1031,58 +1195,87 @@ class Question extends Controller
                         $subHinhanh
                     );
 
-                    if (!$subId) {
-                        throw new Exception("Lỗi tạo câu hỏi con");
-                    }
-
                     foreach ($subQ['options'] as $opt) {
-                        $optContent = trim(strip_tags($opt['content'] ?? ''));
+                        $optContent = htmlspecialchars(trim($opt['content'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
                         if ($optContent === '') {
                             continue;
                         }
 
+                        $optDeleteImage = (!empty($opt['delete_image']) && $opt['delete_image'] == 1);
                         $optHinhanh = null;
-                        if (!empty($opt['image']) && strpos($opt['image'], 'data:image') === 0) {
-                            $optHinhanh = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $opt['image']));
-                        } elseif (!empty($opt['file'])) {
-                            $optHinhanh = file_get_contents($opt['file']);
+
+                        if ($optDeleteImage) {
+                            $optHinhanh = null;
+                        } elseif (!empty($opt['image'])) {
+                            $optHinhanh = base64_decode($opt['image']);
+                        } elseif (isset($optionImages['tmp_name'][$fileIndex]) && $optionImages['error'][$fileIndex] === UPLOAD_ERR_OK) {
+                            $optHinhanh = file_get_contents($optionImages['tmp_name'][$fileIndex]);
+                            $fileIndex++;
                         }
 
                         $isCorrect = (!empty($opt['check']) && ($opt['check'] == 1 || $opt['check'] === 'true')) ? 1 : 0;
-                        $this->cauTraLoiModel->create($subId, $optContent, $isCorrect, $optHinhanh);
+
+                        $this->cauTraLoiModel->create($subMacauhoi, $optContent, $isCorrect, $optHinhanh);
                     }
                 }
 
-                // CẬP NHẬT CÂU HỎI CHÍNH
                 $this->cauHoiModel->update($id, '', $dokho, $mamon, $machuong, $nguoitao, $loai, $madv, $hinhanh);
 
             } else {
-                $noidung = trim(strip_tags($noidungRaw));
-                if ($noidung === '') {
-                    echo json_encode(["status" => "error", "message" => "Vui lòng nhập nội dung câu hỏi"]);
-                    return;
-                }
+                // MCQ / ESSAY
+                $noidungRaw = htmlspecialchars(trim($_POST['noidung'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
                 if ($loai === 'mcq' && empty($cautraloi)) {
                     echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 đáp án"]);
                     return;
                 }
 
+                $optionImages = $_FILES['option_hinhanh'] ?? ['tmp_name' => [], 'error' => []];
+                $fileIndex = 0;
+
                 $validAnswers = [];
-                foreach ($cautraloi as $ans) {
-                    $content = trim(strip_tags($ans['content'] ?? ''));
-                    if ($content === '') {
+
+                foreach ($cautraloi as $i => $ans) {
+
+                    $content = htmlspecialchars(trim($ans['content'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $deleteImage = (!empty($ans['delete_image']) && $ans['delete_image'] == 1);
+
+                    // ========== XỬ LÝ ẢNH THEO ĐÚNG ƯU TIÊN ==========
+                    $optImage = null;
+
+                    // Priority 1: DELETE
+                    if ($deleteImage) {
+                        $optImage = null;
+                    }
+                    // Priority 2: NEW FILE (fileIndex, not i)
+                    elseif (isset($optionImages['tmp_name'][$fileIndex])
+                        && $optionImages['error'][$fileIndex] === UPLOAD_ERR_OK) {
+
+                        $optImage = file_get_contents($optionImages['tmp_name'][$fileIndex]);
+                        $fileIndex++;  // consume one file
+                    }
+                    // Priority 3: OLD IMAGE (base64)
+                    elseif (!empty($ans['image'])) {
+
+                        // nếu image là dạng "data:image/xxx;base64,..."
+                        if (preg_match('/^data:image\/.+;base64,/', $ans['image'])) {
+                            $optImage = base64_decode(explode(',', $ans['image'])[1]);
+                        } else {
+                            $optImage = base64_decode($ans['image']);
+                        }
+                    }
+                    // Priority 4: NO IMAGE
+                    else {
+                        $optImage = null;
+                    }
+
+                    // ❗ KHÔNG continue sớm — vì có TH thể chỉ có ảnh (content rỗng)
+                    // Chỉ bỏ nếu hoàn toàn không có text + không có ảnh + không xóa
+                    if ($content === '' && $optImage === null && !$deleteImage) {
                         continue;
                     }
 
-                    $isCorrect = (!empty($ans['check']) && ($ans['check'] == 1 || $Swal['check'] === 'true')) ? 1 : 0;
-
-                    $optImage = null;
-                    if (!empty($ans['image']) && strpos($ans['image'], 'data:image') === 0) {
-                        $optImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $ans['image']));
-                    } elseif (!empty($ans['file'])) {
-                        $optImage = file_get_contents($ans['file']);
-                    }
+                    $isCorrect = (!empty($ans['check']) && $ans['check'] == 1);
 
                     $validAnswers[] = [
                         'content' => $content,
@@ -1091,13 +1284,7 @@ class Question extends Controller
                     ];
                 }
 
-                if ($loai === 'mcq' && empty($validAnswers)) {
-                    echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 đáp án hợp lệ"]);
-                    return;
-                }
-
-                // CẬP NHẬT CÂU HỎI THƯỜNG → có xử lý ảnh
-                $this->cauHoiModel->update($id, $noidung, $dokho, $mamon, $machuong, $nguoitao, $loai, null, $hinhanh, $delete_question_image);
+                $this->cauHoiModel->update($id, $noidungRaw, $dokho, $mamon, $machuong, $nguoitao, $loai, null, $hinhanh, $delete_question_image);
 
                 $this->cauTraLoiModel->deletebyanswer($id);
                 foreach ($validAnswers as $ans) {
@@ -1112,6 +1299,7 @@ class Question extends Controller
             echo json_encode(["status" => "error", "message" => "Lỗi hệ thống: " . $e->getMessage()]);
         }
     }
+
     public function delete()
     {
         if (AuthCore::checkPermission("cauhoi", "delete")) {
@@ -1298,13 +1486,18 @@ class Question extends Controller
     }
 
     public function getAnswersForMultipleQuestions()
-    {
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            $arr_question_id = $_POST['questions'];
-            $result = $this->cauTraLoiModel->getAnswersForMultipleQuestions($arr_question_id);
-            echo json_encode($result);
-        }
-    }
+{
+    $ids = $_POST["questions"] ?? [];
+
+    // Bắt buộc convert thành integer để tránh injection
+    $ids = array_map('intval', $ids);
+
+    $model = $this->model("CauTraLoiModel");
+    $data = $model->getAnswersForMultipleQuestions($ids);
+
+    echo json_encode($data);
+}
+
 
     public function getsoluongcauhoi()
     {

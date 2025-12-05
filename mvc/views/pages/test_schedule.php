@@ -52,15 +52,15 @@
 </div>
 
 <!-- Bảng danh sách đề thi - ĐẸP & HIỆN ĐẠI -->
-<div class="table-responsive rounded-4 overflow-hidden shadow-xl" style="border-radius: 20px;">
+<div class="table-responsive rounded-4 overflow-hidden shadow-xl">
     <table class="table table-hover align-middle mb-0 modern-table border-0">
         <thead>
             <tr class="text-white text-uppercase fw-bold fs-6 tracking-wider"
                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                 <th class="py-4 ps-5">Tên đề thi</th>
                 <th class="py-4">Môn học</th>
-                <th class="py-4">Thời gian bắt đầu</th>
-                <th class="py-4">Kết thúc</th>
+                <th class="py-4">TG bắt đầu</th>
+                <th class="py-4">TG kết thúc</th>
                 <th class="py-4">Nhóm</th>
                 <th class="py-4 text-center">Điểm</th>
                 <th class="py-4 text-center">Trạng thái</th>
@@ -154,4 +154,6 @@
         box-shadow: 0 8px 20px rgba(0,0,0,0.2);
     }
 }
+.table-responsive { overflow-x: auto !important; }
+.modern-table { min-width: 1000px; } 
 </style>

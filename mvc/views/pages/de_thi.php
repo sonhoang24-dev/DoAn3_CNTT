@@ -1,4 +1,5 @@
 <script src="https://cdn.ckeditor.com/ckeditor5/41.0.0/classic/ckeditor.js"></script>
+<script src="https://unpkg.com/idb@7/build/umd.js"></script>
 <style>
         #list-question {
             display: block !important;

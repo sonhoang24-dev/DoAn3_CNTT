@@ -357,7 +357,6 @@ class CauHoiModel extends DB
 
         $stmt = mysqli_prepare($this->con, $sql);
         if ($stmt === false) {
-            error_log("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con) . " | Truy vấn: $sql");
             return [];
         }
         mysqli_stmt_bind_param($stmt, ...$params);
@@ -399,7 +398,6 @@ class CauHoiModel extends DB
 
         $stmt = mysqli_prepare($this->con, $sql);
         if ($stmt === false) {
-            error_log("Lỗi chuẩn bị truy vấn: " . mysqli_error($this->con) . " | Truy vấn: $sql");
             return 0;
         }
         mysqli_stmt_bind_param($stmt, ...$params);
@@ -717,7 +715,6 @@ class CauHoiModel extends DB
 
         $stmt = mysqli_prepare($this->con, $sql);
         if (!$stmt) {
-            error_log("Prepare failed: " . mysqli_error($this->con) . " | SQL: $sql");
             return false;
         }
 

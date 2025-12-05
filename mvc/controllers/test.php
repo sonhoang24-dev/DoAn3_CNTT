@@ -137,14 +137,11 @@ class Test extends Controller
                                 $dethi['socaude'] = $socaude_sum;
                                 $dethi['socautb'] = $socautb_sum;
                                 $dethi['socaukho'] = $socaukho_sum;
-                                error_log("Test::start used per-type columns for made=$made: de={$dethi['socaude']}, tb={$dethi['socautb']}, kho={$dethi['socaukho']}");
                             } else {
                                 $cnt = $this->chitietde->countByMade($made);
                                 if ($cnt > 0) {
                                     $dethi['socaude'] = $cnt;
-                                    error_log("Test::start fallback countByMade applied: made=$made, total_questions=$cnt");
                                 } else {
-                                    error_log("Test::start no question rows found for made=$made (countByMade=0)");
                                 }
                             }
                         }
@@ -211,7 +208,6 @@ class Test extends Controller
 
         $userid = $_SESSION['user_id'] ?? null;
         if (!$userid) {
-            error_log("get_subjects: no user in session. SESSION keys: " . json_encode(array_keys($_SESSION)));
             echo json_encode([]);
             exit;
         }
@@ -236,10 +232,8 @@ class Test extends Controller
     {
         if (filter_var($made, FILTER_VALIDATE_INT) !== false) {
             $check = $this->dethimodel->getById($made);
-            error_log("select method called with made: $made, check: " . print_r($check, true));
             if (isset($check) && !empty($check)) {
                 if (($check && (AuthCore::checkPermission("dethi", "create") || AuthCore::checkPermission("dethi", "update"))) && $check['loaide'] == 0 && $check['nguoitao'] == $_SESSION['user_id']) {
-                    error_log("Access granted for select_question, loaide: {$check['loaide']}, nguoitao: {$check['nguoitao']}, user_id: {$_SESSION['user_id']}");
                     $this->view('main_layout', [
                         "Page" => "select_question",
                         "Title" => "Chọn câu hỏi",
@@ -250,15 +244,12 @@ class Test extends Controller
                         ],
                     ]);
                 } else {
-                    error_log("Access denied: Permission or loaide/nguoitao check failed");
                     $this->view("single_layout", ["Page" => "error/page_403", "Title" => "Lỗi !"]);
                 }
             } else {
-                error_log("Test not found for made: $made");
                 $this->view("single_layout", ["Page" => "error/page_404", "Title" => "Lỗi !"]);
             }
         } else {
-            error_log("Invalid made: $made");
             $this->view("single_layout", ["Page" => "error/page_404", "Title" => "Lỗi !"]);
         }
     }
@@ -335,8 +326,20 @@ class Test extends Controller
             $loaide = (int)($_POST['loaide'] ?? 0);
 
             // === Validate & chuẩn hóa datetime ===
-            $thoigianbatdau = !empty($_POST['thoigianbatdau']) ? date('Y-m-d H:i:s', strtotime($_POST['thoigianbatdau'])) : null;
-            $thoigianketthuc = !empty($_POST['thoigianketthuc']) ? date('Y-m-d H:i:s', strtotime($_POST['thoigianketthuc'])) : null;
+            $thoigianbatdau = !empty($_POST['thoigianbatdau'])
+    ? date('Y-m-d H:i:s', strtotime($_POST['thoigianbatdau']))
+    : null;
+
+            $thoigianketthuc = !empty($_POST['thoigianketthuc'])
+                ? date('Y-m-d H:i:s', strtotime($_POST['thoigianketthuc']))
+                : null;
+
+            if ($thoigianbatdau === false) {
+                throw new Exception("Thời gian bắt đầu không hợp lệ.");
+            }
+            if ($thoigianketthuc === false) {
+                throw new Exception("Thời gian kết thúc không hợp lệ.");
+            }
 
             // === Các option khác ===
             $xembailam = (int)($_POST['xembailam'] ?? 0);
@@ -471,12 +474,10 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
 
 
         } catch (\Exception $e) {
-            error_log("addTest error: " . $e->getMessage());
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             exit;
         } catch (\Throwable $e) {
-            error_log("addTest fatal: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống']);
             exit;
@@ -497,8 +498,6 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             session_start();
         }
 
-        error_log("---- updateTest called ----");
-        error_log("RAW POST: " . print_r($_POST, true));
 
         try {
             $made = intval($_POST['made'] ?? 0);
@@ -589,7 +588,6 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             throw new Exception($msg);
 
         } catch (Throwable $e) {
-            error_log("updateTest exception: " . $e->getMessage());
             http_response_code(500);
             echo json_encode([
                 'success' => false,
@@ -627,9 +625,6 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
 
         $made = isset($_POST['made']) ? $_POST['made'] : null;
         $cauhoi = isset($_POST['cauhoi']) && is_array($_POST['cauhoi']) ? $_POST['cauhoi'] : [];
-
-        error_log("POST data: made=$made, cauhoi=" . print_r($cauhoi, true));
-
         if (!$made || empty($cauhoi)) {
             echo json_encode(['success' => false, 'error' => 'Mã đề hoặc danh sách câu hỏi không hợp lệ']);
             return;
@@ -657,10 +652,6 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         }
 
         $made = $_POST['made'] ?? 0;
-
-        error_log("API getQuestion called, made=$made");
-        error_log("SESSION user_id = " . ($_SESSION['user_id'] ?? 'NULL'));
-
         $user = $_SESSION['user_id'] ?? null;
 
         // CHỈ SỬA CHỖ NÀY
@@ -704,7 +695,6 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
                 $result = $this->dethimodel->getResultDetail($makq);
                 echo json_encode(['success' => true, 'data' => $result]);
             } catch (\Throwable $e) {
-                error_log('getResultDetail error: ' . $e->getMessage());
                 echo json_encode(['success' => false, 'error' => 'Lỗi server khi lấy chi tiết bài làm']);
             }
 
@@ -780,11 +770,6 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             $made = $_POST['made'] ?? null;
             $nguoidung = $_SESSION['user_id'] ?? null;
 
-            // Debug: log incoming submit payload and context
-            error_log("Test::submit called with made=" . print_r($made, true) . ", user=" . print_r($nguoidung, true));
-            error_log("Test::submit raw POST: " . print_r($_POST, true));
-            error_log("Test::submit parsed listCauTraLoi: " . print_r($listtr, true));
-
             $result = $this->ketquamodel->submit($made, $nguoidung, $listtr, $formattedTime);
             // Also include makq in response for client-side debugging/verification
             $kqRow = $this->ketquamodel->getMaKQ($made, $nguoidung);
@@ -792,6 +777,7 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             echo json_encode(['success' => (bool)$result, 'makq' => $makq]);
         }
     }
+
 
     //lấy câu trả lời tự luận
     public function getListEssaySubmissionsAction()
@@ -980,6 +966,8 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
 
     public function exportExcel()
     {
+        error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+        ini_set('display_errors', 0);
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $made = $_POST['made'];
             $manhom = $_POST['manhom'];
@@ -1151,4 +1139,7 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
             echo json_encode($result);
         }
     }
+
+
+  
 }

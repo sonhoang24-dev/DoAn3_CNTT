@@ -1,38 +1,62 @@
 Dashmix.helpersOnLoad(["jq-select2"]);
 
-// Destroy CKEditor instances if they exist
-if (CKEDITOR.instances["js-ckeditor"]) {
-  CKEDITOR.instances["js-ckeditor"].destroy(true);
-}
-if (CKEDITOR.instances["option-content"]) {
-  CKEDITOR.instances["option-content"].destroy(true);
-}
-if (CKEDITOR.instances["passage-content"]) {
-  CKEDITOR.instances["passage-content"].destroy(true);
-}
-if (CKEDITOR.instances["reading-question-content"]) {
-  CKEDITOR.instances["reading-question-content"].destroy(true);
-}
+// =============== QUẢN LÝ CKEDITOR THÔNG MINH ===============
+let ckeditorInstances = {};
 
-// Initialize CKEditor
-CKEDITOR.replace("js-ckeditor", {
-  entities: false,
-  basicEntities: false,
-  enterMode: CKEDITOR.ENTER_DIV,
-});
+function destroyAllCKEditors() {
+  Object.keys(CKEDITOR.instances).forEach((name) => {
+    if (CKEDITOR.instances[name]) {
+      CKEDITOR.instances[name].destroy(true);
+    }
+  });
+  ckeditorInstances = {};
+}
 CKEDITOR.replace("option-content", {
-  entities: false,
-  basicEntities: false,
-});
-CKEDITOR.replace("passage-content", {
-  entities: false,
-  basicEntities: false,
-});
-CKEDITOR.replace("reading-question-content", {
-  entities: false,
-  basicEntities: false,
+  allowedContent: true,
+  extraAllowedContent: "*[*]{*}(*)",
 });
 
+function initCKEditor(instanceName, config = {}) {
+  const defaultConfig = {
+    entities: false,
+    basicEntities: false,
+    entities_latin: false,
+    entities_greek: false,
+    enterMode: CKEDITOR.ENTER_P,
+    shiftEnterMode: CKEDITOR.ENTER_BR,
+    autoParagraph: false,
+    allowedContent: true,
+    // extraAllowedContent:
+    //   "*(*);*[id,class,style,href,target,title,alt,src,data-*]",
+    removeButtons: "",
+    allowedContent: {
+      "p b i u strong em sub sup br ul ol li img": true,
+      span: { attributes: ["class"] },
+      "h1 h2 h3 h4": true,
+    },
+    fillEmptyBlocks: false,
+    height: 200,
+    removePlugins: "elementspath",
+    resize_enabled: false,
+  };
+
+  const finalConfig = { ...defaultConfig, ...config };
+
+  if (CKEDITOR.instances[instanceName]) {
+    CKEDITOR.instances[instanceName].destroy(true);
+  }
+
+  CKEDITOR.replace(instanceName, finalConfig);
+  ckeditorInstances[instanceName] = true;
+}
+
+// Gọi 1 lần khi trang load
+Dashmix.helpersOnLoad(["jq-select2"]);
+destroyAllCKEditors(); // đảm bảo sạch
+initCKEditor("js-ckeditor");
+initCKEditor("option-content");
+initCKEditor("passage-content");
+initCKEditor("reading-question-content");
 Dashmix.onLoad(() =>
   class {
     static initValidation() {
@@ -88,34 +112,21 @@ Dashmix.onLoad(() =>
 
 function showData(data) {
   let html = "";
+
   data.forEach((question) => {
-    let dokho = "";
-    switch (String(question["dokho"])) {
-      case "1":
-        dokho = "Cơ bản";
-        break;
-      case "2":
-        dokho = "Trung bình";
-        break;
-      case "3":
-        dokho = "Nâng cao";
-        break;
-      default:
-        dokho = "Không xác định";
-    }
+    let dokho =
+      { 1: "Cơ bản", 2: "Trung bình", 3: "Nâng cao" }[question.dokho] ||
+      "Không xác định";
 
-    // Strip HTML và rút gọn nội dung hiển thị
-    let rawText = $("<div>").html(question["noidung"]).text();
-    rawText = rawText.replace(/\s+/g, " ").trim();
-    let shortText =
-      rawText.length > 180 ? rawText.substring(0, 180) + "......" : rawText;
+    // Hiển thị HTML thật
+    let contentHtml = question.noidung || "";
 
-    // Badge loại câu hỏi + số câu con (nếu là reading)
+    // Tạo badge
     let badge = "";
-    if (question["loai"] === "reading") {
-      let numSub = question["num_subquestions"] || 0;
-      badge = `<span class="badge bg-primary badge ms-2">Đoạn văn · ${numSub} câu hỏi</span>`;
-    } else if (question["loai"] === "essay") {
+    if (question.loai === "reading") {
+      let numSub = question.num_subquestions || 0;
+      badge = `<span class="badge bg-primary ms-2">Đoạn văn · ${numSub} câu</span>`;
+    } else if (question.loai === "essay") {
       badge = `<span class="badge bg-warning ms-2">Tự luận</span>`;
     } else {
       badge = `<span class="badge bg-success ms-2">Trắc nghiệm</span>`;
@@ -123,41 +134,58 @@ function showData(data) {
 
     html += `
       <tr>
-        <td class="text-center fs-sm">
-          <a class="fw-semibold" href="#">
-            <strong>${question["macauhoi"] ?? ""}</strong>
-          </a>
-        </td>
+        <td class="text-center fs-sm"><strong>${
+          question.macauhoi ?? ""
+        }</strong></td>
+
         <td class="fs-sm">
           <div class="d-flex align-items-start gap-2">
-            <div>${shortText}</div>
+            <div class="question-preview">${contentHtml}</div>
             ${badge}
           </div>
+          <div class="question-full d-none">${contentHtml}</div>
         </td>
-        <td class="d-none d-xl-table-cell fs-sm">
-          <a class="fw-semibold">${question["tenmonhoc"] ?? ""}</a>
-        </td>
-        <td class="d-none d-sm-table-cell fs-sm">
-          <strong>${dokho}</strong>
-        </td>
+
+        <td class="d-none d-xl-table-cell fs-sm">${
+          question.tenmonhoc ?? ""
+        }</td>
+        <td class="d-none d-sm-table-cell fs-sm"><strong>${dokho}</strong></td>
+
         <td class="text-center col-action">
-          <a data-role="cauhoi" data-action="update"
-             class="btn btn-sm btn-alt-secondary btn-edit-question"
-             data-id="${question["macauhoi"]}">
-            <i class="fa fa-fw fa-pencil"></i>
-          </a>
-          <a data-role="cauhoi" data-action="delete"
-             class="btn btn-sm btn-alt-secondary btn-delete-question"
-             data-id="${question["macauhoi"]}">
-            <i class="fa fa-fw fa-times"></i>
-          </a>
+        
+          <!-- Nút sửa -->
+          <button 
+            class="btn btn-sm btn-alt-secondary btn-edit-question"
+            data-id="${question.macauhoi}"
+            data-bs-toggle="tooltip"
+            data-bs-placement="top"
+            title="Chỉnh sửa"
+          >
+            <i class="fa fa-pencil"></i>
+          </button>
+
+          <!-- Nút xóa -->
+          <button 
+            class="btn btn-sm btn-alt-secondary btn-delete-question"
+            data-id="${question.macauhoi}"
+            data-bs-toggle="tooltip"
+            data-bs-placement="top"
+            title="Xóa"
+          >
+            <i class="fa fa-times"></i>
+          </button>
+
         </td>
-      </tr>
-    `;
+      </tr>`;
   });
 
+  // Đổ HTML vào bảng
   $("#listQuestion").html(html);
-  $('[data-bs-toggle="tooltip"]').tooltip();
+
+  // Khởi tạo tooltip (Bootstrap 5) + FIX overflow table-responsive
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
+    new bootstrap.Tooltip(el, { container: "body" });
+  });
 }
 
 let options = [];
@@ -230,7 +258,45 @@ $(document).ready(function () {
     toggleQuestionType($(this).val());
   });
 
-  // Save MCQ option
+  // Preview ảnh phương án khi chọn file mới (cho trắc nghiệm trong form add_option)
+  $("#option-image").on("change", function () {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        $("#option-image-preview").html(`
+          <div class="position-relative d-inline-block">
+            <img src="${e.target.result}" class="img-thumbnail" style="max-width:120px; max-height:80px; object-fit:contain;">
+            <button type="button" class="btn btn-danger btn-xs position-absolute top-0 end-0 btn-delete-option-image-temp" style="transform: translate(50%, -50%); font-size: 10px; padding: 2px 6px;">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+        `);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      $("#option-image-preview").html(
+        '<small class="text-muted">Không có ảnh</small>'
+      );
+    }
+  });
+
+  // Xóa ảnh tạm trong form add_option
+  $(document).on("click", ".btn-delete-option-image-temp", function () {
+    $("#option-image-preview").html(
+      '<small class="text-muted">Không có ảnh</small>'
+    );
+    $("#option-image").val("");
+    // Nếu đang update, set flag delete cho option
+    const index = $("#update-option").data("id");
+    if (index !== undefined) {
+      options[index].delete_image = true;
+      options[index].image = null;
+      options[index].file = null;
+    }
+  });
+
+  // Save MCQ option (thêm mới)
   $("#save-option").click(function (e) {
     e.preventDefault();
     let content_option = CKEDITOR.instances["option-content"].getData();
@@ -242,6 +308,7 @@ $(document).ready(function () {
       check: true_option,
       image: null,
       file: imageFile || null,
+      delete_image: false, // Flag delete mặc định false
     };
 
     if (!imageFile) {
@@ -263,7 +330,8 @@ $(document).ready(function () {
     };
     reader.readAsDataURL(imageFile);
   });
-  // Update MCQ option
+
+  // Update MCQ option (cập nhật)
   $("#update-option").click(function (e) {
     e.preventDefault();
 
@@ -281,37 +349,49 @@ $(document).ready(function () {
       reader.onload = function (e) {
         options[index].image = e.target.result;
         options[index].file = imageFile;
-
+        options[index].delete_image = false; // Reset flag nếu upload mới
         showOptions(options);
         resetOptionForm();
         $("#add_option").collapse("hide");
       };
       reader.readAsDataURL(imageFile);
     } else {
+      // Nếu không upload mới, giữ flag delete nếu đã xóa trước đó
       showOptions(options);
       resetOptionForm();
       $("#add_option").collapse("hide");
     }
   });
 
-  // Show MCQ options
+  function escapeHT(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Show MCQ options (danh sách)
   function showOptions(options) {
     let html = "";
     options.forEach((item, i) => {
       let imgHtml = '<small class="text-muted">Không có ảnh</small>';
       if (item.image) {
         imgHtml = `
-                <div class="position-relative d-inline-block">
-                    <img src="${item.image}" class="img-thumbnail" style="max-width:120px; max-height:80px; object-fit:contain;">
-                    <button type="button" class="btn btn-danger btn-xs position-absolute top-0 end-0 btn-delete-option-image" data-id="${i}" style="transform: translate(50%, -50%); font-size: 10px; padding: 2px 6px;">
-                        <i class="fa fa-times"></i>
-                    </button>
-                </div>`;
+            <div class="position-relative d-inline-block">
+                <img src="${item.image}" class="img-thumbnail" style="max-width:120px; max-height:80px; object-fit:contain;">
+                <button type="button" class="btn btn-danger btn-xs position-absolute top-0 end-0 btn-delete-option-image" data-id="${i}" style="transform: translate(50%, -50%); font-size: 10px; padding: 2px 6px;">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>`;
       }
 
       html += `<tr>
             <th class="text-center">${i + 1}</th>
-            <td>${item.content}</td>
+            <td class="option-content-cell" data-index="${i}">${
+        item.content
+      }</td>
             <td class="text-center">${imgHtml}</td>
             <td class="text-center">
                 <input type="radio" class="form-check-input" name="da-dung" data-id="${i}" ${
@@ -324,8 +404,44 @@ $(document).ready(function () {
             </td>
         </tr>`;
     });
+
     $("#list-options").html(html);
+
+    // Bắt sự kiện sửa
+    $(".btn-edit-option")
+      .off("click")
+      .on("click", function () {
+        const index = $(this).data("id");
+        $("#update-option").show().data("id", index);
+        $("#save-option").hide();
+        $("#add_option").collapse("show");
+        CKEDITOR.instances["option-content"].setData(options[index].content);
+        $("#true-option").prop("checked", options[index].check);
+        $("#option-image").val("");
+        // Load preview ảnh cũ nếu có
+        if (options[index].image) {
+          $("#option-image-preview").html(`
+            <div class="position-relative d-inline-block">
+              <img src="${options[index].image}" class="img-thumbnail" style="max-width:120px; max-height:80px; object-fit:contain;">
+              <button type="button" class="btn btn-danger btn-xs position-absolute top-0 end-0 btn-delete-option-image-temp" style="transform: translate(50%, -50%); font-size: 10px; padding: 2px 6px;">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+          `);
+        } else {
+          $("#option-image-preview").html(
+            '<small class="text-muted">Không có ảnh</small>'
+          );
+        }
+        setTimeout(() => {
+          document.getElementById("add_option").scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 300);
+      });
   }
+
   // READING
   function showReadingQuestions() {
     let html = "";
@@ -391,6 +507,9 @@ $(document).ready(function () {
     CKEDITOR.instances["option-content"].setData("");
     $("#true-option").prop("checked", false);
     $("#option-image").val("");
+    $("#option-image-preview").html(
+      '<small class="text-muted">Không có ảnh</small>'
+    );
   }
 
   // Edit MCQ option
@@ -634,7 +753,7 @@ $(document).ready(function () {
   $.get(
     "./subject/getSubjectAssignment",
     function (data) {
-      let html = "<option value=\"0\">Tất cả chương</option>";
+      let html = '<option value="0">Tất cả chương</option>';
       data.forEach((item) => {
         html += `<option value="${item.mamonhoc}">${item.tenmonhoc}</option>`;
       });
@@ -648,7 +767,7 @@ $(document).ready(function () {
   $(".data-monhoc").on("change", function () {
     let selectedValue = $(this).val();
     let id = $(this).data("tab");
-    let html = "<option value=\"0\">Tất cả chương</option>";
+    let html = '<option value="0">Tất cả chương</option>';
     $.ajax({
       type: "post",
       url: "./subject/getAllChapter",
@@ -660,7 +779,10 @@ $(document).ready(function () {
         data.forEach((item) => {
           html += `<option value="${item.machuong}">${item.tenchuong}</option>`;
         });
-        $(`.data-chuong[data-tab="${id}"]`).html(html).val("0").trigger("change");
+        $(`.data-chuong[data-tab="${id}"]`)
+          .html(html)
+          .val("0")
+          .trigger("change");
       },
     });
   });
@@ -669,7 +791,7 @@ $(document).ready(function () {
   $("#main-page-monhoc").on("change", function () {
     let mamonhoc = $(this).val();
     let id = $(this).data("tab");
-    let html = "<option value=\"0\">Tất cả chương</option>";
+    let html = '<option value="0">Tất cả chương</option>';
     $.ajax({
       type: "post",
       url: "./subject/getAllChapter",
@@ -873,8 +995,13 @@ $(document).ready(function () {
             type: "warning",
             message: "File trống hoặc sai định dạng!",
           });
-          return;
+          return; // Complete sẽ reset nút
         }
+        Dashmix.helpers("jq-notify", {
+          type: "success",
+          icon: "fa fa-check me-1",
+          message: "Đã đọc file thành công!",
+        });
 
         questions = JSON.parse(JSON.stringify(res));
         isModified = false;
@@ -888,7 +1015,18 @@ $(document).ready(function () {
         } catch (e) {}
         Dashmix.helpers("jq-notify", { type: "danger", message: msg });
       },
-      complete: () => Dashmix.layout("header_loader_off"),
+      complete: () => {
+        Dashmix.layout("header_loader_off");
+        // Reset nút import về trạng thái ban đầu nếu không success đầy đủ
+        if (questions.length === 0) {
+          // Chỉ reset nếu chưa có questions mới (error hoặc empty)
+          $("#nhap-file")
+            .prop("disabled", true)
+            .html("Thêm vào hệ thống")
+            .removeClass("btn-success fw-bold")
+            .addClass("btn-secondary");
+        }
+      },
     });
   });
 
@@ -1293,9 +1431,12 @@ $(document).ready(function () {
   // Add question
   $("#add_question").click(function (e) {
     e.preventDefault();
+    for (let name in CKEDITOR.instances) {
+      CKEDITOR.instances[name].updateElement();
+    }
 
     let qtype = $("#loai-cau-hoi").val();
-    let noidung = (CKEDITOR.instances["js-ckeditor"]?.getData() ?? "").trim();
+    let noidung = CKEDITOR.instances["js-ckeditor"]?.getData() || "";
     let passage = CKEDITOR.instances["passage-content"]?.getData() ?? "";
     let cautraloi = qtype === "reading" ? readingQuestions : options;
     let questionImage = $("#question-image")[0]?.files[0];
@@ -1321,15 +1462,30 @@ $(document).ready(function () {
 
     if (questionImage) formData.append("hinhanh", questionImage);
 
-    cautraloi.forEach((opt, i) => {
-      if (opt.file) {
-        formData.append("option_hinhanh[]", opt.file);
-      } else {
-        formData.append("option_hinhanh[]", "");
-      }
-    });
+    // Chuẩn hóa đáp án với delete_image
+    let answersToSend = cautraloi.map((item) => {
+      let base = {
+        content: item.content,
+        check: item.check ? 1 : 0,
+        delete_image: item.delete_image ? 1 : 0,
+        image: item.image || null, // GIỮ ẢNH CŨ
+      };
 
-    formData.append("cautraloi", JSON.stringify(cautraloi));
+      if (qtype === "reading") {
+        base.options = (item.options || []).map((opt) => ({
+          content: opt.content,
+          check: opt.check ? 1 : 0,
+          delete_image: opt.delete_image ? 1 : 0,
+        }));
+      }
+      return base;
+    });
+    formData.append("cautraloi", JSON.stringify(answersToSend));
+
+    // Append ảnh, chỉ nếu có file mới; placeholder "" để khớp index
+    cautraloi.forEach((opt) => {
+      formData.append("option_hinhanh[]", opt.file || "");
+    });
 
     $.ajax({
       url: "./question/addQues",
@@ -1441,13 +1597,31 @@ $(document).ready(function () {
   });
 
   // Edit question
+  // Khi bấm lưu
   $("#edit_question").click(function () {
     let id = $("#question_id").val();
     let qtype = $("#loai-cau-hoi").val();
-    let noidung =
+
+    // === KIỂM TRA BẮT BUỘC CÓ ĐÁP ÁN ĐÚNG ===
+    if (
+      qtype === "mcq" &&
+      (options.length === 0 || !options.some((opt) => opt.check))
+    ) {
+      Dashmix.helpers("jq-notify", {
+        type: "danger",
+        message: "Chọn ít nhất một đáp án đúng!",
+      });
+      return;
+    }
+
+    // Lấy dữ liệu từ CKEditor
+    let rawData =
       qtype === "reading"
         ? CKEDITOR.instances["passage-content"].getData()
         : CKEDITOR.instances["js-ckeditor"].getData();
+
+    // Loại bỏ div/p wrap ngoài cùng
+    rawData = rawData.replace(/^<(div|p)[^>]*>|<\/(div|p)>$/gi, "").trim();
 
     let cautraloi = qtype === "reading" ? readingQuestions : options;
 
@@ -1457,69 +1631,89 @@ $(document).ready(function () {
     formData.append("machuong", $("#chuong").val());
     formData.append("dokho", $("#dokho").val());
     formData.append("loai", qtype);
-    formData.append("noidung", noidung);
+
+    // Gửi đúng trường PHP đang check
     if (qtype === "reading") {
+      formData.append("doanvan_noidung", rawData); // <--- quan trọng
       formData.append("doanvan_tieude", $("#passage-title").val() || "");
+    } else {
+      formData.append("noidung", rawData);
     }
 
+    // Hình ảnh câu hỏi
     if ($("#question-image")[0]?.files[0]) {
       formData.append("hinhanh", $("#question-image")[0].files[0]);
     }
 
+    // Chuẩn hóa đáp án với delete_image
     let answersToSend = cautraloi.map((item) => {
       let base = {
         content: item.content,
         check: item.check ? 1 : 0,
+        delete_image: item.delete_image ? 1 : 0,
+        image: item.image || null, // GIỮ ẢNH CŨ
       };
 
-      if (item.file instanceof File) {
-        base.file = item.file;
-      }
-      if (
-        item.image &&
-        typeof item.image === "string" &&
-        item.image.startsWith("data:")
-      ) {
-        base.image = item.image;
-      }
-
       if (qtype === "reading") {
-        base.options = (item.options || []).map((opt) => {
-          let o = {
-            content: opt.content,
-            check: opt.check ? 1 : 0,
-          };
-          if (opt.file instanceof File) o.file = opt.file;
-          if (
-            opt.image &&
-            typeof opt.image === "string" &&
-            opt.image.startsWith("data:")
-          ) {
-            o.image = opt.image;
-          }
-          return o;
-        });
+        base.options = (item.options || []).map((opt) => ({
+          content: opt.content,
+          check: opt.check ? 1 : 0,
+          delete_image: opt.delete_image ? 1 : 0,
+        }));
       }
       return base;
     });
-
     formData.append("cautraloi", JSON.stringify(answersToSend));
 
-    answersToSend.forEach((item, idx) => {
-      if (item.file instanceof File) {
-        formData.append("option_hinhanh[]", item.file);
-      }
-      if (qtype === "reading" && item.options) {
-        item.options.forEach((opt) => {
+    // Append ảnh, chỉ nếu có file mới; placeholder "" để khớp index
+    // Gửi ảnh đúng nguồn dữ liệu (options hoặc readingQuestions)
+    if (qtype === "mcq" || qtype === "essay") {
+      options.forEach((opt, i) => {
+        if (opt.file instanceof File) {
+          console.log("Append option file", i, opt.file);
+          formData.append("option_hinhanh[]", opt.file);
+        } else {
+          formData.append("option_hinhanh[]", "");
+        }
+      });
+    }
+
+    if (qtype === "reading") {
+      readingQuestions.forEach((subQ, i) => {
+        if (subQ.file instanceof File) {
+          formData.append("option_hinhanh[]", subQ.file);
+        } else {
+          formData.append("option_hinhanh[]", "");
+        }
+
+        subQ.options.forEach((opt, j) => {
           if (opt.file instanceof File) {
             formData.append("option_hinhanh[]", opt.file);
+          } else {
+            formData.append("option_hinhanh[]", "");
           }
         });
-      }
-    });
+      });
+    }
+
     if ($(document).data("delete_question_image") === "1") {
       formData.append("delete_question_image", "1");
     }
+    // ===== DEBUG: IN RA TẤT CẢ NỘI DUNG FORMDATA =====
+    console.log("======= DEBUG SEND DATA =======");
+    console.log("id:", id);
+    console.log("qtype:", qtype);
+    console.log("rawData:", rawData);
+    console.log("answersToSend:", JSON.stringify(answersToSend, null, 2));
+
+    console.log("Files append:");
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ":", pair[1]);
+    }
+    console.log("======= END DEBUG =======");
+    //return;
+
+    // Gửi Ajax
     $.ajax({
       url: "./question/editQuesion",
       type: "POST",
@@ -1527,10 +1721,7 @@ $(document).ready(function () {
       contentType: false,
       processData: false,
       success: function (res) {
-        if (typeof res === "string") {
-          res = JSON.parse(res);
-        }
-
+        if (typeof res === "string") res = JSON.parse(res);
         if (res.status === "success") {
           Dashmix.helpers("jq-notify", {
             type: "success",
@@ -1554,6 +1745,7 @@ $(document).ready(function () {
       },
     });
   });
+
   function resetQuestionUI() {
     // Xóa dữ liệu cũ
     $("#js-ckeditor").val("");
@@ -1577,33 +1769,51 @@ $(document).ready(function () {
       data: { id: id },
       dataType: "json",
       success: function (data) {
-        if (!data) return;
-
-        const monhoc = data.mamonhoc;
-        const machuong = data.machuong;
-        const dokho = data.dokho;
-        const noidung = data.noidung || "";
-        const loai = data.loai;
-        const tieude = data.tieude || "";
-        const qImg = data.question_image_base64 || null;
-
-        $("#mon-hoc").val(monhoc).trigger("change");
-        $("#dokho").val(dokho).trigger("change");
-        $("#loai-cau-hoi").val(loai).trigger("change");
-        toggleQuestionType(loai);
-
-        setTimeout(() => $("#chuong").val(machuong).trigger("change"), 100);
-
-        if (loai === "reading") {
-          CKEDITOR.instances["passage-content"].setData(noidung);
-          CKEDITOR.instances["js-ckeditor"].setData("");
-          $("#passage-title").val(tieude);
-        } else {
-          CKEDITOR.instances["js-ckeditor"].setData(noidung);
-          CKEDITOR.instances["passage-content"].setData("");
+        if (!data || !data.loai) {
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            message: "Không tìm thấy câu hỏi!",
+          });
+          return;
         }
 
-        updateQuestionImagePreview(qImg);
+        const loai = data.loai;
+
+        $("#mon-hoc").val(data.mamonhoc).trigger("change");
+        $("#dokho").val(data.dokho).trigger("change");
+        $("#loai-cau-hoi").val(loai).trigger("change");
+
+        setTimeout(() => {
+          $("#chuong").val(data.machuong).trigger("change");
+        }, 500);
+
+        toggleQuestionType(loai);
+
+        function safeSetData(editorName, content = "") {
+          if (!CKEDITOR.instances[editorName]) {
+            setTimeout(() => safeSetData(editorName, content), 100);
+            return;
+          }
+
+          if (CKEDITOR.instances[editorName].status !== "ready") {
+            CKEDITOR.instances[editorName].once("instanceReady", function () {
+              this.setData(content);
+            });
+          } else {
+            CKEDITOR.instances[editorName].setData(content);
+          }
+        }
+
+        if (loai === "reading") {
+          safeSetData("passage-content", data.noidung || "");
+          safeSetData("js-ckeditor", "");
+          $("#passage-title").val(data.tieude || "");
+        } else {
+          safeSetData("js-ckeditor", data.noidung || "");
+          safeSetData("passage-content", "");
+        }
+
+        updateQuestionImagePreview(data.question_image_base64 || null);
 
         $.ajax({
           type: "post",
@@ -1611,18 +1821,26 @@ $(document).ready(function () {
           data: { id: id },
           dataType: "json",
           success: function (response) {
+            console.log("Raw answer data from server:", response);
             options = [];
             readingQuestions = [];
 
             if (loai === "reading") {
+              // Nhóm câu hỏi con theo macauhoicon
               const subMap = {};
               response.forEach((item) => {
+                console.log(
+                  "Option image field:",
+                  opt.option_image_base64,
+                  opt
+                );
                 const subId = item.macauhoicon;
                 if (!subMap[subId]) {
                   subMap[subId] = {
                     content: item.noidung_con || "",
                     image: item.question_image_base64 || null,
                     file: null,
+                    delete_image: false,
                     options: [],
                   };
                 }
@@ -1631,6 +1849,7 @@ $(document).ready(function () {
                   check: item.ladapan == 1,
                   image: item.option_image_base64 || null,
                   file: null,
+                  delete_image: false,
                 });
               });
 
@@ -1639,12 +1858,14 @@ $(document).ready(function () {
             } else if (loai === "essay") {
               $("#essay-answer").val(response[0]?.noidungtl || "");
             } else {
+              // MCQ hoặc các loại khác
               response.forEach((opt) => {
                 options.push({
-                  content: opt.noidungtl,
+                  content: opt.noidungtl || "",
                   check: opt.ladapan == 1,
                   image: opt.option_image_base64 || null,
                   file: null,
+                  delete_image: false,
                 });
               });
               showOptions(options);
@@ -1653,7 +1874,7 @@ $(document).ready(function () {
           error: function () {
             Dashmix.helpers("jq-notify", {
               type: "danger",
-              message: "Lỗi lấy đáp án",
+              message: "Lỗi lấy đáp án!",
             });
           },
         });
@@ -1661,12 +1882,11 @@ $(document).ready(function () {
       error: function () {
         Dashmix.helpers("jq-notify", {
           type: "danger",
-          message: "Lỗi lấy thông tin câu hỏi",
+          message: "Lỗi kết nối server!",
         });
       },
     });
   }
-
   // XÓA ẢNH CÂU HỎI CHÍNH (khi bấm nút X)
   $(document).on("click", ".btn-delete-question-image", function () {
     $("#question-image-preview")
@@ -1713,11 +1933,12 @@ $(document).ready(function () {
       updateQuestionImagePreview();
     }
   });
-  // Xóa ảnh đáp án MCQ
+  // Xóa ảnh đáp án MCQ (trong danh sách options)
   $(document).on("click", ".btn-delete-option-image", function () {
     const index = $(this).data("id");
     options[index].image = null;
     options[index].file = null;
+    options[index].delete_image = true; // Set flag delete
     showOptions(options);
   });
 
@@ -1726,6 +1947,7 @@ $(document).ready(function () {
     const index = $(this).data("id");
     readingQuestions[index].image = null;
     readingQuestions[index].file = null;
+    readingQuestions[index].delete_image = true;
     showReadingQuestions();
   });
 
@@ -1735,6 +1957,7 @@ $(document).ready(function () {
     const oid = $(this).data("oid");
     readingQuestions[qid].options[oid].image = null;
     readingQuestions[qid].options[oid].file = null;
+    readingQuestions[qid].options[oid].delete_image = true;
     showReadingQuestions();
   });
 

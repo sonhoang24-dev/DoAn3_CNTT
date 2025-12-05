@@ -168,8 +168,9 @@ class CauTraLoiModel extends DB
     k.makq,
     k.manguoidung,
     COALESCE(nd.hoten, k.manguoidung) AS hoten,
-    nd.avatar, -- Thêm cột avatar
+    nd.avatar, 
     k.diemthi,
+    k.diem_dochieu,
     k.diem_tuluan,
     k.trangthai_tuluan,
     k.thoigianvaothi,
@@ -235,6 +236,7 @@ WHERE k.made = ?
                 'manguoidung'          => $row['manguoidung'],
                 'hoten'                => $row['hoten'],
                 'diemthi'              => $row['diemthi'] !== null ? floatval($row['diemthi']) : null,
+                'diem_dochieu'         => $row['diem_dochieu'] !== null ? floatval($row['diem_dochieu']) : null,
                 'diem_tuluan_hien_tai' => $diemTL,
                 'trangthai_cham'       => $diemTL > 0 ? 'Đã chấm' : 'Chưa chấm'
             ];
@@ -273,7 +275,7 @@ WHERE k.made = ?
             $resUser = mysqli_stmt_get_result($stmtUser);
             if ($rowUser = mysqli_fetch_assoc($resUser)) {
                 $manguoidung = $rowUser['manguoidung'];
-                $hoten = $rowUser['hoten'];  
+                $hoten = $rowUser['hoten'];
                 $avatar      = $rowUser['avatar'];
             }
             mysqli_stmt_close($stmtUser);

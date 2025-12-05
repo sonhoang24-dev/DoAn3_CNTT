@@ -17,9 +17,9 @@ function showData(data) {
     const trangThaiTuLuan = item.trangthai_tuluan || "Chưa chấm";
     const daChamTuLuan = trangThaiTuLuan === "Đã chấm";
     const diemTuLuan = daChamTuLuan ? parseFloat(item.diem_tuluan || 0) : 0;
-
     // Tính tổng điểm (chỉ cộng điểm tự luận nếu đã chấm)
     const diemTracNghiem = parseFloat(item.diemthi ?? 0);
+
     const tongDiem = daChamTuLuan
       ? (diemTracNghiem + diemTuLuan).toFixed(2)
       : diemTracNghiem.toFixed(2);
@@ -258,163 +258,278 @@ $(document).ready(function () {
 
   // Hiển thị đề kiểm tra đáp án + câu trả lời của thí sinh đó
   function showTestDetail(questions) {
+    // questions = questions.sort(
+    //   (a, b) => parseInt(a.macauhoi) - parseInt(b.macauhoi)
+    // );
     let html = "";
     let lastContext = null;
+    let inGroup = false;
 
     questions.forEach((item, index) => {
-      let dadung = item.cautraloi
-        ? item.cautraloi.find((op) => op.ladapan == 1)
-        : null;
-      let dapanchon = item.dapanchon || null;
+      const correctOp = item.cautraloi?.find((op) => op.ladapan == 1);
+      const selectedOp = item.cautraloi?.find(
+        (op) => op.macautl === item.dapanchon
+      );
+      const isCorrect =
+        selectedOp && correctOp && selectedOp.macautl === correctOp.macautl;
+      const isWrong = selectedOp && !isCorrect;
+      const notAnswered = !item.dapanchon;
 
-      // Nếu là câu thuộc dạng 'reading' thì hiển thị đoạn văn/tiêu đề một lần
-      if (
-        item.loai === "reading" &&
-        item.context &&
-        item.context !== lastContext
-      ) {
-        html += `<div class="card mb-3">
-            <div class="card-body bg-light">
-              <h6 class="mb-2">${
-                item.tieude_context ? item.tieude_context : "Đoạn văn"
-              }</h6>
-              <div class="small text-muted">${item.context}</div>
-            </div>
-          </div>`;
-        lastContext = item.context;
+      const normalizedContext = item.context
+        ? item.context.replace(/\s+/g, " ").trim()
+        : null;
+
+      // Close group if switching from reading to non-reading
+      if (item.loai !== "reading" && inGroup) {
+        html += `</div></div>`; // đóng card-body + card
+        inGroup = false;
+        lastContext = null;
       }
 
-      // Câu hỏi
-      html += `<div class="question rounded border mb-3">
-        <div class="question-top p-3">
-          <p class="fw-bold mb-3">${index + 1}. ${item.noidung}</p>`;
+      // ==================== READING CONTEXT ====================
+      if (
+        item.loai === "reading" &&
+        normalizedContext &&
+        normalizedContext !== lastContext
+      ) {
+        if (inGroup) html += `</div></div>`; // đóng group cũ nếu còn mở
 
-      // Nếu là câu tự luận → hiển thị câu trả lời và điểm giáo viên (nếu có)
-      if (item.loai === "essay") {
-        html += `<div class="mb-4">
-            <strong class="text-success"><i class="fas fa-pen me-2"></i>Câu trả lời của thí sinh:</strong>
-            <div class="bg-white p-3 rounded border mt-2 min-vh-20">
-              ${
-                item.noidung_tra_loi
-                  ? item.noidung_tra_loi
-                  : '<em class="text-muted">Chưa làm</em>'
-              }
-            </div>
-          </div>`;
+        let contextHtml = item.context
+          .split(/\n{2,}/)
+          .map((para, i) => {
+            const mbClass =
+              i === item.context.split(/\n{2,}/).length - 1 ? "mb-0" : "mb-3";
+            return `<p class="text-muted small lh-lg ${mbClass}">${para.replace(
+              /\n/g,
+              "<br>"
+            )}</p>`;
+          })
+          .join("");
 
-        // Hiển thị điểm giáo viên cho câu này (nếu đã chấm)
-        const diemCau =
-          item.diem_cham_tuluan !== null && item.diem_cham_tuluan !== undefined
-            ? parseFloat(item.diem_cham_tuluan).toFixed(2)
-            : null;
+        html += `
+      <div class="card mb-5 border-0 shadow rounded-4 overflow-hidden">
+        <div class="card-body p-4 p-md-5">
+          <div class="bg-light rounded-3 p-3">
+            <h6 class="text-primary fw-bold mb-2">
+              <i class="fas fa-book-open me-2"></i>
+              ${item.tieude_context || "Đoạn văn"}
+            </h6>
+            ${contextHtml}
+          </div>
+          <hr class="my-4">`;
+        inGroup = true;
+        lastContext = normalizedContext;
+      }
 
-        html += `<div class="mt-2 mb-3">
-            <span class="fw-bold">Điểm giáo viên:</span>
-            <span class="ms-2">${
-              diemCau !== null
-                ? diemCau + " điểm"
-                : '<em class="text-muted">Chưa chấm</em>'
-            }</span>
-          </div>`;
-
-        html += `</div>`; // đóng question-top
-        html += `</div>`; // đóng question
+      // ==================== KHUNG CÂU HỎI ====================
+      if (!inGroup) {
+        html += `
+      <div class="card mb-5 border-0 shadow rounded-4 overflow-hidden">
+        <div class="card-body p-4 p-md-5">
+          <h5 class="fw-bold text-dark mb-4">${index + 1}. ${
+          item.noidung
+        }</h5>`;
       } else {
-        // Nếu có student essay data for a reading subquestion, prefer showing it
-        if (
-          (item.noidung_tra_loi !== undefined &&
-            item.noidung_tra_loi !== null) ||
-          (item.diem_cham_tuluan !== undefined &&
-            item.diem_cham_tuluan !== null)
-        ) {
-          html += `<div class="mb-4">
-              <strong class="text-success"><i class="fas fa-pen me-2"></i>Câu trả lời của thí sinh:</strong>
-              <div class="bg-white p-3 rounded border mt-2 min-vh-20">
-                ${
-                  item.noidung_tra_loi
-                    ? item.noidung_tra_loi
-                    : '<em class="text-muted">Chưa làm</em>'
-                }
-              </div>
-            </div>`;
+        html += `
+      <div class="question-item mb-5">
+        <h5 class="fw-bold text-dark mb-4">${index + 1}. ${item.noidung}</h5>`;
+      }
 
-          const diemCau =
-            item.diem_cham_tuluan !== null &&
-            item.diem_cham_tuluan !== undefined
-              ? parseFloat(item.diem_cham_tuluan).toFixed(2)
-              : null;
-          html += `<div class="mt-2 mb-3">
-              <span class="fw-bold">Điểm giáo viên:</span>
-              <span class="ms-2">${
-                diemCau !== null
-                  ? diemCau + " điểm"
-                  : '<em class="text-muted">Chưa chấm</em>'
-              }</span>
-            </div>`;
+      // ==================== CÂU TỰ LUẬN / ESSAY ====================
+      const isEssay =
+        item.loai === "essay" ||
+        item.noidung_tra_loi != null ||
+        item.diem_cham_tuluan != null;
 
-          html += `</div>`; // đóng question-top
-          html += `</div>`; // đóng question
+      if (isEssay) {
+        html += renderEssayBlock(item);
+        if (!inGroup) {
+          html += `</div></div>`; // đóng card-body + card
         } else {
-          html += `<div class="row">`;
-
-          // Hiển thị đáp án (MCQ)
-          if (item.cautraloi && Array.isArray(item.cautraloi)) {
-            item.cautraloi.forEach((op, i) => {
-              let label = String.fromCharCode(65 + i);
-              let cls = "";
-
-              // Highlight đáp án đúng/sai
-              if (op.ladapan == 1) cls = "text-success fw-bold";
-              if (dapanchon == op.macautl) {
-                cls =
-                  op.ladapan == 1
-                    ? "bg-success text-white fw-bold"
-                    : "bg-danger text-white fw-bold";
-              }
-
-              // Nếu có hình ảnh BLOB (đã chuyển Base64), hiển thị ảnh
-              let content = "";
-              if (op.hinhanh && op.hinhanh.trim() !== "") {
-                content = `<img src="${op.hinhanh}" alt="Hình ảnh đáp án" class="img-fluid">`;
-              } else {
-                content = op.noidungtl;
-              }
-
-              html += `<div class="col-6 mb-1">
-                <p class="${cls}"><b>${label}.</b> ${content}</p>
-              </div>`;
-            });
-          }
-
-          html += `</div></div>`; // đóng question-top
-
-          // Phần kết quả cho MCQ
-          html += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
-            <p class="mb-0 text-white me-4">Đáp án của bạn:</p>`;
-
-          if (dapanchon === null) {
-            html += `<span class="text-white">Chưa làm</span>`;
-          } else if (dadung && dadung.macautl == dapanchon) {
-            html += `<span class="h2 mb-0 ms-1">
-                     <i class="fa fa-check" style="color:#76BB68;"></i>
-                   </span>`;
-          } else if (dadung) {
-            html += `<span class="h2 mb-0 ms-1">
-                     <i class="fa fa-xmark" style="color:#FF5A5F;"></i>
-                   </span>
-                   <span class="mx-2 text-white">
-                     Đáp án đúng: ${String.fromCharCode(
-                       item.cautraloi.indexOf(dadung) + 65
-                     )}
-                   </span>`;
-          }
-
-          html += `</div></div>`; // đóng test-ans và question
+          html += `</div>`; // đóng question-item
         }
+        return; // tiếp tục vòng lặp forEach
+      }
+
+      // ==================== CÂU TRẮC NGHIỆM ====================
+      html += `<div class="row g-4">`;
+      item.cautraloi?.forEach((op, i) => {
+        const label = String.fromCharCode(65 + i);
+        const isSelected = op.macautl === item.dapanchon;
+        const isCorrectAnswer = op.ladapan == 1;
+
+        let borderClass = "border-2 border-light";
+        let icon = "";
+
+        if (isSelected && isCorrect) {
+          borderClass = "border-success border-4 shadow-sm";
+          icon = `<i class="fas fa-check-circle fa-2x text-success position-absolute end-0 top-50 translate-middle-y me-3"></i>`;
+        } else if (isSelected && isWrong) {
+          borderClass = "border-danger border-4 shadow-sm";
+          icon = `<i class="fas fa-times-circle fa-2x text-danger position-absolute end-0 top-50 translate-middle-y me-3"></i>`;
+        } else if (!isSelected && isCorrectAnswer && isWrong) {
+          borderClass = "border-success border-4 shadow-sm";
+          icon = `<i class="fas fa-check-circle fa-2x text-success position-absolute end-0 top-50 translate-middle-y me-3"></i>`;
+        }
+
+        const content = op.hinhanh?.trim()
+          ? `<img src="${op.hinhanh}" class="img-fluid rounded-3" style="max-height:120px;">`
+          : op.noidungtl;
+
+        html += `
+      <div class="col-12 col-md-6">
+        <div class="position-relative rounded-4 ${borderClass} bg-white" style="min-height:90px;">
+          <div class="p-4 d-flex align-items-center h-100">
+            <span class="text-primary fw-bold fs-4 me-3">${label}.</span>
+            <div class="fs-5">${content}</div>
+          </div>
+          ${icon}
+        </div>
+      </div>`;
+      });
+      html += `</div>`; // đóng row
+
+      // ==================== THANH KẾT QUẢ ====================
+      let resultBar = "";
+      if (notAnswered) {
+        resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
+        <div class="bg-warning bg-opacity-10 text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
+          <i class="fas fa-clock"></i>
+          <strong class="mb-0">Như thằng Dương</strong>
+        </div>
+      </div>`;
+      } else if (isCorrect) {
+        resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
+        <div class="bg-success text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
+          <i class="fas fa-check-circle fa-2x"></i>
+          <strong class="fs-5 mb-0">Khôn như thằng Hoàng</strong>
+        </div>
+      </div>`;
+      } else {
+        resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
+        <div class="bg-danger text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
+          <i class="fas fa-times-circle fa-2x"></i>
+          <div class="text-center">
+            <strong class="fs-5 mb-0">Ngu y rang thằng thuận!</strong><br>
+          </div>
+          <i class="fas fa-lightbulb-on"></i>
+        </div>
+      </div>`;
+      }
+      html += resultBar;
+
+      if (!inGroup) {
+        html += `</div></div>`; // đóng card-body + card
+      } else {
+        html += `</div>`; // đóng question-item
       }
     });
 
+    // Close last group if open
+    if (inGroup) html += `</div></div>`;
+
     $("#content-file").html(html);
+  }
+
+  // ==================== HÀM RIÊNG CHO TỰ LUẬN / SUB-ESSAY ====================
+  function renderEssayBlock(item) {
+    const hasText = item.noidung_tra_loi && item.noidung_tra_loi.trim() !== "";
+    const hasImages =
+      item.ds_hinhanh_base64 && item.ds_hinhanh_base64.trim() !== "";
+
+    let html = `
+    <div class="mt-3">
+      <div class="text-primary fw-bold mb-3 d-flex align-items-center gap-2">
+        <i class="fas fa-pen-fancy"></i>
+        <span>Bài làm của học sinh</span>
+      </div>`;
+
+    if (hasText || hasImages) {
+      if (hasText) {
+        html += `
+        <div class="bg-white p-4 rounded-3 border shadow-sm mb-4">
+          <div class="lh-lg">${item.noidung_tra_loi.replace(
+            /\n/g,
+            "<br>"
+          )}</div>
+        </div>`;
+      }
+
+      if (hasImages) {
+        const imgs = item.ds_hinhanh_base64.split("||");
+        html += `<div class="row g-3 ${hasText ? "" : "mt-3"}">`;
+        imgs.forEach((b64, idx) => {
+          html += `
+          <div class="col-12 ${
+            imgs.length === 1 ? "col-md-8 mx-auto" : "col-md-6"
+          }">
+            <div class="border rounded-3 overflow-hidden shadow-sm">
+              <img src="data:image/jpeg;base64,${b64}"
+                   class="img-fluid w-100"
+                   style="max-height:500px; object-fit:contain; background:#f8f9fa;">
+            </div>
+          </div>`;
+        });
+        html += `</div>`;
+
+        if (!hasText) {
+          html += `
+          <div class="text-center mt-3">
+            <em class="text-muted small">
+              <i class="fas fa-image me-1"></i>
+              Học sinh chỉ nộp hình ảnh (không nộp dạng văn bản)
+            </em>
+          </div>`;
+        }
+      }
+    } else {
+      html += `
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-file-alt fa-3x mb-3 opacity-50"></i>
+        <div class="fw-bold">Chưa nộp bài</div>
+      </div>`;
+    }
+
+    // ==================== ĐIỂM GIÁO VIÊN ====================
+    const diemCau =
+      item.diem_cham_tuluan !== null && item.diem_cham_tuluan !== undefined
+        ? parseFloat(item.diem_cham_tuluan).toFixed(2)
+        : null;
+    html += `
+    <div class="mt-4 pt-3 border-top">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      
+      <!-- Bên trái: Tiêu đề + Badge điểm (nếu có) -->
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="text-primary fw-bold">
+          <i class="fas fa-chalkboard-teacher me-2"></i>
+          Điểm giáo viên chấm:
+        </div>
+        
+        ${
+          diemCau !== null
+            ? `<span class="badge bg-success fs-5 px-4 py-2 rounded-pill shadow-sm">
+               <i class="fas fa-star me-1"></i> ${diemCau} điểm
+             </span>`
+            : `<em class="text-muted"><i class="fas fa-clock me-2"></i>Chưa chấm điểm</em>`
+        }
+      </div>
+
+      <!-- Bên phải: Trạng thái chấm -->
+      ${
+        diemCau !== null
+          ? `<small class="text-success opacity-80 fw-medium">
+             <i class="fas fa-check-circle me-1"></i> Đã chấm xong
+           </small>`
+          : `<small class="text-warning opacity-80 fw-medium">
+             <i class="fas fa-hourglass-half me-1"></i> Đang chờ chấm
+           </small>`
+      }
+      
+    </div>
+  </div>`;
+
+    return html;
   }
 
   // Khai báo SweetAlert2 instance dùng chung
@@ -625,13 +740,11 @@ $(document).ready(function () {
     const $btn = $(this);
     const oldHtml = $btn.html();
 
-    // Lấy nhóm hiện tại
     const manhom = $(".filtered-by-group.active").data("value") || 0;
     const ds = Array.isArray(mainPagePagination.option.manhom)
       ? mainPagePagination.option.manhom
       : [];
 
-    // Disable nút + hiện loading
     $btn
       .prop("disabled", true)
       .html('<i class="fa fa-spinner fa-spin"></i> Đang xuất...');
@@ -639,39 +752,44 @@ $(document).ready(function () {
     $.ajax({
       url: "./test/exportExcel",
       method: "POST",
-      data: {
-        made: made,
-        manhom: manhom,
-        ds: ds,
-      },
+      data: { made: made, manhom, ds },
       dataType: "json",
-      timeout: 90000, // 90 giây vì xuất Excel có thể lâu
+      timeout: 90000,
     })
       .done(function (response) {
-        if (!response || !response.file) {
-          Swal.fire("Lỗi", "Không nhận được file từ server!", "error");
-          return;
+        try {
+          if (!response || !response.file) {
+            Swal.fire("Lỗi", "Không nhận được file từ server!", "error");
+            return;
+          }
+          const $a = $("<a>", {
+            href: response.file,
+            download: `Bang_diem_${new Date().toLocaleDateString(
+              "vi-VN"
+            )}.xlsx`,
+          });
+          $("body").append($a);
+          $a[0].click();
+          $a.remove();
+
+          // Thông báo thành công
+          Swal.fire({
+            icon: "success",
+            title: "Thành công",
+            text: "Xuất file Excel thành công!",
+          });
+        } catch (e) {
+          console.error("Lỗi JS trong done():", e);
+          Swal.fire("Lỗi", "Có lỗi xảy ra khi tải file!", "error");
         }
-
-        // Tạo link tải ẩn
-        const $a = $("<a>", {
-          href: response.file,
-          download:
-            response.filename ||
-            `Bang_diem_${new Date().toLocaleDateString("vi-VN")}.xlsx`,
-        });
-
-        $("body").append($a);
-        $a[0].click();
-        $a.remove();
-
-        pushMessage("success", "Xuất file Excel thành công!");
       })
+
       .fail(function (jqXHR) {
         console.error("Export Excel lỗi:", jqXHR.responseText);
         Swal.fire("Lỗi", "Không thể xuất file. Vui lòng thử lại!", "error");
       })
       .always(function () {
+        // Luôn reset nút
         $btn.prop("disabled", false).html(oldHtml);
       });
   });
@@ -883,7 +1001,12 @@ function loadStudentsEssayToGrade(made, q, status) {
         const tn =
           item.diemthi !== null ? parseFloat(item.diemthi).toFixed(2) : "0.00";
         const tl = parseFloat(item.diem_tuluan_hien_tai || 0).toFixed(2);
+        const doc = parseFloat(item.diem_dochieu || 0).toFixed(2);
+
+        const dl = (parseFloat(tn) - parseFloat(doc)).toFixed(2);
+
         const tong = (parseFloat(tn) + parseFloat(tl)).toFixed(2);
+
         const daCham = parseFloat(tl) > 0;
         if (!daCham) chuaCham++;
 
@@ -903,8 +1026,9 @@ function loadStudentsEssayToGrade(made, q, status) {
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
               
               <!-- Avatar + Tên + MSSV -->
-              <div class="d-flex align-items-center flex-grow-1 min-width-0">
-  <!-- Avatar hoặc ảnh mặc định -->
+              <!-- Avatar + Tên + MSSV -->
+<div class="d-flex align-items-center flex-grow-1" style="min-width: 0;">
+  <!-- Avatar -->
   <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 me-3"
        style="width:48px; height:48px; font-size:20px; font-weight:bold;">
     <img src="${item.avatar?.trim() || "./public/media/avatars/ANHSV.png"}"
@@ -912,10 +1036,11 @@ function loadStudentsEssayToGrade(made, q, status) {
          class="rounded-circle"
          style="width:100%; height:100%; object-fit:cover;">
   </div>
-  <!-- Thông tin người dùng -->
-  <div class="min-width-0">
-    <h6 class="mb-1 fw-bold text-dark text-truncate">${hoten}</h6>
-    <small class="text-muted">
+
+  <!-- Thông tin người dùng (ĐÃ FIX TRÀN TÊN HOÀN HẢO) -->
+  <div style="min-width: 0; flex: 1;">
+    <h6 class="mb-1 fw-bold text-dark text-truncate" title="${hoten}">${hoten}</h6>
+    <small class="text-muted text-truncate d-block" title="${item.manguoidung}">
       <i class="fas fa-id-card me-1"></i>${item.manguoidung}
     </small>
   </div>
@@ -923,27 +1048,48 @@ function loadStudentsEssayToGrade(made, q, status) {
 
 
               <!-- ĐIỂM - RESPONSIVE HOÀN HẢO -->
-              <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-                <div class="text-center">
-                  <small class="text-muted d-block fw-medium">Trắc nghiệm</small>
-                  <strong class="text-info fs-5">${tn}</strong>
-                </div>
-                <div class="text-center">
-                  <small class="text-muted d-block fw-medium">Tự luận</small>
-                  <strong class="${
-                    daCham ? "text-success" : "text-danger"
-                  } fs-5">${tl}</strong>
-                </div>
-                <div class="text-center border-start ps-3">
-                  <small class="text-muted d-block fw-medium">Tổng</small>
-                  <strong class="text-primary fs-4 fw-bold">${tong}đ</strong>
-                </div>
-              </div>
+             <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+
+  <div class="text-center">
+    <small class="text-muted d-block fw-medium">Trắc nghiệm</small>
+    <strong class="text-info fs-5">${dl}</strong>
+  </div>
+
+  <!-- 🔵 ĐỌC HIỂU -->
+  <div class="text-center">
+    <small class="text-muted d-block fw-medium">Đọc hiểu</small>
+    <strong class="text-warning fs-5">${doc}</strong>
+  </div>
+
+  <div class="text-center">
+    <small class="text-muted d-block fw-medium">Tự luận</small>
+    <strong class="${
+      daCham ? "text-success" : "text-danger"
+    } fs-5">${tl}</strong>
+  </div>
+
+  <div class="text-center border-start ps-3">
+    <small class="text-muted d-block fw-medium">Tổng</small>
+    <strong class="text-primary fs-4 fw-bold">${tong}đ</strong>
+  </div>
+
+</div>
+
 
               <!-- Badge trạng thái -->
-              <div class="d-flex align-items-center ms-3">
-                ${badge}
-              </div>
+             <div class="d-flex align-items-center ms-3">
+  ${
+    daCham
+      ? `<span class="badge bg-success fs-6 d-flex align-items-center gap-1">
+         <i class="fas fa-check-circle me-2"></i> Đã chấm
+       </span>`
+      : `<span class="badge bg-warning fs-6 d-flex align-items-center gap-1">
+         <i class="fas fa-clock me-2"></i> Chưa chấm
+       </span>`
+  }
+</div>
+
+
             </div>
           </div>
         </div>`;
@@ -966,7 +1112,6 @@ function loadStudentsEssayToGrade(made, q, status) {
   });
 }
 
-// Add a small search UI for essay grader list (search by student name or MSSV)
 function ensureEssaySearchUI() {
   if (document.getElementById("essay-search-container")) return;
 
@@ -1231,8 +1376,8 @@ $("#form-cham-diem-tuluan").on("submit", function (e) {
 
   $.post("./test/saveEssayScoreAction", {
     makq: makq,
-    diem: diemTong, // tổng điểm → lưu vào ketqua.diem_tuluan
-    cau: diemTungCau, // điểm từng câu → lưu vào bảng cham_tuluan
+    diem: diemTong,
+    cau: diemTungCau,
   })
     .done(function (res) {
       if (res.success && res.diem_tuluan !== undefined) {
@@ -1251,19 +1396,25 @@ $("#form-cham-diem-tuluan").on("submit", function (e) {
         $badge
           .removeClass("bg-warning text-dark")
           .addClass("bg-success")
-          .html(`<i class="fas fa-check me-1"></i>${diemTuLuan}đ`);
+          .html(`<i class="fas fa-check-circle me-2"></i>Đã chấm`);
 
         // Cập nhật điểm tự luận trong danh sách sinh viên
         const $cols = $activeItem.find(".text-center strong.fs-5");
         const diemTracNghiem = parseFloat($cols.eq(0).text()) || 0;
+        const diem_dochieu = parseFloat($cols.eq(1).text()) || 0;
+
         $cols
-          .eq(1)
+          .eq(2)
           .text(diemTuLuan)
           .removeClass("text-danger")
           .addClass("text-success");
 
         // Cập nhật tổng điểm
-        const tongDiem = (diemTracNghiem + parseFloat(diemTuLuan)).toFixed(2);
+        const tongDiem = (
+          diemTracNghiem +
+          diem_dochieu +
+          parseFloat(diemTuLuan)
+        ).toFixed(2);
         $activeItem.find(".text-center strong.fs-4").text(tongDiem);
 
         // Cập nhật lại khu vực chấm bài

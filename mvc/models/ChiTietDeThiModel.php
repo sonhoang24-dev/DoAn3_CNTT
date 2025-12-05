@@ -34,6 +34,31 @@ class ChiTietDeThiModel extends DB
 
     public function createMultiple($made, $cauhoi)
     {
+
+        $stmt = $this->con->prepare("SELECT made FROM dethi WHERE made = ?");
+        $stmt->bind_param("i", $made);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $test = $result->fetch_assoc();
+        $stmt->close();
+
+        if (!$test) {
+            return ['valid' => false, 'error' => 'Đề thi không tồn tại'];
+        }
+
+        // 2. Kiểm tra đã có thí sinh làm chưa
+        $stmt = $this->con->prepare("SELECT COUNT(*) as count FROM ketqua WHERE made = ?");
+        $stmt->bind_param("i", $made);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $stmt->close();
+
+        if ($row['count'] > 0) {
+            return ['valid' => false, 'error' => 'Đề thi đã có thí sinh làm, không thể thay đổi câu hỏi'];
+        }
+
+
         $valid = true;
         $error = null;
         if (empty($made) || !is_array($cauhoi) || empty($cauhoi)) {

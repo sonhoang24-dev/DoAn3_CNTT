@@ -220,6 +220,11 @@
                                             <input type="file" class="form-control" id="option-image" name="option-image[]" accept="image/*">
                                             <small class="text-muted">Hình minh họa cho đáp án.</small>
                                         </div>
+                                        <div class="mt-3" id="option-image-preview-container">
+                <div id="option-image-preview">
+                    <small class="text-muted">Không có ảnh</small>
+                </div>
+            </div>
                                         <div class="mt-3">
                                             <button type="button" class="btn btn-primary me-2" id="save-option">Lưu đáp án</button>
                                             <button type="button" class="btn btn-primary" id="update-option" style="display: none;">Cập nhật đáp án</button>

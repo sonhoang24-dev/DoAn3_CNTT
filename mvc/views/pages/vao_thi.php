@@ -77,13 +77,14 @@ $endFormatted   = formatDate($data['Test']['thoigianketthuc'] ?? null);
 ?>
 <?php
 
-
-$diemTracNghiem = (float)($data["Check"]["diem"] ?? $data["Check"]["diemthi"] ?? 0);
+$diemTong = (float)($data["Check"]["diem"] ?? $data["Check"]["diemthi"] ?? 0);
+$diemDochieu = (float)($data["Check"]["diem"] ?? $data["Check"]["diem_dochieu"] ?? 0);
+$diemTracNghiem = (float)($diemTong - $diemDochieu);
 $diemTuLuan     = (float)($data["Check"]["diem_tuluan"] ?? 0);
 $trangThaiTuLuan = $data["Check"]["trangthai_tuluan"] ?? 'Chưa chấm';
 
 $daChamTuLuan = ($trangThaiTuLuan === 'Đã chấm');
-$diemCuoiCung = $daChamTuLuan ? round($diemTracNghiem + $diemTuLuan, 2) : null; // null = chưa có điểm cuối
+$diemCuoiCung = $daChamTuLuan ? round($diemTong + $diemTuLuan, 2) : null; // null = chưa có điểm cuối
 ?>
 <div class="content row justify-content-center align-items-center min-vh-100 py-5">
     <div class="col-lg-6 col-md-10 bg-white p-4 rounded shadow-sm">
@@ -186,8 +187,11 @@ $diemCuoiCung = $daChamTuLuan ? round($diemTracNghiem + $diemTuLuan, 2) : null; 
             </span>
             <?php if ($diemTuLuan > 0): ?>
                 <small class="d-block text-muted mt-2">
-                    (Trắc nghiệm: <?= number_format($diemTracNghiem, 2) ?> + 
+                    (Trắc nghiệm: <?= number_format($diemTracNghiem, 2) ?> +
+                     Đọc hiểu: <?= number_format($diemDochieu, 2) ?> +
                      Tự luận: <?= number_format($diemTuLuan, 2) ?>)
+
+                    
                 </small>
             <?php endif; ?>
         </h4>
@@ -241,18 +245,16 @@ $diemCuoiCung = $daChamTuLuan ? round($diemTracNghiem + $diemTuLuan, 2) : null; 
         <h3 class="fw-bold text-dark mb-3">Đang chờ chấm tự luận</h3>
         <p class="lead text-muted px-4">
             Giáo viên đang chấm phần tự luận của bạn.<br>
-            <?php if ($diemTracNghiem > 0): ?>
-                <small class="d-block mt-3 text-primary">
-                    <strong>Điểm trắc nghiệm tạm tính: <?= number_format($diemTracNghiem, 2) ?></strong>
-                </small>
-            <?php endif; ?>
             <strong class="d-block mt-3">Điểm chính thức sẽ được cập nhật ngay khi chấm xong!</strong>
         </p>
+        
+        <!-- GIF thay cho spinner -->
         <div class="mt-4">
-            <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status"></div>
+            <img src="./public/media/avatars/ANHSV.png" alt="Đang chờ..." style="width: 300px; height: 300px;">
         </div>
     </div>
 <?php endif; ?>
+
 
             </div>
         </div>
@@ -298,4 +300,7 @@ $(document).ready(function() {
         </div>
     </div>
 </div>
+<style>
 
+
+</style>
