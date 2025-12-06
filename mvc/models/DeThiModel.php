@@ -1533,6 +1533,49 @@ ORDER BY
                     }
                     $query .= " GROUP BY DT.made ORDER BY DT.made DESC";
                     break;
+                     case "getQuestionsForTest":
+                    $id = mysqli_real_escape_string($this->con, $args['id']);
+                    $mamonhoc = mysqli_real_escape_string($this->con, $args['mamonhoc']);
+                    // $page = $_GET['page'] ?? 1;
+                    // $limit = 10;
+                    // $offset = ($page - 1) * $limit;
+                    $query = "SELECT *,
+    cauhoi.noidung AS noidungplaintext,
+    dv.noidung AS doanvan_noidung,
+    dv.tieude AS doanvan_tieude,
+    COUNT(*) OVER() AS total
+FROM cauhoi
+LEFT JOIN doan_van dv ON cauhoi.madv = dv.madv
+JOIN phancong pc ON cauhoi.mamonhoc = pc.mamonhoc
+WHERE cauhoi.trangthai = 1
+  AND pc.manguoidung = '$id'
+  AND cauhoi.mamonhoc = '$mamonhoc'
+";
+
+                    // Lọc chương
+                    if (!empty($filter['machuong'])) {
+                        $query .= " AND cauhoi.machuong = " . intval($filter['machuong']);
+                    }
+
+                    // Lọc độ khó
+                    if (!empty($filter['dokho'])) {
+                        $query .= " AND cauhoi.dokho = " . intval($filter['dokho']);
+                    }
+
+                    // Lọc loại câu hỏi
+                    if (!empty($filter['loai'])) {
+                        $loai_safe = mysqli_real_escape_string($this->con, $filter['loai']);
+                        $query .= " AND cauhoi.loai = '$loai_safe'";
+                    }
+
+                    // Lọc theo nội dung tìm kiếm
+                    if (!empty($input)) {
+                        $input_safe = mysqli_real_escape_string($this->con, $input);
+                        $query .= " AND (cauhoi.noidung LIKE '%$input_safe%')";
+                    }
+
+                    //$query .= " GROUP BY cauhoi ORDER BY cauhoi.macauhoi DESC";
+                    break;
                     
 
              
