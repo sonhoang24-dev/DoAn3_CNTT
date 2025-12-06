@@ -74,8 +74,10 @@ function showData(data) {
           <div class="d-flex align-items-center py-1">
             <img
               class="img-avatar img-avatar48 me-3 rounded-circle flex-shrink-0"
-              src="./public/media/avatars/${item.avatar?.trim() || "ANHSV.png"}"
-              onerror="this.src='./public/media/avatars/ANHSV.png'"
+              src="./public/media/avatars/${
+                item.avatar?.trim() || "admin1-689ab11d45eea.jpg"
+              }"
+              onerror="this.src='./public/media/avatars/admin1-689ab11d45eea.jpg'"
               alt=""
             >
             <div class="min-w-0">
@@ -405,21 +407,21 @@ $(document).ready(function () {
         resultBar = `<div class="mx-auto mt-5 rounded-4 overflow-hidden" style="max-width:500px;">
         <div class="bg-warning bg-opacity-15 text-dark py-4 px-5 d-flex align-items-center justify-content-center gap-3 border border-warning">
           <i class="fas fa-clock fa-2x"></i>
-          <strong class="fs-4">Như thằng Dương</strong>
+          <strong class="fs-4">Đáp án chưa được chọn!</strong>
         </div>
       </div>`;
       } else if (isCorrect) {
         resultBar = `<div class="mx-auto mt-5 rounded-4 overflow-hidden" style="max-width:500px;">
         <div class="bg-success text-white py-4 px-5 d-flex align-items-center justify-content-center gap-3">
           <i class="fas fa-check-circle fa-3x"></i>
-          <strong class="fs-3">Khôn như thằng Hoàng</strong>
+          <strong class="fs-3">Đáp án chọn chính xác!</strong>
         </div>
       </div>`;
       } else {
         resultBar = `<div class="mx-auto mt-5 rounded-4 overflow-hidden" style="max-width:500px;">
         <div class="bg-danger text-white py-4 px-5 d-flex align-items-center justify-content-center gap-3">
           <i class="fas fa-times-circle fa-3x"></i>
-          <strong class="fs-3">Ngu y rang thằng Thuận!</strong>
+          <strong class="fs-3">Đáp án chọn không đúng!</strong>
         </div>
       </div>`;
       }

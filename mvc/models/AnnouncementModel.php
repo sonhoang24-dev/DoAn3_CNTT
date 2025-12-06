@@ -83,10 +83,26 @@ class AnnouncementModel extends DB
 
     public function getAll($user_id)
     {
-        $sql = "SELECT `chitietthongbao`.`matb`,`tennhom`,`noidung`, `tenmonhoc` ,`namhoc`, `hocky`, `thoigiantao`
-        FROM `thongbao`, `chitietthongbao`,`nhom`,`monhoc` 
-        WHERE `thongbao`.`matb` = `chitietthongbao`.`matb` AND `chitietthongbao`.`manhom` = `nhom`.`manhom` AND `thongbao`.`is_auto` = 1 AND `nhom`.`mamonhoc` = `monhoc`.`mamonhoc`
-        AND `thongbao`.`nguoitao` = $user_id ORDER BY thoigiantao DESC";
+        $sql = "SELECT 
+    chitietthongbao.matb,
+    nhom.tennhom,
+    thongbao.noidung,
+    monhoc.tenmonhoc,
+    nhom.namhoc,
+    namhoc.tennamhoc,
+    nhom.hocky,
+    hocky.tenhocky,
+    thongbao.thoigiantao
+FROM thongbao
+JOIN chitietthongbao ON thongbao.matb = chitietthongbao.matb
+JOIN nhom ON chitietthongbao.manhom = nhom.manhom
+JOIN monhoc ON nhom.mamonhoc = monhoc.mamonhoc
+LEFT JOIN namhoc ON nhom.namhoc = namhoc.manamhoc
+LEFT JOIN hocky ON nhom.hocky = hocky.mahocky
+WHERE thongbao.is_auto = 0
+  AND thongbao.nguoitao = $user_id
+ORDER BY thongbao.thoigiantao DESC
+";
         $result = mysqli_query($this->con, $sql);
         $rows = array();
         while ($row = mysqli_fetch_assoc($result)) {
@@ -97,8 +113,8 @@ class AnnouncementModel extends DB
                     "matb" => $matb,
                     "noidung" => $row['noidung'],
                     "tenmonhoc" => $row['tenmonhoc'],
-                    "namhoc" => $row['namhoc'],
-                    "hocky" => $row['hocky'],
+                    "tennamhoc" => $row['tennamhoc'],
+                    "tenhocky" => $row['hocky'],
                     "thoigiantao" => $row['thoigiantao'],
                     "nhom" => [$row['tennhom']]
                 ];
@@ -226,17 +242,24 @@ class AnnouncementModel extends DB
     {
 
         $query = "
-        SELECT 
-            TB.*, 
-            MH.tenmonhoc, 
-            N.namhoc, 
-            N.hocky, 
-            GROUP_CONCAT(DISTINCT N.tennhom SEPARATOR ', ') AS nhom
-        FROM thongbao TB
-        JOIN chitietthongbao CTTB ON TB.matb = CTTB.matb
-        JOIN nhom N ON CTTB.manhom = N.manhom
-        JOIN monhoc MH ON N.mamonhoc = MH.mamonhoc
-        WHERE TB.nguoitao = ? AND TB.is_auto = 0
+      SELECT  
+    TB.*, 
+    MH.tenmonhoc, 
+    NH.tennamhoc, 
+    HK.tenhocky, 
+    GROUP_CONCAT(DISTINCT N.tennhom SEPARATOR ', ') AS nhom
+FROM thongbao TB
+JOIN chitietthongbao CTTB ON TB.matb = CTTB.matb
+JOIN nhom N ON CTTB.manhom = N.manhom
+JOIN monhoc MH ON N.mamonhoc = MH.mamonhoc
+
+-- JOIN đúng theo cấu trúc bảng nhom
+JOIN namhoc NH ON N.namhoc = NH.manamhoc
+JOIN hocky HK ON N.hocky = HK.mahocky
+
+WHERE TB.nguoitao = ?
+  AND TB.is_auto = 0
+
     ";
 
         $params = ['s', $args['id']];

@@ -250,7 +250,7 @@ $diemCuoiCung = $daChamTuLuan ? round($diemTong + $diemTuLuan, 2) : null; // nul
         
         <!-- GIF thay cho spinner -->
         <div class="mt-4">
-            <img src="./public/media/avatars/ANHSV.png" alt="Đang chờ..." style="width: 300px; height: 300px;">
+            <img src="./public/media/avatars/ChamDiem.gif" alt="Đang chờ..." style="width: 300px; height: 300px;">
         </div>
     </div>
 <?php endif; ?>

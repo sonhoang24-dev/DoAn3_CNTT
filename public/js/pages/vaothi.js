@@ -203,14 +203,14 @@ $(document).ready(function () {
       if (notAnswered) {
         resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
         <div class="bg-warning bg-opacity-10 text-white py-3 px-4 text-center fw-bold">
-          <i class="fas fa-clock me-2"></i> như thằng Dương
+          <i class="fas fa-clock me-2"></i>Đáp án chưa được chọn!
         </div>
       </div>`;
       } else if (isCorrect) {
         resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
         <div class="bg-success text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
           <i class="fas fa-check-circle fa-2x"></i>
-          <strong class="fs-5 mb-0">khôn như Hoàng</strong>
+          <strong class="fs-5 mb-0">Đáp án chọn chính xác!</strong>
         </div>
       </div>`;
       } else {
@@ -224,8 +224,7 @@ $(document).ready(function () {
         <div class="bg-danger text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
           <i class="fas fa-times-circle fa-2x"></i>
           <div class="text-center">
-            <strong class="fs-5 mb-0">Ngu như thuận</strong><br>
-            <small>Bạn chọn: ${selectedLabel} - Đáp án đúng: ${correctLabel}</small>
+            <strong class="fs-5 mb-0">Đáp án chọn không đúng!</strong><br>
           </div>
           <i class="fas fa-lightbulb-on"></i>
         </div>

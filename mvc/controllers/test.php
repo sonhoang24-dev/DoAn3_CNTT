@@ -894,6 +894,8 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         $result = $this->ketquamodel->chuyentab($made, $id); // gọi hàm chuyentab ở dòng 380 của file KetquaModel.php
         echo $result;
     }
+
+
 public function exportPdf($makq)
 {
     $info = $this->ketquamodel->getInfoPrintPdf($makq);
@@ -909,7 +911,7 @@ public function exportPdf($makq)
 
     $dompdf = new Dompdf();
 
-    // Xử lý dữ liệu chung
+    // Dữ liệu chung
     $diem = $info['diemthi'] ?? 0;
     $socaudung = $info['socaudung'] ?? 0;
     $tongsocau = $info['tongsocauhoi'] ?? 0;
@@ -930,14 +932,14 @@ public function exportPdf($makq)
 
     $title = "Chi_tiet_ket_qua_{$tenSinhVienClean}_MD{$makq}";
 
-    // HTML Header + Style
+    // HTML + CSS
     $html = '<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>' . $title . '</title>
 <style>
-    body { font-family: "Times New Roman", serif; padding: 30px 50px; line-height: 1.6; color: #000; }
+   body { font-family: "Times New Roman", serif; padding: 30px 50px; line-height: 1.6; color: #000; }
     .header { text-align: center; margin-bottom: 30px; }
     .header h1 { font-size: 28px; font-weight: bold; color: #1a5fb4; margin-bottom: 5px; }
     .header p { font-size: 16px; color: #555; margin: 0; }
@@ -949,33 +951,117 @@ public function exportPdf($makq)
     .value { flex: 1; }
     .highlight { font-size: 18px; color: #d32f2f; font-weight: bold; }
 
-    /* Đoạn văn đọc hiểu */
-    .reading-group { margin: 40px 0; padding: 20px; border: 2px solid #1a5fb4; border-radius: 12px; background-color: #f0f8ff; page-break-inside: avoid; }
-    .reading-title { font-size: 20px; font-weight: bold; color: #1a5fb4; margin-bottom: 15px; text-align: center; }
-    .reading-passage { margin-bottom: 25px; padding: 15px; background: #ffffff; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; }
+    /* Nhóm Reading */
+    .reading-card { margin-bottom: 40px; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); background: #fff; }
+    .reading-header { background: #e3f2fd; padding: 15px 20px; border-bottom: 1px solid #bbdefb; text-align: center; }
+    .reading-title { font-size: 18px; font-weight: bold; color: #1a5fb4; margin: 0; }
+    .reading-passage { padding: 20px; background: #f8fdff; font-size: 15px; line-height: 1.8; }
     .reading-passage img { max-width: 100%; height: auto; margin: 10px 0; border-radius: 6px; }
 
     /* Câu hỏi chung */
-    .question-card { border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #f9f9f9; page-break-inside: avoid; }
-    .question-card strong { font-size: 16px; display: block; margin-bottom: 8px; }
-    .question-type { font-size: 14px; color: #555; font-style: italic; margin: 8px 0; }
-
-    /* Trắc nghiệm & Đọc hiểu (cùng kiểu hiển thị phương án) */
-    .answers ol { margin: 10px 0 0 30px; padding-left: 5px; }
-    .answers li { margin-bottom: 10px; line-height: 1.6; padding: 8px 12px; border-radius: 6px; }
-    .answers li img { max-width: 380px; height: auto; margin: 8px 0; display: block; border: 1px solid #ccc; border-radius: 6px; }
-    .correct { background-color: #d4edda; color: #155724; font-weight: bold; }
-    .chosen { background-color: #f8d7da; color: #721c24; font-weight: bold; }
+    .question-block { padding: 20px; border-bottom: 1px dashed #ddd; }
+    .question-block:last-child { border-bottom: none; }
+    .question-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; text-align: center; }
+    
+    /* Grid phương án - responsive */
+    .answers-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+        gap: 12px; 
+        margin-top: 15px; 
+    }
+    
+    /* Phương án - đã thu nhỏ */
+    .answer-item { 
+        position: relative; 
+        border: 2px solid #eee; 
+        border-radius: 10px; 
+        padding: 8px; 
+        background: #fff; 
+        min-height: 60px; 
+        display: flex; 
+        flex-direction: row; 
+        align-items: center; 
+        justify-content: flex-start; 
+        text-align: left; 
+        transition: all 0.2s;
+        font-size: 14px;
+    }
+    .answer-item img { 
+        width: 100%; 
+        max-height: 120px; 
+        object-fit: contain;
+        margin: 10px 0; 
+        border-radius: 6px; 
+    }
+    
+    /* Chữ A B C D - giảm từ 16px xuống 14px */
+    .answer-label { 
+        font-size: 14px; 
+        font-weight: bold; 
+        color: #1a5fb4; 
+        margin-right: 8px;
+    }
+    
+    /* Đúng / Sai */
+    .correct-item { 
+        border-color: #4caf50 !important; 
+        background: #fff !important; 
+    }
+    .wrong-item { 
+        border-color: #f44336 !important; 
+        background: #fff !important; 
+    }
+    
+    /* Icon tick/cross - giảm từ 24px xuống 20px */
+    .icon-check { 
+        position: absolute; 
+        top: 50%; 
+        right: 12px; 
+        transform: translateY(-50%); 
+        font-size: 20px; 
+        color: #4caf50; 
+        font-weight: bold;
+    }
+    .icon-cross { 
+        position: absolute; 
+        top: 50%; 
+        right: 12px; 
+        transform: translateY(-50%); 
+        font-size: 20px; 
+        color: #f44336; 
+        font-weight: bold;
+    }
 
     /* Tự luận */
-    .essay-answer { margin-top: 15px; padding: 12px; background-color: #e8f4f8; border-left: 5px solid #1a5fb4; border-radius: 6px; }
-    .essay-answer strong { color: #1a5fb4; }
-    .essay-images { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 15px; }
-    .essay-images img { max-width: 420px; height: auto; border: 1px solid #bbb; border-radius: 8px; box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
-    .essay-score { margin-top: 15px; font-weight: bold; color: #d32f2f; font-size: 17px; }
+    .essay-block { margin-top: 20px; padding: 15px; background: #e8f4f8; border-left: 5px solid #1a5fb4; border-radius: 8px; }
+    .essay-title { font-weight: bold; color: #1a5fb4; margin-bottom: 10px; text-align: center; }
+    .essay-content { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px; }
+    .essay-images { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px; justify-content: center; }
+    .essay-images img { width: 200px; height: auto; object-fit: contain; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+    .essay-score { margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #4caf50; border-radius: 6px; text-align: center; font-size: 18px; font-weight: bold; color: #1a5fb4; }
+    .only-first-page {
+        position: running(first_page_title);  /* Dompdf magic */
+    }
 </style>
 </head>
 <body>';
+
+$html .= '
+<div class="first-page-header" style="
+    font-size: 17px;
+    font-weight: bold;
+    color: #d32f2f;
+    background: white;
+    padding: 12px 20px;
+    border-left: 4px solid #ff5252;
+    border-bottom: 4px solid #ff5252;
+    border-bottom-left-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+">
+    ' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '
+</div>
+';
 
     // Header + Thông tin
     $html .= '<div class="header">
@@ -1004,109 +1090,134 @@ public function exportPdf($makq)
 
     $html .= '<div style="text-align:center; font-weight:bold; font-size:18px; margin:30px 0 20px;">CHI TIẾT CÂU TRẢ LỜI</div>';
 
-    // Gom nhóm theo madv cho reading, còn mcq và essay để riêng
-    $readingGroups = [];  // madv => [questions]
-    $standaloneQuestions = [];  // mcq và essay không thuộc đoạn văn
+    $questionCounter = 1;
+    $inReadingGroup = false;
+    $lastContext = '';
 
     foreach ($cauHoi as $ch) {
-        $madv = $ch['madv'] ?? null;
-        if ($ch['loai'] === 'reading' && $madv !== null) {
-            $readingGroups[$madv][] = $ch;
-        } else {
-            $standaloneQuestions[] = $ch;
-        }
-    }
+        $loai = $ch['loai'] ?? '';
+        $context = $ch['context'] ?? '';
+        $normalizedContext = $context ? trim(preg_replace('/\s+/', ' ', $context)) : '';
 
-    $questionCounter = 1;
-
-    // 1. Hiển thị các nhóm Đọc hiểu trước (nếu có)
-    foreach ($readingGroups as $madv => $questions) {
-        $title = $questions[0]['tieude_context'] ?? 'Đoạn văn đọc hiểu';
-        $passage = $questions[0]['context'] ?? '';
-
-        $html .= '<div class="reading-group">';
-        $html .= '<div class="reading-title">' . $title . '</div>';
-        if (!empty($passage)) {
-            $html .= '<div class="reading-passage">' . $passage . '</div>';
+        // Đóng nhóm reading nếu chuyển sang loại khác
+        if ($loai !== 'reading' && $inReadingGroup) {
+            $html .= '</div></div>'; // Đóng passage + card
+            $inReadingGroup = false;
+            $lastContext = '';
         }
 
-        // Các câu hỏi thuộc đoạn văn
-        foreach ($questions as $ch) {
-            $html .= '<div class="question-card">
-                <strong>Câu ' . $questionCounter . ':</strong> ' . ($ch['noidung'] ?? '') . '
-                <div class="question-type">Loại câu hỏi: Đọc hiểu (Trắc nghiệm)</div>
-                <div class="answers"><ol type="A">';
-
-            foreach ($ch['cautraloi'] as $ctl) {
-                $isCorrect = ($ctl['ladapan'] == "1");
-                $isChosen = ($ctl['macautl'] == ($ch['dapanchon'] ?? ''));
-                $class = '';
-                if ($isCorrect) $class = 'correct';
-                if ($isChosen && !$isCorrect) $class = 'chosen';
-
-                $html .= '<li class="' . $class . '">' . ($ctl['noidungtl'] ?? '') . '</li>';
+        // ==================== BẮT ĐẦU NHÓM READING ====================
+        if ($loai === 'reading' && $normalizedContext && $normalizedContext !== $lastContext) {
+            if ($inReadingGroup) {
+                $html .= '</div></div>'; // Đóng nhóm cũ
             }
 
-            $html .= '</ol></div></div>';
-            $questionCounter++;
+            $html .= '<div class="reading-card">
+                <div class="reading-header">
+                    <h5 class="reading-title">' . ($ch['tieude_context'] ?? 'Đoạn văn đọc hiểu') . '</h5>
+                </div>
+                <div class="reading-passage">' . $context . '</div>';
+
+            $inReadingGroup = true;
+            $lastContext = $normalizedContext;
         }
 
-        $html .= '</div>'; // end reading-group
-    }
-
-    // 2. Hiển thị các câu hỏi độc lập: mcq và essay
-    foreach ($standaloneQuestions as $ch) {
-        $loai = $ch['loai'] ?? '';
-
-        $html .= '<div class="question-card">
-            <strong>Câu ' . $questionCounter . ':</strong> ' . ($ch['noidung'] ?? '') . '
-            <div class="question-type">Loại câu hỏi: ' . ($loai === 'essay' ? 'Tự luận' : 'Trắc nghiệm') . '</div>';
-
+        // ==================== CÂU HỎI ====================
         if ($loai === 'essay') {
-            // TỰ LUẬN
-            $html .= '<div class="essay-answer">
-                <strong>Trả lời của sinh viên:</strong><br>'
-                . ($ch['noidung_tra_loi'] ? $ch['noidung_tra_loi'] : '<em>Chưa trả lời</em>') . '
-            </div>';
+            // TỰ LUẬN - ĐỘC LẬP
+            if ($inReadingGroup) {
+                $html .= '</div></div>'; // Đóng reading nếu có
+                $inReadingGroup = false;
+            }
 
-            // Ảnh đính kèm tự luận
+            $html .= '<div class="question-block">
+                <div class="question-title">Câu ' . $questionCounter . ': ' . ($ch['noidung'] ?? '') . '</div>
+                <div class="essay-block">
+                    <div class="essay-title">Bài làm của sinh viên:</div>';
+
+            if (!empty($ch['noidung_tra_loi'])) {
+                $html .= '<div class="essay-content">' . $ch['noidung_tra_loi'] . '</div>';
+            }
+
             if (!empty($ch['ds_hinhanh_base64'])) {
                 $images = array_filter(explode('||', $ch['ds_hinhanh_base64']));
                 if (!empty($images)) {
-                    $html .= '<div class="essay-answer"><strong>Ảnh đính kèm:</strong></div>';
                     $html .= '<div class="essay-images">';
-                    foreach ($images as $base64) {
-                        $base64 = trim($base64);
-                        if ($base64) {
-                            $html .= '<img src="data:image/jpeg;base64,' . $base64 . '" alt="Ảnh trả lời tự luận">';
+                    foreach ($images as $b64) {
+                        $b64 = trim($b64);
+                        if ($b64) {
+                            $html .= '<img src="data:image/jpeg;base64,' . $b64 . '" alt="Ảnh bài làm">';
                         }
                     }
                     $html .= '</div>';
                 }
             }
 
-            // Điểm chấm (nếu có)
+            if (empty($ch['noidung_tra_loi']) && empty($ch['ds_hinhanh_base64'])) {
+                $html .= '<div class="text-center text-muted"><em>Chưa nộp bài</em></div>';
+            }
+
             if (isset($ch['diem_cham_tuluan']) && $ch['diem_cham_tuluan'] !== null) {
                 $html .= '<div class="essay-score">Điểm chấm: ' . number_format($ch['diem_cham_tuluan'], 2) . ' điểm</div>';
+            } else {
+                $html .= '<div class="essay-score" style="background:#fff3cd; border-color:#ffc107; color:#856404;">Chưa chấm điểm</div>';
             }
 
-        } else {
-            // MCQ (trắc nghiệm thường)
-            $html .= '<div class="answers"><ol type="A">';
-            foreach ($ch['cautraloi'] as $ctl) {
-                $isCorrect = ($ctl['ladapan'] == "1");
-                $isChosen = ($ctl['macautl'] == ($ch['dapanchon'] ?? ''));
-                $class = '';
-                if ($isCorrect) $class = 'correct';
-                if ($isChosen && !$isCorrect) $class = 'chosen';
-
-                $html .= '<li class="' . $class . '">' . ($ctl['noidungtl'] ?? '') . '</li>';
-            }
-            $html .= '</ol></div>';
+            $html .= '</div></div>';
+            $questionCounter++;
+            continue;
         }
 
-        $html .= '</div>'; // end question-card
+        // ==================== TRẮC NGHIỆM (mcq hoặc reading) ====================
+        $isInReading = $inReadingGroup;
+
+        if (!$isInReading) {
+            $html .= '<div class="reading-card"><div class="reading-header"><h5 class="reading-title">Câu hỏi trắc nghiệm</h5></div>';
+        }
+
+        $html .= '<div class="question-block">
+            <div class="question-title">Câu ' . $questionCounter . ': ' . ($ch['noidung'] ?? '') . '</div>
+            <div class="answers-grid">';
+
+        foreach ($ch['cautraloi'] as $i => $ctl) {
+            $label = chr(65 + $i);
+            $isCorrect = ($ctl['ladapan'] == "1");
+            $isChosen = ($ctl['macautl'] == ($ch['dapanchon'] ?? ''));
+
+            $class = '';
+            $icon = '';
+            if ($isChosen && $isCorrect) {
+                $class = 'correct-item';
+                $icon = '<span class="icon-check">✓</span>';
+            } elseif ($isChosen && !$isCorrect) {
+                $class = 'wrong-item';
+                $icon = '<span class="icon-cross">✗</span>';
+            } elseif (!$isChosen && $isCorrect && $ch['dapanchon']) {
+                $class = 'correct-item';
+                $icon = '<span class="icon-check">✓</span>';
+            }
+
+            $content = !empty($ctl['noidungtl']) ? $ctl['noidungtl'] : '<em>Trống</em>';
+
+            $html .= '<div class="answer-item ' . $class . '">
+                <span class="answer-label">' . $label . '.</span>
+                ' . $content . '
+                ' . $icon . '
+            </div>';
+        }
+
+        $html .= '</div></div>'; // end answers-grid + question-block
+
+        if (!$isInReading) {
+            $html .= '</div>'; // Đóng card nếu là mcq độc lập
+        }
+
         $questionCounter++;
+    }
+
+    // Đóng nhóm reading cuối cùng nếu còn mở
+    if ($inReadingGroup) {
+        $html .= '</div></div>';
     }
 
     $html .= '</body></html>';
@@ -1125,7 +1236,6 @@ public function exportPdf($makq)
     echo $output;
     exit;
 }
-
 
     public function exportExcel()
     {

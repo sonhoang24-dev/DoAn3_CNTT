@@ -1501,15 +1501,15 @@ $(document).ready(function () {
         } else {
           localStorage.setItem("isTabSwitched_" + made, tabSwitchCount);
 
-          // if (tabSwitchCount === 1 && !hasWarned) {
-          //   hasWarned = true;
-          //   Swal.fire({
-          //     icon: "warning",
-          //     title: "Cảnh báo lần 1",
-          //     html: "Bạn đã rời khỏi cửa sổ bài thi.<br><b>Lần sau sẽ bị nộp bài tự động!</b>",
-          //     confirmButtonText: "Tôi hiểu",
-          //   });
-          // }
+          if (tabSwitchCount === 1 && !hasWarned) {
+            hasWarned = true;
+            Swal.fire({
+              icon: "warning",
+              title: "Cảnh báo",
+              html: "Bạn đã rời khỏi cửa sổ bài thi.<br><b>Lần sau sẽ bị nộp bài tự động!</b>",
+              confirmButtonText: "Tôi hiểu",
+            });
+          }
           // else if (tabSwitchCount >= 2) {
           //   Swal.fire({
           //     icon: "error",

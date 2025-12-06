@@ -536,9 +536,26 @@ class NhomModel extends DB
     // Lấy chi tiết một nhóm mà sinh viên tham gia
     public function getDetailGroup($manhom)
     {
-        $sql = "SELECT monhoc.mamonhoc,monhoc.tenmonhoc,nhom.manhom, nhom.tennhom, namhoc, hocky, nhom.giangvien, nguoidung.hoten, nguoidung.avatar
-        FROM nhom, nguoidung, monhoc
-        WHERE nguoidung.id = nhom.giangvien AND monhoc.mamonhoc = nhom.mamonhoc AND nhom.manhom = $manhom";
+        $sql = "SELECT 
+            monhoc.mamonhoc,
+            monhoc.tenmonhoc,
+            nhom.manhom,
+            nhom.tennhom,
+
+            namhoc.tennamhoc,
+            hocky.tenhocky,
+
+            nhom.giangvien,
+            nguoidung.hoten,
+            nguoidung.avatar
+
+        FROM nhom
+        JOIN nguoidung ON nguoidung.id = nhom.giangvien
+        JOIN monhoc    ON monhoc.mamonhoc = nhom.mamonhoc
+        JOIN namhoc    ON namhoc.manamhoc = nhom.namhoc
+        JOIN hocky     ON hocky.mahocky   = nhom.hocky
+
+        WHERE nhom.manhom = $manhom";
         $result = mysqli_query($this->con, $sql);
         return mysqli_fetch_assoc($result);
     }

@@ -66,5 +66,6 @@
   .table-hover tbody tr:hover { background-color: #f1f5f9; }
   .form-control:focus, .form-select:focus { border-color: #14b8a6; box-shadow: 0 0 0 0.2rem rgba(20,184,166,0.15); }
   @media (max-width:576px){ .block-header h3{ font-size:1.1rem; } }
+  
   </style>
 </div>
