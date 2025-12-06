@@ -557,42 +557,44 @@ class KetQuaModel extends DB
     }
 
     // Lấy thông tin đề thi, kết quả của sinh viên để xuất file PDF
-    public function getInfoPrintPdf($makq)
+public function getInfoPrintPdf($makq)
 {
-    $makq = intval($makq); // đảm bảo là số nguyên
+    $makq = intval($makq);
 
-    $sql = "SELECT DISTINCT kq.made, dt.tende, dt.tenmonhoc, dt.mamonhoc, dt.thoigianthi,
-                   kq.manguoidung, u.hoten, kq.socaudung,
-                   (ctk.socaude + ctk.socautb + ctk.socaukho) AS tongsocauhoi,
-                   kq.diemthi
-            FROM chitietketqua ctk
-            INNER JOIN ketqua kq ON ctk.makq = kq.makq
-            INNER JOIN dethi dt ON kq.made = dt.made
-            INNER JOIN monhoc mh ON dt.monthi = mh.mamonhoc
-            INNER JOIN nguoidung u ON kq.manguoidung = u.id
-            WHERE ctk.makq = ?";
+    $sql = "SELECT 
+                kq.made,
+                dt.tende,
+                dt.thoigianthi,
+                mh.tenmonhoc,
+                kq.manguoidung,
+                u.hoten,
+                kq.socaudung,
+                (SELECT COUNT(*) FROM chitietdethi WHERE made = kq.made) AS tongsocauhoi,
+                kq.diemthi,
+                dt.thoigianthi,
+                kq.thoigianvaothi,
+                kq.thoigianketthuc,
+                -- Tính thời gian làm bài thực tế (giây)
+                TIMESTAMPDIFF(SECOND, kq.thoigianvaothi, 
+                    COALESCE(kq.thoigianketthuc, NOW())) AS thoigianlambai_giay
+            FROM ketqua kq
+            JOIN dethi dt ON kq.made = dt.made
+            JOIN monhoc mh ON dt.monthi = mh.mamonhoc
+            JOIN nguoidung u ON kq.manguoidung = u.id
+            WHERE kq.makq = ?";
 
     $stmt = mysqli_prepare($this->con, $sql);
-    if (!$stmt) {
-        error_log("Prepare failed: " . mysqli_error($this->con));
-        return false;
-    }
+    if (!$stmt) return false;
 
     mysqli_stmt_bind_param($stmt, "i", $makq);
-
-    if (!mysqli_stmt_execute($stmt)) {
-        error_log("Execute failed: " . mysqli_stmt_error($stmt));
-        return false;
-    }
-
+    mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-    if (!$result || mysqli_num_rows($result) == 0) {
-        error_log("No result found for makq=$makq");
-        return false;
-    }
+
+    if (mysqli_num_rows($result) == 0) return false;
 
     return mysqli_fetch_assoc($result);
 }
+
 
     public function countQuestionsByMakq($makq)
     {

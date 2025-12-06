@@ -702,62 +702,15 @@ $(document).ready(function () {
     resetSortIcons();
     e.target.dataset.sortOrder = currentSortOrder;
   });
-
   $(document).on("click", ".print-pdf", function () {
     let makq = $(this).data("id");
-    if (!makq) {
-      alert("Không thể in kết quả. Thí sinh chưa làm bài thi!");
-      return;
+
+    // Kiểm tra makq có hợp lệ không
+    if (makq != "" && makq != null && makq != undefined) {
+      window.open(`./test/exportPdf/${makq}`, "_blank");
+    } else {
+      alert("Thí sinh này không thi nên không có kết quả !!");
     }
-
-    $.ajax({
-      url: `./test/exportPdf/${makq}`,
-      method: "POST",
-      dataType: "text", // QUAN TRỌNG: bắt jQuery trả về string
-      success: function (response) {
-        // Trim whitespace
-        response = response.trim();
-
-        // Kiểm tra JSON lỗi
-        let obj = null;
-        try {
-          obj = JSON.parse(response);
-        } catch (e) {
-          obj = null; // không phải JSON → tiếp tục decode Base64
-        }
-
-        if (obj && obj.status === "error") {
-          alert(obj.message);
-          return;
-        }
-
-        // Decode Base64 PDF
-        try {
-          const binary = atob(response);
-          const len = binary.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-
-          const blob = new Blob([bytes], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "ket_qua_thi.pdf";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        } catch (err) {
-          console.error("Không thể decode Base64 PDF:", err);
-          alert("Lỗi khi tạo PDF. Vui lòng thử lại.");
-        }
-      },
-      error: function () {
-        alert("Lỗi server, không thể xuất PDF.");
-      },
-    });
   });
 
   $(document).on("click", "#export_excel", function () {

@@ -438,7 +438,7 @@ class Test extends Controller
             $link = "./test/start/$made";
             $content_raw = '<span style="text-decoration: underline; color: blue; cursor: pointer;" 
 onclick="window.open(\'' . $link . '\', \'_blank\')">'
-            . htmlspecialchars($tende) . ' – Môn ' . htmlspecialchars($tenmonhoc) . '</span>';
+            . ($tende) . ' – Môn ' . ($tenmonhoc) . '</span>';
 
             $content = mysqli_real_escape_string($this->dethimodel->con, $content_raw);
 
@@ -887,104 +887,218 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         $result = $this->ketquamodel->chuyentab($made, $id); // gọi hàm chuyentab ở dòng 380 của file KetquaModel.php
         echo $result;
     }
- public function exportPdf($makq)
+public function exportPdf($makq)
 {
-    // Đảm bảo makq là số nguyên
-    $makq = intval($makq);
-    error_log("exportPdf called with makq = $makq");
-
-    // Lấy thông tin kết quả
     $info = $this->ketquamodel->getInfoPrintPdf($makq);
     $cauHoi = $this->dethimodel->getResultDetail($makq);
 
-    // Debug: log dữ liệu
-    error_log("Info: " . print_r($info, true));
-    error_log("CauHoi: " . print_r($cauHoi, true));
-
-    if (!$info) {
-        // Không tìm thấy kết quả thông tin chính
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            "status" => "error",
-            "message" => "Không tìm thấy thông tin kết quả cho makq = $makq"
-        ]);
+    if (!$info || !$cauHoi) {
+        http_response_code(404);
+        echo "Không tìm thấy kết quả thi.";
         exit;
     }
 
-    if (!$cauHoi || count($cauHoi) === 0) {
-        // Không tìm thấy câu hỏi
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            "status" => "error",
-            "message" => "Không tìm thấy câu hỏi cho makq = $makq"
-        ]);
-        exit;
-    }
+    if (ob_get_level()) ob_end_clean();
 
-    // Nếu dữ liệu OK → tạo PDF
     $dompdf = new Dompdf();
 
-    $diem = $info['diemthi'] != "" ? $info['diemthi'] : 0;
-    $socaudung = $info['socaudung'] != "" ? $info['socaudung'] : 0;
+    // Xử lý dữ liệu chung
+    $diem = $info['diemthi'] ?? 0;
+    $socaudung = $info['socaudung'] ?? 0;
+    $tongsocau = $info['tongsocauhoi'] ?? 0;
 
-    $html = '<!DOCTYPE html>
-    <html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-        <style>
-            * {padding: 0;margin: 0;box-sizing: border-box;}
-            body{font-family: "Times New Roman", serif; padding: 50px 50px}
-        </style>
-    </head>
-    <body>
-        <table style="width:100%">
-            <tr>
-                <td style="text-align: center;font-weight:bold">
-                    DHT ONTEST<br>
-                    Website tạo và quản lý bài thi<br><br><br>
-                </td>
-                <td style="text-align: center;">
-                    <p style="font-weight:bold">' . mb_strtoupper($info['tende'], "UTF-8") . '</p>
-                    <p style="font-weight:bold">Học phần: ' . $info['tenmonhoc'] . '</p>
-                    <p style="font-weight:bold">Mã học phần: ' . $info['mamonhoc'] . '</p>
-                    <p style="font-style:italic">Thời gian làm bài: ' . $info['thoigianthi'] . ' phút</p>
-                </td>
-            </tr>
-        </table>
-        <table style="width:100%;margin-bottom:10px">
-            <tr style="width:100%">
-                <td>Mã sinh viên: ' . $info['manguoidung'] . '</td>
-                <td>Tên thí sinh: ' . $info['hoten'] . '</td>
-            </tr>
-            <tr style="width:100%">
-                <td>Số câu đúng: ' . $socaudung . '/' . $info['tongsocauhoi'] . '</td>
-                <td>Điểm: ' . $diem . '</td>
-            </tr>
-        </table>       
-        <hr>
-        <div style="margin-top:20px">';
+    $thoigian_giay = $info['thoigianlambai_giay'] ?? 0;
+    $phut = floor($thoigian_giay / 60);
+    $giay = $thoigian_giay % 60;
+    $thoigianlambai = $phut . " phút " . $giay . " giây";
 
-    foreach ($cauHoi as $index => $ch) {
-        $html .= '<li style="list-style:none"><strong>Câu ' . ($index + 1) . '</strong>: ' . $ch['noidung'] . '<ol type="A" style="margin-left:30px">';
-        foreach ($ch['cautraloi'] as $ctl) {
-            $dapAn = $ctl['ladapan'] == "1" ? " (Đáp án chính xác)" : "";
-            $dapAnChon = $ctl['macautl'] == $ch['dapanchon'] ? " (Đáp án chọn)" : "";
-            $html .= '<li>' . $ctl['noidungtl'] . $dapAnChon . $dapAn . '</li>';
-        }
-        $html .= '</ol></li>';
+    if ($thoigian_giay <= 0 || is_null($info['thoigianketthuc'])) {
+        $thoigianlambai = ($info['thoigianthi'] ?? 0) . " phút (thời gian quy định)";
     }
 
-    $html .= '</div></body></html>';
+    $thoigianthi = ($info['thoigianthi'] ?? 0) . " phút";
 
-    // Generate PDF
-    $dompdf->loadHtml($html, 'UTF-8');
+    $tenSinhVienClean = preg_replace('/[^A-Za-z0-9_ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴÝỶỸĐ]/u', '_', $info['manguoidung'] ?? 'SinhVien');
+    $tenSinhVienClean = preg_replace('/_+/', '_', trim($tenSinhVienClean, '_'));
+
+    $title = "Chi_tiet_ket_qua_{$tenSinhVienClean}_MD{$makq}";
+
+    // Bắt đầu HTML
+    $html = '<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>' . $title . '</title>
+<style>
+    body { font-family: "Times New Roman", serif; padding: 30px 50px; line-height: 1.6; color: #000; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { font-size: 28px; font-weight: bold; color: #1a5fb4; margin-bottom: 5px; }
+    .header p { font-size: 16px; color: #555; margin: 0; }
+    table.info-table { width: 100%; border-collapse: separate; border-spacing: 0 15px; margin-bottom: 30px; }
+    table.info-table td { vertical-align: top; padding: 15px 20px; border: 1px solid #d0e0ff; border-radius: 8px; background-color: #f8fbff; width: 50%; }
+    .section-title { font-size: 18px; font-weight: bold; color: #1a5fb4; text-align: center; margin-bottom: 15px; border-bottom: 2px solid #1a5fb4; padding-bottom: 6px; }
+    .info-row { margin-bottom: 10px; display: flex; }
+    .label { font-weight: bold; width: 130px; flex-shrink: 0; color: #333; }
+    .value { flex: 1; }
+    .highlight { font-size: 18px; color: #d32f2f; font-weight: bold; }
+    .question-group { margin-bottom: 40px; page-break-inside: avoid; border: 1px solid #ccc; border-radius: 10px; padding: 20px; background-color: #f0f8ff; }
+    .context-title { font-size: 18px; font-weight: bold; color: #1a5fb4; margin: 0 0 15px; }
+    .context-content { margin: 0 0 20px; padding: 15px; background: #f5f5f5; border: 1px dashed #bbb; border-radius: 8px; }
+    .context-content img { max-width: 100%; height: auto; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; }
+    .question-card { border: 1px solid #ddd; border-radius: 10px; padding: 15px; margin-bottom: 20px; background-color: #f9f9f9; page-break-inside: avoid; }
+    .question-card strong { font-size: 16px; display: block; margin-bottom: 10px; }
+    .answers ol { margin: 10px 0 0 30px; padding-left: 5px; }
+    .answers li { margin-bottom: 8px; line-height: 1.5; padding: 5px 10px; border-radius: 6px; }
+    .answers li img { max-width: 380px; height: auto; margin: 8px 0; display: block; border: 1px solid #ccc; border-radius: 6px; }
+    .correct { background-color: #d4edda; color: #155724; font-weight: bold; }
+    .chosen { background-color: #f8d7da; color: #721c24; font-weight: bold; }
+    .essay-answer { margin-top: 15px; padding: 12px; background-color: #e8f4f8; border-left: 4px solid #1a5fb4; border-radius: 6px; }
+    .essay-answer strong { color: #1a5fb4; }
+    .essay-images { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 12px; }
+    .essay-images img { max-width: 400px; height: auto; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .essay-score { margin-top: 12px; font-weight: bold; color: #d32f2f; font-size: 16px; }
+    .question-type { font-size: 14px; color: #555; font-style: italic; margin: 8px 0; }
+</style>
+</head>
+<body>';
+
+    // Header + Thông tin chung
+    $html .= '<div class="header">
+        <h1>DHT ONTEST</h1>
+        <p>WEBSITE TẠO VÀ QUẢN LÝ BÀI THI CÁ NHÂN HÓA</p>
+    </div>';
+
+    $html .= '<table class="info-table">
+        <tr>
+            <td>
+                <div class="section-title">THÔNG TIN SINH VIÊN</div>
+                <div class="info-row"><span class="label">Họ & tên: </span><span class="value">' . htmlspecialchars($info['hoten'], ENT_QUOTES, 'UTF-8') . '</span></div>
+                <div class="info-row"><span class="label">MSSV: </span><span class="value">' . htmlspecialchars($info['manguoidung'], ENT_QUOTES, 'UTF-8') . '</span></div>
+                <div class="info-row"><span class="label">Số câu đúng: </span><span class="value">' . $socaudung . ' / ' . $tongsocau . '</span></div>
+                <div class="info-row"><span class="label">Điểm thi: </span><span class="value highlight">' . number_format($diem, 2) . ' điểm</span></div>
+            </td>
+            <td>
+                <div class="section-title">THÔNG TIN ĐỀ THI</div>
+                <div class="info-row"><span class="label">Tên đề thi: </span><span class="value">' . htmlspecialchars($info['tende'], ENT_QUOTES, 'UTF-8') . '</span></div>
+                <div class="info-row"><span class="label">Môn thi: </span><span class="value">' . htmlspecialchars($info['tenmonhoc'], ENT_QUOTES, 'UTF-8') . '</span></div>
+                <div class="info-row"><span class="label">Thời gian thi: </span><span class="value">' . $thoigianthi . '</span></div>
+                <div class="info-row"><span class="label">Thời gian làm bài: </span><span class="value">' . htmlspecialchars($thoigianlambai, ENT_QUOTES, 'UTF-8') . '</span></div>
+            </td>
+        </tr>
+    </table>';
+
+    $html .= '<div style="text-align:center; font-weight:bold; font-size:18px; margin:30px 0 20px;">CHI TIẾT CÂU TRẢ LỜI</div>';
+
+    // Gom nhóm theo madv (đoạn văn cho đọc hiểu)
+    $groups = [];
+    foreach ($cauHoi as $ch) {
+        $madv = $ch['madv'] ?? 'no_context';
+        $groups[$madv][] = $ch;
+    }
+
+    $questionCounter = 1;
+
+    foreach ($groups as $madv => $questions) {
+        // Lấy thông tin đoạn văn (nếu có - cho đọc hiểu)
+        $contextTitle = $questions[0]['tieude_context'] ?? '';
+        $contextContent = $questions[0]['context'] ?? '';
+
+        $isReading = ($madv !== 'no_context' && !empty($contextTitle));
+
+        if ($isReading) {
+            // Đối với đọc hiểu: gom chung trong 1 div lớn
+            $html .= '<div class="question-group">';
+            if (!empty($contextTitle)) {
+                $html .= '<div class="context-title">' . ($contextTitle) . '</div>';
+            }
+            if (!empty($contextContent)) {
+                $html .= '<div class="context-content">' . ($contextContent) . '</div>';
+            }
+        }
+
+        // Hiển thị từng câu hỏi trong nhóm
+        foreach ($questions as $ch) {
+            $loai = $ch['loai'] ?? '';
+            $isEssay = (strtoupper($loai) === 'TL' || $loai == 2);
+            $isMcq = !$isEssay && !$isReading;
+            $questionType = $isEssay ? 'Tự luận' : ($isReading ? 'Đọc hiểu' : 'Trắc nghiệm');
+
+            $html .= '<div class="question-card">
+                <strong>Câu ' . $questionCounter . ':</strong> ' . ($ch['noidung'] ?? '') . '
+                <div class="question-type">Loại câu hỏi: ' . $questionType . '</div>';
+
+            if ($isEssay) {
+                // Giao diện tự luận: hiển thị nội dung trả lời + ảnh nếu có
+                $html .= '<div class="essay-answer">
+                    <strong>Trả lời của sinh viên:</strong><br>'
+                    . nl2br(htmlspecialchars($ch['noidung_tra_loi'] ?? 'Chưa trả lời', ENT_QUOTES, 'UTF-8')) . '
+                </div>';
+
+                // Ảnh đính kèm (nếu có)
+                if (!empty($ch['ds_hinhanh_base64'])) {
+                    $images = array_filter(explode('||', $ch['ds_hinhanh_base64']));
+                    if (!empty($images)) {
+                        $html .= '<div class="essay-answer"><strong>Ảnh đính kèm:</strong></div>';
+                        $html .= '<div class="essay-images">';
+                        foreach ($images as $base64) {
+                            $base64 = trim($base64);
+                            if ($base64) {
+                                $html .= '<img src="data:image/jpeg;base64,' . $base64 . '" alt="Ảnh trả lời tự luận">';
+                            }
+                        }
+                        $html .= '</div>';
+                    }
+                }
+
+                // Điểm chấm tự luận (nếu có)
+                if (isset($ch['diem_cham_tuluan']) && $ch['diem_cham_tuluan'] !== null) {
+                    $html .= '<div class="essay-score">Điểm chấm: ' . number_format($ch['diem_cham_tuluan'], 2) . ' điểm</div>';
+                }
+
+            } else {
+                // Giao diện trắc nghiệm hoặc đọc hiểu: hiển thị các phương án (ảnh nếu có trong nội dung HTML)
+                $html .= '<div class="answers">
+                    <ol type="A">';
+
+                foreach ($ch['cautraloi'] as $ctl) {
+                    $isCorrect = ($ctl['ladapan'] == "1");
+                    $isChosen = ($ctl['macautl'] == ($ch['dapanchon'] ?? ''));
+                    $class = '';
+
+                    if ($isCorrect) $class = 'correct';
+                    if ($isChosen && !$isCorrect) $class = 'chosen';
+
+                    $html .= '<li class="' . $class . '">' . ($ctl['noidungtl'] ?? '') . '</li>';
+                }
+
+                $html .= '  </ol>
+                </div>';
+            }
+
+            $html .= '</div>';  // end question-card
+            $questionCounter++;
+        }
+
+        if ($isReading) {
+            $html .= '</div>';  // end question-group
+        }
+    }
+
+    $html .= '</body></html>';
+
+    // Render PDF
+    $dompdf->loadHtml($html);
     $dompdf->setPaper('A4', 'portrait');
     $dompdf->render();
     $output = $dompdf->output();
 
-    // Trả về Base64 PDF
-    header('Content-Type: text/plain');
-    echo base64_encode($output);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="Chi_tiet_ket_qua_' . $info['hoten'] . '_' . $makq . '.pdf"');
+    header('Cache-Control: private, must-revalidate');
+    header('Pragma: public');
+
+    echo $output;
+    exit;
 }
 
 
