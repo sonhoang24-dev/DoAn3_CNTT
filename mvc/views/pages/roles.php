@@ -219,6 +219,21 @@
                                 </td>
                             </tr>
                             <tr>
+                                <td>Thống kê</td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="thongke" value="view">
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="thongke" value="create">
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="thongke" value="update">
+                                </td>
+                                <td class="text-center">
+                                    <input class="form-check-input" type="checkbox" name="thongke" value="delete">
+                                </td>
+                            </tr>
+                            <tr>
                                 <td>Thông báo</td>
                                 <td class="text-center">
                                     <input class="form-check-input" type="checkbox" name="thongbao" value="view">

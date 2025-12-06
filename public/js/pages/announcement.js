@@ -36,72 +36,73 @@ function showListAnnounce(announces) {
   let html = "";
   if (announces.length !== 0) {
     html += `
-      <div class="block block-rounded shadow-sm">
-        <div class="block-header block-header-default bg-body-light">
-          <h3 class="block-title fw-bold text-primary">
-            <i class="fa fa-bullhorn me-2 text-warning"></i> Danh sách thông báo
-          </h3>
+      <div class="block block-rounded shadow-lg">
+        <div class="block-header bg-gradient-teal text-white p-3 d-flex align-items-center justify-content-between">
+          <h3 class="block-title mb-0"><i class="fa fa-bullhorn me-2"></i> Danh sách thông báo</h3>
         </div>
-        <div class="block-content">
-          <table class="table table-bordered table-striped table-hover table-vcenter">
-            <thead class="table-light">
-              <tr class="text-center fw-semibold text-uppercase">
-                <th style="width: 35%;">Nội dung</th>
-                <th style="width: 30%;">Học phần</th>
-                <th style="width: 20%;">Tạo lúc</th>
-                <th style="width: 15%;">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div class="block-content p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-vcenter table-striped align-middle mb-0">
+              <thead class="bg-teal-light text-dark">
+                <tr class="text-center fw-semibold text-uppercase">
+                  <th style="width:45%; text-align:left;">Nội dung</th>
+                  <th style="width:30%;">Học phần</th>
+                  <th style="width:15%;">Tạo lúc</th>
+                  <th style="width:10%;">Hành động</th>
+                </tr>
+              </thead>
+              <tbody>
     `;
+
     announces.forEach((announce) => {
       html += `
-              <tr>
-                <td class="fw-semibold text-dark">
-                  <i class="fa fa-comment-dots text-muted me-1"></i> ${
-                    announce.noidung
-                  }
-                </td>
-                <td class="text-center text-secondary">
-                  <i class="fa fa-layer-group me-1 text-info"></i>
-                  <strong data-bs-toggle="tooltip" data-bs-animation="true" data-bs-placement="top" style="cursor:pointer"
-                    title="${announce.nhom}">
-                    ${announce.tenmonhoc} - NH${announce.namhoc} - HK${
-        announce.hocky
-      }
-                  </strong>
-                </td>
-                <td class="text-center">
-                  <i class="fa fa-clock me-1 text-muted"></i> ${formatDate(
-                    announce.thoigiantao
-                  )}
-                </td>
-                <td class="text-center">
-                  <a class="btn btn-sm btn-alt-primary rounded-pill px-3 me-1 my-1" 
-                     href="./teacher_announcement/update/${announce.matb}"
-                     data-role="thongbao" data-action="update">
-                    <i class="fa fa-edit me-1"></i> Sửa
-                  </a>
-                  <a class="btn btn-sm btn-alt-danger rounded-pill px-3 my-1 btn-delete"
-                     href="javascript:void(0)" 
-                     data-role="thongbao" data-action="delete" 
-                     data-id="${announce.matb}">
-                    <i class="fa fa-trash-alt me-1"></i> Xoá
-                  </a>
-                </td>
-              </tr>
+                <tr>
+                  <td style="text-align:left;">
+                    <div class="fw-semibold text-dark">
+                      <i class="fa fa-comment-dots text-muted me-1"></i>
+                      ${announce.noidung}
+                    </div>
+                    <div class="announce-meta mt-1">Người tạo: <strong>${announce.tentaikhoan || announce.username || ''}</strong></div>
+                  </td>
+                  <td class="text-center text-secondary">
+                    <div><i class="fa fa-layer-group me-1 text-info"></i>
+                      <strong data-bs-toggle="tooltip" data-bs-placement="top" title="${announce.nhom}" style="cursor:pointer;">
+                        ${announce.tenmonhoc} - NH${announce.namhoc} - HK${announce.hocky}
+                      </strong>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <i class="fa fa-clock me-1 text-muted"></i> ${formatDate(announce.thoigiantao)}
+                  </td>
+                  <td class="text-center">
+                    <a class="btn btn-sm btn-alt-primary rounded-pill px-3 me-1 my-1" href="./teacher_announcement/update/${announce.matb}" data-role="thongbao" data-action="update">
+                      <i class="fa fa-edit me-1"></i>
+                    </a>
+                    <a class="btn btn-sm btn-alt-danger rounded-pill px-3 my-1 btn-delete" href="javascript:void(0)" data-role="thongbao" data-action="delete" data-id="${announce.matb}">
+                      <i class="fa fa-trash-alt me-1"></i>
+                    </a>
+                  </td>
+                </tr>
       `;
     });
+
     html += `
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     `;
   } else {
-    html += `<div class="alert alert-info text-center py-3 mb-0">
-               <i class="fa fa-info-circle me-1"></i> Không có thông báo nào được tìm thấy.
-             </div>`;
+    html += `
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-4">
+          <i class="fa fa-info-circle fa-2x text-muted mb-2"></i>
+          <div class="h5">Không có thông báo nào</div>
+          <div class="text-muted">Không có thông báo nào khớp với bộ lọc hoặc chưa có thông báo được đăng.</div>
+        </div>
+      </div>
+    `;
     $(".pagination").hide();
   }
 
@@ -119,11 +120,14 @@ function loadFilterSemesters() {
       const seen = new Set();
 
       response.forEach((item) => {
-        const key = `${item.namhoc}-${item.hocky}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          html += `<option value="${key}">${item.namhoc} - HK${item.hocky}</option>`;
-        }
+          // module.loadData() returns objects with keys: manamhoc, tennamhoc, mahocky, tenhocky
+          const key = `${item.manamhoc}-${item.mahocky}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            // Display readable names
+            const label = item.tennamhoc ? `${item.tennamhoc} - ${item.tenhocky || ''}` : `${item.manamhoc} - HK${item.mahocky}`;
+            html += `<option value="${key}">${label}</option>`;
+          }
       });
 
       $("#filter-kihoc").html(html);
@@ -215,7 +219,9 @@ $(document).ready(function () {
         console.log("Dữ liệu nhóm học phần:", response); // Debug
         groups = response;
         response.forEach((item, index) => {
-          html += `<option value="${index}">${item.mamonhoc} - ${item.tenmonhoc} - NH${item.namhoc} - HK${item.hocky}</option>`;
+          const yearLabel = item.tennamhoc ? item.tennamhoc : item.manamhoc;
+          const hkLabel = item.tenhocky ? item.tenhocky : item.mahocky;
+          html += `<option value="${index}">${item.mamonhoc} - ${item.tenmonhoc} - NH${yearLabel} - ${hkLabel}</option>`;
         });
         $("#nhom-hp").html(html);
       },
