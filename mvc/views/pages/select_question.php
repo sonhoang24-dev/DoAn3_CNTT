@@ -65,12 +65,24 @@
                     </div>
 
                 </div>
-                <ul class="list-group fs-sm" id="list-question">
-                    <!-- Danh sách câu hỏi -->
-                </ul>
-                <?php if (isset($data["Plugin"]["pagination"])) {
-                    require "./mvc/views/inc/pagination.php";
-                }?>
+                <!-- DANH SÁCH CÂU HỎI -->
+<div class="block block-rounded">
+    <div class="block-content">
+        <ul class="list-group fs-sm" id="list-question">
+            <!-- Danh sách câu hỏi sẽ được render tại đây -->
+        </ul>
+    </div>
+</div>
+
+<!-- PHÂN TRANG -->
+<div class="mt-3">
+    <?php 
+        if (isset($data["Plugin"]["pagination"])) {
+            require "./mvc/views/inc/pagination.php";
+        }
+    ?>
+</div>
+
             </div>
         </div>
     </div>
@@ -131,21 +143,21 @@
           </span>
         </div>
         <div class="d-flex flex-column gap-3">
-          <button type="button" class="btn btn-outline-success d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm">
+          <button type="button" class="btn btn-outline-success d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm" >
             <span class="fw-semibold">Dễ</span>
             <span class="badge bg-success text-white rounded-pill fs-6 px-3">
               <span id="sl_essay_de">0</span>/<span id="tt_essay_de">0</span>
             </span>
           </button>
 
-          <button type="button" class="btn btn-outline-warning d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm">
+          <button type="button" class="btn btn-outline-warning d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm" >
             <span class="fw-semibold">TB</span>
             <span class="badge bg-warning text-dark rounded-pill fs-6 px-3">
               <span id="sl_essay_tb">0</span>/<span id="tt_essay_tb">0</span>
             </span>
           </button>
 
-          <button type="button" class="btn btn-outline-danger d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm">
+          <button type="button" class="btn btn-outline-danger d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm" >
             <span class="fw-semibold">Khó</span>
             <span class="badge bg-danger text-white rounded-pill fs-6 px-3">
               <span id="sl_essay_kho">0</span>/<span id="tt_essay_kho">0</span>
@@ -162,21 +174,21 @@
           </span>
         </div>
         <div class="d-flex flex-column gap-3">
-          <button type="button" class="btn btn-outline-success d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm">
+          <button type="button" class="btn btn-outline-success d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm" >
             <span class="fw-semibold">Dễ</span>
             <span class="badge bg-success text-white rounded-pill fs-6 px-3">
               <span id="sl_reading_de">0</span>/<span id="tt_reading_de">0</span>
             </span>
           </button>
 
-          <button type="button" class="btn btn-outline-warning d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm">
+          <button type="button" class="btn btn-outline-warning d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm" >
             <span class="fw-semibold">TB</span>
             <span class="badge bg-warning text-dark rounded-pill fs-6 px-3">
               <span id="sl_reading_tb">0</span>/<span id="tt_reading_tb">0</span>
             </span>
           </button>
 
-          <button type="button" class="btn btn-outline-danger d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm">
+          <button type="button" class="btn btn-outline-danger d-flex align-items-center justify-content-between rounded-pill px-4 py-3 shadow-sm" >
             <span class="fw-semibold">Khó</span>
             <span class="badge bg-danger text-white rounded-pill fs-6 px-3">
               <span id="sl_reading_kho">0</span>/<span id="tt_reading_kho">0</span>

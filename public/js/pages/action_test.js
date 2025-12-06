@@ -1199,7 +1199,7 @@ $(document).ready(function () {
 
     // --- Các input khác ---
     $("#name-exam").val(dethi.tende);
-    $("#exam-time").val(dethi.thoigianthi).prop("disabled", checkD);
+    $("#exam-time").val(dethi.thoigianthi);
 
     $("#time-start").flatpickr({
       enableTime: true,

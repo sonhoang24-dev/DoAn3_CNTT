@@ -1,20 +1,18 @@
 $(document).ready(function () {
   let questions = [];
+  let listQues = [];
   let answers = [];
   const made = $("#dethicontent").data("id");
-  const userId = $("#dethicontent").data("user") || "guest"; // Lấy MSSV từ data-user
+  const userId = $("#dethicontent").data("user") || "guest";
 
-  // Key giờ độc nhất cho từng người + từng đề
   const dethiKey = `dethi_${made}_user_${userId}`;
   const answerKey = `cautraloi_${made}_user_${userId}`;
-  // ==================== INDEXEDDB - LƯU ẢNH TẠM ====================
+
+  // ==================== INDEXEDDB CHO ẢNH TỰ LUẬN ====================
   let db;
-  const dbName = "exam-images-db-v2";
-  // ==================== INDEXEDDB SIÊU TỐI ƯU ====================
   const dbPromise = idb.openDB("exam-images-db-v3", 3, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
-        // Tạo store lần đầu
         const store = db.createObjectStore("images", {
           keyPath: "id",
           autoIncrement: true,
@@ -23,70 +21,56 @@ $(document).ready(function () {
           "answerKey",
           "questionIndex",
         ]);
-      } else if (oldVersion < 3) {
-        // Nếu store đã tồn tại nhưng thiếu index (phòng trường hợp nâng version)
-        const store = db.transaction.objectStore("images");
-        if (!store.indexNames.contains("by_exam_user_question")) {
-          store.createIndex("by_exam_user_question", [
-            "answerKey",
-            "questionIndex",
-          ]);
-        }
       }
     },
   });
 
-  // Lưu một ảnh vào IndexedDB
-  async function saveImageToDB(questionIndex, base64Data) {
-    if (
-      !base64Data ||
-      typeof base64Data !== "string" ||
-      base64Data.length < 100
-    ) {
-      console.warn("Base64 không hợp lệ");
-      return;
+  (async () => {
+    try {
+      db = await dbPromise;
+      console.log("IndexedDB sẵn sàng");
+    } catch (err) {
+      console.error("Lỗi IndexedDB:", err);
     }
+  })();
 
+  async function saveImageToDB(qIndex, base64) {
+    if (!base64 || base64.length < 100) return;
     const db = await dbPromise;
     await db.add("images", {
       answerKey,
-      questionIndex,
-      base64: base64Data.trim(),
+      questionIndex: qIndex,
+      base64: base64.trim(),
       timestamp: Date.now(),
     });
   }
 
-  // Lấy tất cả ảnh của 1 câu hỏi
-  async function getImagesForQuestion(questionIndex) {
+  async function getImagesForQuestion(qIndex) {
     const db = await dbPromise;
     const range = IDBKeyRange.bound(
-      [answerKey, questionIndex],
-      [answerKey, questionIndex, []]
+      [answerKey, qIndex],
+      [answerKey, qIndex, []]
     );
     return await db.getAllFromIndex("images", "by_exam_user_question", range);
   }
 
-  // Xóa một ảnh theo base64 (khi người dùng bấm nút xóa)
-  async function deleteImageFromDB(questionIndex, base64ToDelete) {
-    if (!db) return;
+  async function deleteImageFromDB(qIndex, base64) {
     const all = await db.getAll("images");
-    const toDelete = all.find(
-      (img) =>
-        img.answerKey === answerKey &&
-        img.questionIndex === questionIndex &&
-        img.base64 === base64ToDelete
+    const item = all.find(
+      (i) =>
+        i.answerKey === answerKey &&
+        i.questionIndex === qIndex &&
+        i.base64 === base64
     );
-    if (toDelete) await db.delete("images", toDelete.id);
+    if (item) await db.delete("images", item.id);
   }
 
-  // Xóa toàn bộ ảnh của đề thi này (khi nộp bài thành công)
   async function clearImagesForExam() {
-    if (!db) return;
     const all = await db.getAll("images");
     const tx = db.transaction("images", "readwrite");
     all
-      .filter((img) => img.answerKey === answerKey)
-      .forEach((img) => tx.store.delete(img.id));
+      .filter((i) => i.answerKey === answerKey)
+      .forEach((i) => tx.store.delete(i.id));
     await tx.done;
   }
 
@@ -95,33 +79,271 @@ $(document).ready(function () {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const MAX_WIDTH = 1400;
+        const MAX = 1400;
         let { width, height } = img;
-        if (width > MAX_WIDTH) {
-          height = (MAX_WIDTH / width) * height;
-          width = MAX_WIDTH;
+        if (width > MAX) {
+          height = (MAX / width) * height;
+          width = MAX;
         }
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL("image/jpeg", 0.8));
       };
       img.src = base64;
     });
   }
 
-  // Khởi động DB
-  (async () => {
-    try {
-      db = await dbPromise;
-      console.log("IndexedDB sẵn sàng – có thể lưu ảnh lớn!");
-    } catch (err) {
-      console.error("Lỗi IndexedDB:", err);
-    }
-  })();
+  // ==================== CHẾ ĐỘ HIỂN THỊ ====================
+  let displayMode = "full";
+  let currentQuestionIndex = 0;
+  const imageCache = new Map();
 
-  // ================== Lấy câu hỏi từ server ==================
+  function switchDisplayMode(mode) {
+    displayMode = mode;
+    currentQuestionIndex = 0;
+    $("#mode-full")
+      .toggleClass("active btn-primary text-white", mode === "full")
+      .toggleClass("btn-outline-primary", mode !== "full");
+    $("#mode-one")
+      .toggleClass("active btn-success text-white", mode === "one")
+      .toggleClass("btn-outline-success", mode !== "one");
+    renderCurrentView();
+  }
+
+  function renderCurrentView() {
+    $("#list-question").empty();
+
+    if (displayMode === "full") {
+      showListQuestion(listQues, answers);
+    } else {
+      showOneQuestionOrGroup(currentQuestionIndex);
+    }
+
+    updateNavigationButtons();
+    showBtnSideBar(listQues, answers);
+  }
+
+  // ==================== HIỂN THỊ ẢNH (Base64 → Blob URL) ====================
+  const renderImage = (imgData) => {
+    if (!imgData || imgData.trim() === "") return "";
+    let src = imgData.trim();
+    if (src.match(/^\/9j\/|data:image\/|iVBORw0KGgo/)) {
+      if (!imageCache.has(src)) {
+        try {
+          const binary = atob(src.includes(",") ? src.split(",")[1] : src);
+          const array = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+          const blob = new Blob([array], { type: "image/jpeg" });
+          imageCache.set(src, URL.createObjectURL(blob));
+        } catch (e) {
+          return `<div class="text-center text-danger my-3">Lỗi ảnh</div>`;
+        }
+      }
+      src = imageCache.get(src);
+    }
+    return `<div class="text-center my-3">
+      <img src="${src}" class="img-fluid rounded shadow-sm border" style="max-height:340px; object-fit:contain; cursor:pointer;" loading="lazy" onclick="window.open(this.src,'_blank')">
+    </div>`;
+  };
+
+  // ==================== HTML CHO 1 CÂU HỎI (DÙNG CHUNG) ====================
+  function generateQuestionHTML(q, idx, inGroup = false) {
+    const ans = answers[idx] || {};
+    const chosen = ans.cautraloi || null;
+    const isEssay = q.loai === "essay";
+
+    let html = `
+    <div class="question card shadow-lg mb-4 ${
+      inGroup ? "border-start border-primary border-5" : ""
+    }" id="q-${idx + 1}">
+      <div class="card-body p-5">
+        <h4 class="fw-bold mb-4"  style="
+        display:inline-block;
+        background:#e8f3ff;
+        color:#1a73e8;
+        padding:6px 12px;
+        border-radius:8px;
+    ">Câu ${idx + 1}: ${q.noidung}</h4>
+        ${renderImage(q.hinhanh)}`;
+
+    if (isEssay) {
+      html += `<div id="essay-container-${idx}"></div>`;
+    } else {
+      html += `<div class="row g-4 mb-5">`;
+      q.cautraloi.forEach((ctl, i) => {
+        const content = ctl.noidungtl || ctl.content || "";
+        const img = ctl.hinhanhtl || ctl.hinhanh || "";
+        html += `
+        <div class="col-12 col-md-6">
+          <div class="border rounded-4 p-4 bg-white shadow-sm h-100 d-flex align-items-center gap-4 hover-shadow-lg" style="border:2px solid #e0e0e0; min-height:140px;">
+            <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-primary text-white fw-bold fs-4 shadow" style="width:56px;height:56px;">
+              ${String.fromCharCode(65 + i)}
+            </div>
+            <div class="flex-grow-1">
+              <div class="lh-base fs-5">${content}</div>
+              ${renderImage(img)}
+            </div>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+      html += createAnswerButtons(q, idx, chosen, q.loai === "reading");
+    }
+    html += `</div></div>`;
+    return html;
+  }
+
+  function showOneQuestionOrGroup(idx) {
+    if (idx < 0 || idx >= listQues.length) return;
+
+    let html = "";
+    const q = listQues[idx];
+
+    if (q.loai === "reading" && q.context?.trim()) {
+      const context = q.context.trim();
+      const title = q.tieude_context || "Đoạn văn";
+
+      const group = listQues.filter(
+        (x) => x.loai === "reading" && (x.context || "").trim() === context
+      );
+
+      html += `
+      <div class="card shadow-lg mb-5 border-primary">
+        <div class="card-header bg-primary text-white text-center py-4">
+          <h4 class="mb-0 fw-bold">${title}</h4>
+        </div>
+        <div class="card-body bg-light fst-italic fs-5 lh-lg p-5">
+          ${q.context}
+        </div>
+      </div>`;
+
+      group.forEach((item) => {
+        const gIdx = listQues.indexOf(item);
+        html += generateQuestionHTML(item, gIdx, true);
+      });
+    }
+    // === CÂU THƯỜNG (trắc nghiệm/tự luận) ===
+    else {
+      html += generateQuestionHTML(q, idx);
+    }
+
+    $("#list-question").html(html);
+    initEssayEditorsInView();
+    $(window).scrollTop(0);
+  }
+
+  // ==================== NÚT CHỌN ĐÁP ÁN ====================
+  function createAnswerButtons(q, idx, chosenId, isReading = false) {
+    const name = isReading ? `rdg-${idx}` : `mcq-${idx}`;
+    return `
+    <div class="text-center my-5">
+      <div class="d-inline-block bg-light rounded-4 px-5 py-4 shadow-lg border">
+        <div class="text-primary fw-bold mb-4 fs-5">Đáp án của bạn:</div>
+        <div class="d-flex justify-content-center gap-4 flex-wrap">
+          ${q.cautraloi
+            .map((cau, i) => {
+              const letter = String.fromCharCode(65 + i);
+              const checked = String(chosenId) === String(cau.macautl);
+              return `
+            <div>
+              <input type="radio" class="btn-check" name="${name}" id="opt-${
+                cau.macautl
+              }"
+                     data-index="${idx}" data-macautl="${cau.macautl}" ${
+                checked ? "checked" : ""
+              }>
+              <label for="opt-${
+                cau.macautl
+              }" class="btn rounded-pill fs-4 px-4 py-3 fw-bold shadow-sm
+                     ${
+                       checked ? "btn-warning text-dark" : "btn-outline-primary"
+                     }">
+                ${letter}
+              </label>
+            </div>`;
+            })
+            .join("")}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ==================== NÚT ĐIỀU HƯỚNG DƯỚI MÀN HÌNH ====================
+  function updateNavigationButtons() {
+    $(".one-mode-nav").remove();
+    if (displayMode !== "one") return;
+
+    const isFirst = currentQuestionIndex === 0;
+    const isLast = currentQuestionIndex >= listQues.length - 1;
+
+    const nav = `
+    <div class="one-mode-nav position-fixed bottom-0 start-50 translate-middle-x bg-white shadow-sm border-top px-3 py-2"
+         style="max-width: 420px; min-width: 300px; z-index: 1050; border-radius: 16px 16px 0 0;">
+      <div class="d-flex justify-content-between align-items-center">
+        
+        <button class="btn btn-outline-primary btn-sm px-4 ${
+          isFirst ? "disabled" : ""
+        }" 
+                id="prev-btn">
+          <i class="fas fa-chevron-left me-1"></i> Trước
+        </button>
+
+        <div class="fw-bold text-primary">
+          <span class="fs-5">${currentQuestionIndex + 1}</span>
+          <small class="text-muted">/${listQues.length}</small>
+        </div>
+
+        <button class="btn btn-outline-primary btn-sm px-4 ${
+          isLast ? "disabled" : ""
+        }" 
+                id="next-btn">
+          Sau <i class="fas fa-chevron-right ms-1"></i>
+        </button>
+
+      </div>
+    </div>`;
+
+    $("body").append(nav);
+  }
+
+  // ==================== SỰ KIỆN ====================
+  // ==================== NÚT ĐIỀU HƯỚNG – ĐÃ SỬA HOÀN HẢO ====================
+  $(document).on("click", "#prev-btn", () => {
+    if (currentQuestionIndex <= 0) return;
+
+    currentQuestionIndex--;
+
+    const current = listQues[currentQuestionIndex];
+    const nextQ = listQues[currentQuestionIndex + 1]; // câu vừa rời
+
+    if (
+      (nextQ?.loai === "reading" && current.loai !== "reading") ||
+      nextQ?.context?.trim() !== current?.context?.trim()
+    ) {
+    }
+
+    renderCurrentView();
+  });
+
+  $(document).on("click", "#next-btn", () => {
+    if (currentQuestionIndex >= listQues.length - 1) return;
+
+    currentQuestionIndex++;
+    const current = listQues[currentQuestionIndex];
+    const prevQ = listQues[currentQuestionIndex - 1];
+
+    if (
+      prevQ?.loai === "reading" &&
+      (current.loai !== "reading" ||
+        prevQ.context?.trim() !== current.context?.trim())
+    ) {
+      // Đã thoát nhóm → ok
+    }
+
+    renderCurrentView();
+  });
+  $(document).on("click", "#mode-full", () => switchDisplayMode("full"));
+  $(document).on("click", "#mode-one", () => switchDisplayMode("one"));
   function getQuestion() {
     return $.ajax({
       type: "post",
@@ -149,9 +371,180 @@ $(document).ready(function () {
   function initListAnswer(questions) {
     return questions.map((q) => ({
       macauhoi: q.macauhoi,
-      cautraloi: q.loai !== "essay" ? 0 : null, // Null cho essay
+      cautraloi: q.loai !== "essay" ? 0 : null,
       noidungtl: q.loai === "essay" ? "" : null,
     }));
+  }
+  function initEssayEditorsInView() {
+    $(".question").each(function () {
+      const card = $(this);
+      const idMatch = card.attr("id")?.match(/q-(\d+)/);
+      if (!idMatch) return;
+      const idx = parseInt(idMatch[1]) - 1;
+      const q = listQues[idx];
+      if (q.loai !== "essay") return;
+
+      const container = card.find(`#essay-container-${idx}`);
+      if (container.length === 0 || container.data("editor-initialized"))
+        return;
+
+      // Tạo HTML cho essay
+      const userEssayText = (answers[idx]?.noidungtl || "")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
+      const editorId = `editor_${idx + 1}`;
+      const fileInputId = `fileinput_${idx + 1}`;
+      const thumbId = `thumb_${idx + 1}`;
+
+      container.html(`
+      <div class="mb-4">
+        <label class="form-label fw-bold text-dark fs-5">Trả lời của bạn:</label>
+        <div id="${editorId}" class="border rounded bg-white p-3" style="min-height:280px;">${userEssayText}</div>
+      </div>
+      <div class="border rounded p-4 bg-light">
+        <label class="form-label fw-bold text-success mb-3">Hình ảnh (nếu có)</label>
+        <input type="file" class="form-control" id="${fileInputId}" accept="image/*" multiple>
+        <div id="${thumbId}" class="image-preview-container mt-3 d-flex flex-wrap gap-3 p-3 border rounded bg-white" style="min-height:120px;">
+          <small class="text-muted w-100 text-center">Chưa có ảnh nào được chọn</small>
+        </div>
+      </div>
+    `);
+
+      // Khởi tạo CKEditor
+      setTimeout(() => {
+        const fileInput = document.getElementById(fileInputId);
+        const previewContainer = document.getElementById(thumbId);
+
+        ClassicEditor.create(document.getElementById(editorId), {
+          toolbar: [
+            "heading",
+            "|",
+            "bold",
+            "italic",
+            "|",
+            "bulletedList",
+            "numberedList",
+            "|",
+            "insertTable",
+            "blockQuote",
+            "|",
+            "undo",
+            "redo",
+          ],
+          placeholder: "Nhập câu trả lời chi tiết của bạn tại đây...",
+        })
+          .then((editor) => {
+            window["ckeditor_" + editorId] = editor;
+            editor.ui.view.editable.element.style.minHeight = "280px";
+
+            // Render ảnh cũ
+            (async () => {
+              const saved = await getImagesForQuestion(idx);
+              if (saved.length > 0) {
+                const tags = saved
+                  .map(
+                    (i) =>
+                      `<p><img src="${i.base64}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
+                  )
+                  .join("");
+                setTimeout(() => editor.setData(editor.getData() + tags), 300);
+              }
+              await renderImages(idx);
+            })();
+
+            async function renderImages(qIndex) {
+              const images = await getImagesForQuestion(qIndex);
+              previewContainer.innerHTML =
+                images.length === 0
+                  ? `<small class="text-muted w-100 text-center">Chưa có ảnh nào được chọn</small>`
+                  : "";
+              images.forEach((imgObj) => {
+                if (!imgObj.base64) return;
+                const wrapper = document.createElement("div");
+                wrapper.className = "position-relative";
+                const img = document.createElement("img");
+                img.src = imgObj.base64;
+                img.className = "img-thumbnail rounded";
+                img.style.cssText =
+                  "max-height:140px; max-width:200px; object-fit:cover; cursor:pointer;";
+                img.onclick = () => window.open(imgObj.base64, "_blank");
+                const del = document.createElement("button");
+                del.className =
+                  "btn btn-danger btn-sm rounded-circle position-absolute";
+                del.style.cssText =
+                  "top:8px; right:8px; width:30px; height:30px;";
+                del.innerHTML = "×";
+                del.onclick = async (e) => {
+                  e.stopPropagation();
+                  await deleteImageFromDB(qIndex, imgObj.base64);
+                  const temp = document.createElement("div");
+                  temp.innerHTML = editor.getData();
+                  temp.querySelectorAll("img").forEach((i) => {
+                    if (i.src === imgObj.base64) i.parentElement?.remove();
+                  });
+                  editor.setData(temp.innerHTML);
+                  await renderImages(qIndex);
+                  saveAnswersToStorage();
+                  await showBtnSideBar(listQues, answers);
+                };
+                wrapper.appendChild(img);
+                wrapper.appendChild(del);
+                previewContainer.appendChild(wrapper);
+              });
+            }
+
+            editor.model.document.on("change:data", async () => {
+              const text = editor
+                .getData()
+                .replace(/<[^>]*>/g, "")
+                .trim();
+              answers[idx] = answers[idx] || {};
+              answers[idx].noidungtl = editor.getData();
+              saveAnswersToStorage();
+              const imgs = await getImagesForQuestion(idx);
+              if (text || imgs.length > 0) {
+                $(`.answer-item-link[data-target="q-${idx + 1}"]`).addClass(
+                  "active"
+                );
+              }
+              await showBtnSideBar(listQues, answers);
+            });
+
+            fileInput.addEventListener("change", async (e) => {
+              const files = Array.from(e.target.files);
+              if (!files.length) return;
+              const current = (await getImagesForQuestion(idx)).length;
+              if (current + files.length > 12) {
+                alert("Tối đa 12 ảnh mỗi câu!");
+                return;
+              }
+              for (const file of files) {
+                if (file.size > 20 * 1024 * 1024) {
+                  alert(`${file.name} quá lớn (>20MB)`);
+                  continue;
+                }
+                const reader = new FileReader();
+                reader.onload = async (ev) => {
+                  const compressed = await compressImage(ev.target.result);
+                  editor.setData(
+                    editor.getData() +
+                      `<p><img src="${compressed}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
+                  );
+                  await saveImageToDB(idx, compressed);
+                  await renderImages(idx);
+                  saveAnswersToStorage();
+                  await showBtnSideBar(listQues, answers);
+                };
+                reader.readAsDataURL(file);
+              }
+              fileInput.value = "";
+            });
+          })
+          .catch((err) => console.error("Lỗi CKEditor:", err));
+      }, 100);
+
+      container.data("editor-initialized", true);
+    });
   }
   // ================== Render sidebar ==================
   // THAY TOÀN BỘ hàm showBtnSideBar bằng đoạn này:
@@ -220,6 +613,91 @@ $(document).ready(function () {
     let html = "";
     let currentContext = null;
     let groupHtml = "";
+    const imageCache = new Map();
+
+    // ==================== HÀM HIỂN THỊ ẢNH SIÊU ỔN ĐỊNH (Base64 → Blob URL) ====================
+
+    const renderImage = (imgData) => {
+      if (!imgData || imgData.trim() === "") return "";
+
+      let src = imgData;
+      if (src.match(/^\/9j\/|data:image\/|iVBORw0KGgo/)) {
+        if (!imageCache.has(src)) {
+          try {
+            const binary = atob(src.includes(",") ? src.split(",")[1] : src);
+            const array = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+            const blob = new Blob([array], { type: "image/jpeg" });
+            const blobUrl = URL.createObjectURL(blob);
+            imageCache.set(src, blobUrl);
+          } catch (e) {
+            console.warn("Lỗi decode base64 ảnh:", e);
+            return `<div class="text-center text-danger my-3">Lỗi tải ảnh</div>`;
+          }
+        }
+        src = imageCache.get(src);
+      }
+
+      return `
+    <div class="text-center my-3">
+      <img src="${src}" 
+           class="img-fluid rounded shadow-sm border" 
+           style="max-height: 320px; max-width: 100%; object-fit: contain; cursor: pointer;"
+           loading="lazy"
+           onclick="window.open(this.src, '_blank')"
+           onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjOTk5Ij5M4buVaSB0YWkg4bqhbmg8L3RleHQ+PC9zdmc+'; this.onerror=null;">
+    </div>`;
+    };
+
+    // Hàm tạo nút A B C D đẹp + có ảnh đáp án phía dưới nút
+    const createAnswerButtons = (
+      question,
+      index,
+      userChosenId,
+      isReading = false
+    ) => {
+      const quesNum = index + 1;
+      const groupName = isReading
+        ? `options-reading-${quesNum}`
+        : `options-c${quesNum}`;
+      const idPrefix = isReading ? "rd" : "mcq";
+
+      return `
+      <div class="text-center my-5">
+        <div class="d-inline-block bg-light rounded-4 px-5 py-4 border shadow-sm">
+          <div class="text-primary fw-bold mb-4 fs-5">
+            <i class="fas fa-edit me-2"></i>Đáp án của bạn:
+          </div>
+          <div class="d-flex justify-content-center gap-4 flex-wrap">
+            ${question.cautraloi
+              .map((ctl, i) => {
+                const letter = String.fromCharCode(65 + i);
+                const isChecked = String(userChosenId) === String(ctl.macautl);
+
+                return `
+                <div class="text-center">
+                  <input type="radio" class="btn-check"
+                         name="${groupName}"
+                         id="${idPrefix}-${ctl.macautl}"
+                         data-index="${index}"
+                         data-macautl="${ctl.macautl}"
+                         ${isChecked ? "checked" : ""}>
+                  <label for="${idPrefix}-${ctl.macautl}"
+                         class="btn rounded-pill fw-bold shadow-sm
+                                ${
+                                  isChecked
+                                    ? "btn-warning text-dark"
+                                    : "btn-outline-primary"
+                                }"
+                         style="min-width:52px; min-height:52px; font-size:1.4rem; padding:0.5rem 1rem;">
+                    ${letter}
+                  </label>
+                </div>`;
+              })
+              .join("")}
+          </div>
+        </div>
+      </div>`;
+    };
 
     questions.forEach((question, index) => {
       const userAnswer = answers[index] || {};
@@ -229,117 +707,117 @@ $(document).ready(function () {
       const thumbId = `thumb_${index + 1}`;
       const fileInputId = `fileinput_${index + 1}`;
 
-      // === READING GROUP ===
+      // ==================== READING GROUP ====================
       if (question.loai === "reading") {
         if ((question.context || "").trim() !== (currentContext || "").trim()) {
           if (groupHtml) {
-            html += `<div class="reading-group rounded border mb-3 bg-white p-3">${groupHtml}</div>`;
+            html += `<div class="reading-group card shadow-sm mb-4 overflow-hidden">${groupHtml}</div>`;
             groupHtml = "";
           }
           currentContext = (question.context || "").trim();
-
-          groupHtml += `${
-            question.tieude_context
-              ? `<h5 class="fw-bold mb-3 text-center p-2 rounded" style="background-color: #ffc107; color: #212529;">
-  ${question.tieude_context}
-</h5>
-`
-              : ""
-          }`;
-          groupHtml += `<p class="mb-4 text-muted" style="line-height: 1.8; font-size: 0.95rem;">${question.context}</p>`;
+          groupHtml += question.tieude_context
+            ? `<div class="bg-warning text-dark text-center py-3 fw-bold fs-5">${question.tieude_context}</div>`
+            : "";
+          groupHtml += `<div class="p-4 bg-light border-bottom">${question.context}</div>`;
         }
 
         const quesNum = index + 1;
-        groupHtml += `<div class="question-item mb-4 p-3 bg-light rounded" id="reading-q${quesNum}">
-          <p class="question-content fw-bold mb-3" style="color: #333; font-size: 1rem;">${quesNum}. ${question.noidung}</p>`;
+        groupHtml += `
+        <div class="p-4 bg-white" id="reading-q${quesNum}">
+          <p class="fw-bold mb-3 fs-5"  style="
+        display:inline-block;
+        background:#e8f3ff;
+        color:#1a73e8;
+        padding:6px 12px;
+        border-radius:8px;
+    ">${quesNum}. ${question.noidung}</p>
+          ${renderImage(question.hinhanh)}`; // Ảnh câu hỏi
 
-        if (
-          question.cautraloi &&
-          Array.isArray(question.cautraloi) &&
-          question.cautraloi.length > 0
-        ) {
-          groupHtml += `<div class="row g-2">`;
+        if (question.cautraloi && question.cautraloi.length > 0) {
+          groupHtml += `<div class="row g-3 mb-4">`;
           question.cautraloi.forEach((ctl, i) => {
             const content = ctl.noidungtl || ctl.content || "";
-            groupHtml += `<div class="col-12 col-md-6 mb-2">
-              <div class="d-flex align-items-start">
-                <span class="badge bg-primary me-2" style="min-width: 30px; text-align: center;">${String.fromCharCode(
-                  65 + i
-                )}</span>
-              <span style="word-break: break-word; white-space: normal;">${content}</span>
-              </div>
-            </div>`;
+            const img = ctl.hinhanhlt || "";
+            groupHtml += `
+<div class="col-12 col-md-6">
+  <div class="border border-2 rounded-4 p-4 bg-white shadow-sm h-100 d-flex flex-column transition-all hover-shadow-lg"
+       style="border-color: #e0e0e0 !important; min-height: 120px;">
+    <div class="d-flex align-items-center gap-4 flex-grow-1">
+      <!-- Badge A B C D tròn, căn giữa tuyệt đối -->
+      <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-primary text-white fw-bold fs-4 shadow"
+           style="width: 52px; height: 52px; min-width: 52px;">
+        ${String.fromCharCode(65 + i)}
+      </div>
+      
+      <!-- Nội dung + ảnh -->
+      <div class="flex-grow-1">
+        <div class="mb-3 lh-base text-dark" style="font-size: 1.05rem;">
+          ${content}
+        </div>
+        ${renderImage(img)}
+      </div>
+    </div>
+  </div>
+</div>`;
           });
           groupHtml += `</div>`;
-        } else {
-          groupHtml += `<p class="text-warning small">Không có phương án</p>`;
-        }
 
-        groupHtml += `<div class="test-ans bg-primary rounded py-3 px-3 d-flex align-items-center mt-3 flex-wrap">
-          <p class="mb-0 text-white me-3 fw-bold">Đáp án:</p>
-          <div class="d-flex gap-2 flex-wrap">`;
-        if (
-          question.cautraloi &&
-          Array.isArray(question.cautraloi) &&
-          question.cautraloi.length > 0
-        ) {
-          question.cautraloi.forEach((ctl, i) => {
-            const isChecked = String(userChosenId) === String(ctl.macautl);
-            groupHtml += `
-              <input type="radio" class="btn-check"
-                     name="options-reading-${quesNum}"
-                     id="ctl-${ctl.macautl}" 
-                     autocomplete="off"
-                     data-index="${index}"
-                     data-macautl="${ctl.macautl}" 
-                     value="${ctl.macautl}" ${isChecked ? "checked" : ""}>
-              <label class="btn btn-light rounded-pill btn-answer fw-bold ${
-                isChecked ? "btn-warning" : ""
-              }"
-                     style="min-width: 45px; text-align: center; cursor: pointer;"
-                     for="ctl-${ctl.macautl}">
-                ${String.fromCharCode(65 + i)}
-              </label>`;
-          });
-        } else {
-          groupHtml += `<span class="text-white small">Không có lựa chọn</span>`;
+          groupHtml += createAnswerButtons(question, index, userChosenId, true);
         }
-        groupHtml += `</div></div>`;
         groupHtml += `</div>`;
-      } else {
+      }
+
+      // ==================== CÂU HỎI THƯỜNG ====================
+      else {
         if (groupHtml) {
-          html += `<div class="reading-group rounded border mb-3 bg-white p-3">${groupHtml}</div>`;
+          html += `<div class="reading-group card shadow-sm mb-4 overflow-hidden">${groupHtml}</div>`;
           groupHtml = "";
           currentContext = null;
         }
 
-        html += `<div class="question rounded border mb-3 bg-white" id="c${
+        html += `
+        <div class="question card shadow-sm mb-4 overflow-hidden" id="c${
           index + 1
         }">
-        <div class="question-top p-3">
-          <p class="question-content fw-bold mb-2">${index + 1}. ${
-          question.noidung
-        }</p>
-        </div>`;
+          <div class="card-body p-4">
+         <h5 class="card-title fw-bold mb-3"
+    style="
+        display:inline-block;
+        background:#e8f3ff;
+        color:#1a73e8;
+        padding:6px 12px;
+        border-radius:8px;
+    ">
+  ${index + 1}. ${question.noidung}
+</h5>
 
+
+            ${renderImage(question.hinhanh)}`;
+
+        // ==================== ESSAY ====================
         if (question.loai === "essay") {
-          html += `<div class="test-ans bg-light text-dark p-4 rounded-bottom">
-          <p class="mb-3 fw-bold fs-5">Trả lời tại đây:</p>
-          <div id="${editorId}" class="mb-4">${userEssayText || ""}</div>
-          <div class="mb-3">
-            <label class="form-label">Hình ảnh (tùy chọn)</label>
+          html += `
+          <div class="mb-4">
+            <label class="form-label fw-bold text-dark fs-5">Trả lời của bạn:</label>
+            <div id="${editorId}" class="border rounded bg-white p-3" style="min-height:280px;">${userEssayText}</div>
+          </div>
+          <div class="border rounded p-4 bg-light">
+            <label class="form-label fw-bold text-success mb-3">Hình ảnh (nếu có)</label>
             <input type="file" class="form-control" id="${fileInputId}" accept="image/*" multiple>
+            <div id="${thumbId}" class="image-preview-container mt-3 d-flex flex-wrap gap-3 p-3 border rounded bg-white" style="min-height:120px;">
+              <small class="text-muted w-100 text-center">Chưa có ảnh nào được chọn</small>
+            </div>
           </div>
-          <div id="${thumbId}" class="image-preview-container border rounded p-3 bg-white">
-            <small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>
-          </div>
-        </div>`;
+        </div></div>`;
 
+          // CKEditor + xử lý ảnh (giữ nguyên 100% logic cũ)
           setTimeout(() => {
-            const previewContainer = document.getElementById(thumbId);
             const fileInput = document.getElementById(fileInputId);
-            if (window["ckeditor_" + editorId])
+            const previewContainer = document.getElementById(thumbId);
+
+            if (window["ckeditor_" + editorId]) {
               window["ckeditor_" + editorId].destroy().catch(() => {});
+            }
 
             ClassicEditor.create(document.getElementById(editorId), {
               toolbar: [
@@ -347,7 +825,6 @@ $(document).ready(function () {
                 "|",
                 "bold",
                 "italic",
-                "underline",
                 "|",
                 "bulletedList",
                 "numberedList",
@@ -358,255 +835,202 @@ $(document).ready(function () {
                 "undo",
                 "redo",
               ],
-              placeholder: "Nhập câu trả lời của bạn tại đây...",
+              placeholder: "Nhập câu trả lời chi tiết của bạn tại đây...",
             }).then((editor) => {
               window["ckeditor_" + editorId] = editor;
-              editor.ui.view.editable.element.style.minHeight = "200px";
+              editor.ui.view.editable.element.style.minHeight = "280px";
               if (userEssayText) editor.setData(userEssayText);
 
-              const syncImages = () => {
-                const temp = document.createElement("div");
-                temp.innerHTML = editor.getData();
-                const imgs = Array.from(temp.querySelectorAll("img")).map((i) =>
-                  i.src ? i.src : ""
-                );
-                answers[index] = answers[index] || {};
-                answers[index].images = imgs.filter((s) => s && s.trim());
-                //localStorage.setItem(answerKey, JSON.stringify(answers));
-              };
-
               async function renderImages(qIndex) {
-                const previewContainer = document.getElementById(thumbId);
-                if (!previewContainer) return;
-
                 try {
                   const images = await getImagesForQuestion(qIndex);
-                  previewContainer.innerHTML = "";
-
-                  if (images.length === 0) {
-                    previewContainer.innerHTML = `<small class="text-muted no-image-text">Chưa có ảnh nào được chọn</small>`;
-                    return;
-                  }
-
-                  images.forEach((imgObj, i) => {
-                    const base64String = imgObj.base64;
-                    if (!base64String || typeof base64String !== "string")
-                      return;
-
+                  previewContainer.innerHTML =
+                    images.length === 0
+                      ? `<small class="text-muted w-100 text-center">Chưa có ảnh nào được chọn</small>`
+                      : "";
+                  images.forEach((imgObj) => {
+                    if (!imgObj.base64) return;
                     const wrapper = document.createElement("div");
-                    wrapper.className =
-                      "position-relative d-inline-block me-3 mb-3";
-
+                    wrapper.className = "position-relative";
                     const img = document.createElement("img");
-                    img.src = base64String;
+                    img.src = imgObj.base64;
                     img.className = "img-thumbnail rounded";
                     img.style.cssText =
-                      "max-height:150px; max-width:200px; object-fit:cover; cursor:pointer;";
-                    img.onclick = () => {
-                      // Click để xem ảnh lớn hơn (tùy chọn)
-                      window.open(base64String, "_blank");
-                    };
-
-                    const btnDelete = document.createElement("button");
-                    btnDelete.className =
+                      "max-height:140px; max-width:200px; object-fit:cover; cursor:pointer;";
+                    img.onclick = () => window.open(imgObj.base64, "_blank");
+                    const del = document.createElement("button");
+                    del.className =
                       "btn btn-danger btn-sm rounded-circle position-absolute";
-                    btnDelete.style.cssText =
-                      "top:5px; right:5px; width:28px; height:28px; font-size:16px; line-height:1;";
-                    btnDelete.innerHTML = "×";
-                    btnDelete.onclick = async (e) => {
+                    del.style.cssText =
+                      "top:8px; right:8px; width:30px; height:30px;";
+                    del.innerHTML = "×";
+                    del.onclick = async (e) => {
                       e.stopPropagation();
-
-                      await deleteImageFromDB(qIndex, base64String);
-
-                      const currentData = editor.getData();
-                      const tempDiv = document.createElement("div");
-                      tempDiv.innerHTML = currentData;
-
-                      const imgs = tempDiv.querySelectorAll("img");
-                      imgs.forEach((img) => {
-                        if (img.src === base64String) {
-                          img.parentElement?.remove();
-                        }
+                      await deleteImageFromDB(qIndex, imgObj.base64);
+                      const temp = document.createElement("div");
+                      temp.innerHTML = editor.getData();
+                      temp.querySelectorAll("img").forEach((i) => {
+                        if (i.src === imgObj.base64) i.parentElement?.remove();
                       });
-
-                      editor.setData(tempDiv.innerHTML);
-
+                      editor.setData(temp.innerHTML);
                       await renderImages(qIndex);
                       saveAnswersToStorage();
                       await showBtnSideBar(questions, answers);
                     };
-
                     wrapper.appendChild(img);
-                    wrapper.appendChild(btnDelete);
+                    wrapper.appendChild(del);
                     previewContainer.appendChild(wrapper);
                   });
                 } catch (err) {
-                  console.error("Lỗi render ảnh:", err);
+                  console.error(err);
                 }
               }
 
-              let debounceTimer;
               editor.model.document.on("change:data", async () => {
-                const html = editor.getData();
-                const div = document.createElement("div");
-                div.innerHTML = html;
-                const cleanText = div.innerText.trim();
-
-                answers[index].noidungtl = cleanText || null;
+                const text = editor
+                  .getData()
+                  .replace(/<[^>]*>/g, "")
+                  .trim();
+                answers[index] = answers[index] || {};
+                answers[index].noidungtl = text || null;
                 saveAnswersToStorage();
-
-                // Cập nhật sidebar nếu có text hoặc ảnh
-                const images = await getImagesForQuestion(index);
-                if (cleanText || images.length > 0) {
+                const imgs = await getImagesForQuestion(index);
+                if (text || imgs.length > 0) {
                   $(`.answer-item-link[data-target="c${index + 1}"]`).addClass(
                     "active"
                   );
                 }
-
                 await showBtnSideBar(questions, answers);
               });
 
-              // ==================== XỬ LÝ ẢNH TRONG CKEDITOR ====================
-              fileInput.addEventListener("change", async function (e) {
+              fileInput.addEventListener("change", async (e) => {
                 const files = Array.from(e.target.files);
-                if (files.length === 0) return;
-
-                const currentCount = (await getImagesForQuestion(index)).length;
-                if (currentCount + files.length > 12) {
+                if (!files.length) return;
+                const current = (await getImagesForQuestion(index)).length;
+                if (current + files.length > 12) {
                   alert("Tối đa 12 ảnh mỗi câu!");
                   return;
                 }
-
                 for (const file of files) {
                   if (file.size > 20 * 1024 * 1024) {
-                    alert(`Ảnh ${file.name} quá lớn (>20MB)`);
+                    alert(`${file.name} quá lớn (>20MB)`);
                     continue;
                   }
-
                   const reader = new FileReader();
                   reader.onload = async (ev) => {
-                    const originalBase64 = ev.target.result;
-                    const compressedBase64 = await compressImage(
-                      originalBase64
+                    const compressed = await compressImage(ev.target.result);
+                    editor.setData(
+                      editor.getData() +
+                        `<p><img src="${compressed}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
                     );
-
-                    // Chèn ảnh vào CKEditor
-                    const imgTag = `<p><img src="${compressedBase64}" style="max-width:100%;height:auto;"></p>`;
-                    editor.setData(editor.getData() + imgTag);
-
-                    // Lưu vào IndexedDB
-                    await saveImageToDB(index, compressedBase64);
-
-                    // Cập nhật preview
-                    await renderImages(index); // thêm await cho chắc
+                    await saveImageToDB(index, compressed);
+                    await renderImages(index);
                     saveAnswersToStorage();
-
-                    // THÊM DÒNG NÀY – BẮT BUỘC PHẢI CÓ!
                     await showBtnSideBar(questions, answers);
                   };
                   reader.readAsDataURL(file);
                 }
-                this.value = "";
+                fileInput.value = "";
               });
 
-              syncImages();
-              renderImages();
-            });
-
-            // === TỰ ĐỘNG CHÈN LẠI ẢNH VÀO CKEDITOR KHI LOAD LẠI TRANG ===
-            (async () => {
-              const savedImages = await getImagesForQuestion(index);
-              if (savedImages.length > 0) {
-                let imgTags = "";
-                savedImages.forEach((imgObj) => {
-                  if (imgObj.base64) {
-                    imgTags += `<p><img src="${imgObj.base64}" style="max-width:100%;height:auto;"></p>`;
-                  }
-                });
-                // Chèn vào cuối nội dung hiện tại
-                editor.getData();
-                editor.model.change((writer) => {
-                  const insertPosition =
-                    editor.model.document.selection.getFirstPosition();
-                  editor.model.insertContent(
-                    writer.createText(imgTags),
-                    insertPosition
+              (async () => {
+                const saved = await getImagesForQuestion(index);
+                if (saved.length > 0) {
+                  const tags = saved
+                    .map(
+                      (i) =>
+                        `<p><img src="${i.base64}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
+                    )
+                    .join("");
+                  setTimeout(
+                    () => editor.setData(editor.getData() + tags),
+                    300
                   );
-                });
-                // Hoặc đơn giản hơn:
-                setTimeout(() => {
-                  const current = editor.getData();
-                  editor.setData(current + imgTags);
-                }, 300);
-              }
-              await renderImages(index); // hiển thị preview
-            })();
-          }, 50);
-        } else {
-          // MCQ non-reading
-          html += `<div class="row">`;
-          question.cautraloi.forEach((ctl, i) => {
-            const content = ctl.noidungtl || "";
-            html += `<div class="col-6 mb-2"><div><b>${String.fromCharCode(
-              65 + i
-            )}.</b> ${content}</div></div>`;
-          });
-          html += `</div>`;
+                }
+                await renderImages(index);
+              })();
+            });
+          }, 100);
+        }
 
-          html += `<div class="test-ans bg-primary rounded-bottom py-2 px-3 d-flex align-items-center">
-          <p class="mb-0 text-white me-4">Đáp án của bạn:</p>
-          <div>`;
-          question.cautraloi.forEach((ctl, i) => {
-            const isChecked = String(userChosenId) === String(ctl.macautl);
-            html += `<input type="radio" class="btn-check" name="options-c${
-              index + 1
-            }" id="ctl-${
-              ctl.macautl
-            }" autocomplete="off" data-index="${index}" data-macautl="${
-              ctl.macautl
-            }" value="${ctl.macautl}" ${isChecked ? "checked" : ""}>
-          <label class="btn btn-light rounded-pill me-2 btn-answer ${
-            isChecked ? "btn-warning" : ""
-          }" for="ctl-${ctl.macautl}">${String.fromCharCode(65 + i)}</label>`;
-          });
-          html += `</div></div></div>`;
+        // ==================== MCQ THƯỜNG ====================
+        else {
+          if (question.cautraloi && question.cautraloi.length > 0) {
+            html += `<div class="row g-3 mb-4">`;
+            question.cautraloi.forEach((ctl, i) => {
+              const content = ctl.noidungtl || "";
+              const img = ctl.hinhanhtl || ctl.hinhanh || "";
+              html += `
+              <div class="col-12 col-md-6">
+  <div class="border border-2 rounded-4 p-4 bg-white shadow-sm h-100 d-flex flex-column transition-all hover-shadow-lg"
+       style="border-color: #e0e0e0 !important; min-height: 120px;">
+    <div class="d-flex align-items-center gap-4 flex-grow-1">
+      <!-- Badge A B C D tròn, căn giữa tuyệt đối -->
+      <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle bg-primary text-white fw-bold fs-4 shadow"
+           style="width: 52px; height: 52px; min-width: 52px;">
+        ${String.fromCharCode(65 + i)}
+      </div>
+      
+      <!-- Nội dung + ảnh -->
+      <div class="flex-grow-1">
+        <div class="mb-3 lh-base text-dark" style="font-size: 1.05rem;">
+          ${content}
+        </div>
+        ${renderImage(img)}
+      </div>
+    </div>
+  </div>
+</div>`;
+            });
+            html += `</div>`;
+
+            html += createAnswerButtons(question, index, userChosenId, false);
+          }
+          html += `</div></div>`;
         }
       }
     });
 
-    // Đóng nhóm reading cuối
-    if (groupHtml)
-      html += `<div class="reading-group rounded border mb-3 bg-white p-3">${groupHtml}</div>`;
+    if (groupHtml) {
+      html += `<div class="reading-group card shadow-sm mb-4 overflow-hidden">${groupHtml}</div>`;
+    }
 
     $("#list-question").html(html);
 
-    $(".btn-check").off("change");
+    // Event chọn đáp án
     $(document)
       .off("change", ".btn-check")
       .on("change", ".btn-check", async function () {
         const idx = $(this).data("index");
         const macautl = $(this).data("macautl");
-        const quesIndex = idx + 1; // For toast
-        const label = $("label[for='" + $(this).attr("id") + "']")
-          .text()
-          .trim();
 
-        if (!answers[idx]) answers[idx] = {};
+        answers[idx] = answers[idx] || {};
         answers[idx].cautraloi = macautl;
-        localStorage.setItem(answerKey, JSON.stringify(answers));
+        saveAnswersToStorage();
         await showBtnSideBar(questions, answers);
 
-        $("label[for='" + $(this).attr("id") + "']")
-          .addClass("btn-warning")
-          .siblings("label")
-          .removeClass("btn-warning")
-          .css("background-color", "");
+        const name = $(this).attr("name");
+        $(`input[name="${name}"]`).each(function () {
+          const label = $(`label[for="${$(this).attr("id")}"]`);
+          if ($(this).is(":checked")) {
+            label
+              .removeClass("btn-outline-primary")
+              .addClass("btn-warning text-dark");
+          } else {
+            label
+              .removeClass("btn-warning text-dark")
+              .addClass("btn-outline-primary");
+          }
+        });
 
-        showAnswerToast(quesIndex, label);
+        const labelText = $(`label[for="${$(this).attr("id")}"]`).text();
+        showAnswerToast(idx + 1, labelText);
       });
 
     await showBtnSideBar(questions, answers);
   }
+
+  // Hàm lưu localStorage (giữ nguyên)
   function saveAnswersToStorage() {
     const safeData = listQues.map((q, i) => {
       const ans = answers[i] || {};
@@ -616,51 +1040,50 @@ $(document).ready(function () {
         noidungtl: ans.noidungtl ?? (q.loai === "essay" ? "" : null),
       };
     });
-
     try {
-      localStorage.setItem(answerKey, JSON.stringify(safeData));
+      localStorage.setItem("user_answers_temp", JSON.stringify(safeData));
     } catch (e) {
-      console.warn("Không lưu được vào localStorage", e);
+      console.warn("Lỗi lưu localStorage", e);
     }
   }
-
   // ================= Khởi tạo và render lần đầu =================
-  $.when(getQuestion()).done(async () => {
-    let savedQ = localStorage.getItem(dethiKey);
-    let savedA = localStorage.getItem(answerKey);
-
-    if (savedQ) {
-      listQues = JSON.parse(savedQ);
-    } else {
-      // THÊM DÒNG NÀY: đánh số thứ tự hiển thị
-      questions.forEach((q, index) => {
-        q.displayOrder = index + 1; // thứ tự hiển thị trên giao diện
-      });
-
-      listQues = questions;
-      localStorage.setItem(dethiKey, JSON.stringify(listQues));
+  $.when(getQuestion()).done(async (response) => {
+    // response giờ có dạng: { dethi: {tende: "...", tenmonhoc: "..."}, cauhoi: [...] }
+    if (!response || !response.cauhoi) {
+      $("#list-question").html(
+        "<p class='text-center text-danger'>Không tải được đề thi!</p>"
+      );
+      return;
     }
 
+    // ĐỔ TÊN MÔN + TÊN ĐỀ THI VÀO THANH NAV
+    if (response.dethi) {
+      $("#ten-mon").text(response.dethi.tenmonhoc || "Không rõ");
+      $("#ten-de").text(response.dethi.tende || "Không rõ");
+    }
+
+    // Gán dữ liệu câu hỏi
+    questions = response.cauhoi;
+    listQues = questions.map((q, i) => ({ ...q, displayOrder: i + 1 }));
+
+    // Khôi phục đáp án từ localStorage (nếu có)
+    let savedA = localStorage.getItem(answerKey);
     if (savedA) {
-      const savedAnswersRaw = JSON.parse(savedA);
-      // Tái tạo mảng answers đúng thứ tự theo listQues
-      answers = listQues.map((q) => {
-        const saved = savedAnswersRaw.find((s) => s.macauhoi === q.macauhoi);
-        if (saved) {
-          return {
-            cautraloi: saved.cautraloi || (q.loai === "essay" ? null : 0),
-            noidungtl: saved.noidungtl || (q.loai === "essay" ? "" : null),
-          };
-        }
+      const savedAnswers = JSON.parse(savedA);
+      answers = listQues.map((q, i) => {
+        const saved =
+          savedAnswers.find((s) => s.macauhoi === q.macauhoi) ||
+          savedAnswers[i];
         return {
-          cautraloi: q.loai === "essay" ? null : 0,
-          noidungtl: q.loai === "essay" ? "" : null,
+          cautraloi: saved?.cautraloi ?? (q.loai === "essay" ? null : 0),
+          noidungtl: saved?.noidungtl ?? (q.loai === "essay" ? "" : null),
         };
       });
     } else {
       answers = initListAnswer(listQues);
     }
 
+    // Lưu đáp án (rút gọn)
     localStorage.setItem(
       answerKey,
       JSON.stringify(
@@ -672,13 +1095,48 @@ $(document).ready(function () {
       )
     );
 
-    await showListQuestion(listQues, answers);
+    // Render giao diện
+    renderCurrentView();
     await showBtnSideBar(listQues, answers);
+
+    // Highlight câu hiện tại (chế độ 1 câu)
+    if (displayMode === "one") {
+      const target =
+        listQues[currentQuestionIndex].loai === "reading"
+          ? `reading-q${currentQuestionIndex + 1}`
+          : `c${currentQuestionIndex + 1}`;
+      $(`.answer-item-link[data-target="${target}"]`).addClass(
+        "btn-primary text-white"
+      );
+    }
   });
-  // ================= Sidebar click =================
-  $(document).on("click", ".answer-item-link", function () {
-    const ques = $(this).data("index");
-    document.getElementById(`c${ques}`).scrollIntoView({ behavior: "smooth" });
+  // === CLICK VÀO SỐ CÂU Ở SIDEBAR → NHẢY ĐÚNG CÂU Ở CẢ 2 CHẾ ĐỘ ===
+  $(document).on("click", ".answer-item-link", function (e) {
+    e.preventDefault();
+
+    const target = $(this).data("target");
+    let questionIndex = -1;
+
+    if (target.startsWith("reading-q")) {
+      questionIndex = parseInt(target.replace("reading-q", "")) - 1;
+    } else if (target.startsWith("c")) {
+      questionIndex = parseInt(target.replace("c", "")) - 1;
+    }
+
+    if (questionIndex >= 0 && questionIndex < listQues.length) {
+      currentQuestionIndex = questionIndex;
+
+      if (displayMode === "full") {
+        const el = document.getElementById(target);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      } else {
+        renderCurrentView();
+      }
+      $(".answer-item-link").removeClass("btn-primary text-white");
+      $(this).addClass("btn-primary text-white");
+    }
   });
 
   $(document).on("click", ".btn-answer", function () {
@@ -690,10 +1148,7 @@ $(document).ready(function () {
   });
 
   function showAnswerToast(cau, dapan) {
-    // Xoá toast cũ nếu tồn tại
     $("#answer-toast").remove();
-
-    // HTML toast mới
     const toastHtml = `
     <div id="answer-toast" class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 9999; margin-top: 20px;">
       <div class="toast show align-items-center text-white bg-success border-0 shadow-lg" role="alert">
@@ -709,7 +1164,6 @@ $(document).ready(function () {
 
     $("body").append(toastHtml);
 
-    // Ẩn tự động sau 1.5 giây nếu chưa đóng
     setTimeout(() => {
       $("#answer-toast").fadeOut(200, function () {
         $(this).remove();
@@ -726,23 +1180,21 @@ $(document).ready(function () {
   $("#btn-nop-bai").click(async function (e) {
     e.preventDefault();
 
-    const savedAnswers = JSON.parse(localStorage.getItem(answerKey) || "[]");
     const unanswered = [];
 
     for (let i = 0; i < listQues.length; i++) {
       const q = listQues[i];
-      const ans = savedAnswers[i] || {};
+      const ans = answers[i] || {};
 
       if (q.loai === "essay") {
-        // Kiểm tra có text (loại bỏ thẻ rỗng)
-        const hasText =
+        // Kiểm tra nội dung text
+        const hasText = !!(
           ans.noidungtl &&
           typeof ans.noidungtl === "string" &&
-          ans.noidungtl.trim().length > 0 &&
-          !["<p></p>", "<p><br></p>", "<br>", ""].includes(
-            ans.noidungtl.trim()
-          );
+          ans.noidungtl.replace(/<[^>]*>/g, "").trim().length > 0
+        );
 
+        // Kiểm tra ảnh
         let hasImage = false;
         try {
           const images = await getImagesForQuestion(i);
@@ -750,11 +1202,10 @@ $(document).ready(function () {
         } catch (e) {}
 
         if (!hasText && !hasImage) {
-          unanswered.push(i + 1); // ← câu essay chưa làm gì cả
+          unanswered.push(i + 1);
         }
-        // ← KẾT THÚC if essay, không có else ở đây nữa
       } else {
-        // Đây là trắc nghiệm hoặc reading
+        // Trắc nghiệm: kiểm tra có chọn đáp án khác 0 không
         if (!ans.cautraloi || ans.cautraloi === 0) {
           unanswered.push(i + 1);
         }
@@ -768,23 +1219,21 @@ $(document).ready(function () {
         html: `<p class='fs-6 text-center mb-0'>Bạn chưa trả lời <strong>${
           unanswered.length
         }</strong> câu:<br>
-              <span class="text-danger fw-bold fs-5">${unanswered.join(
-                ", "
-              )}</span></p>`,
+            <span class="text-danger fw-bold fs-5">${unanswered.join(
+              ", "
+            )}</span></p>`,
         confirmButtonText: "OK",
       });
-      return;
+      return false;
     }
 
-    // Xác nhận nộp bài
+    // Nếu không còn lỗi → hỏi xác nhận nộp
     Swal.fire({
       title:
         "<center><p class='fs-3 mb-0'>Bạn có chắc chắn muốn nộp bài?</p></center>",
       html: "<p class='text-muted fs-6 text-center mb-0'>Khi xác nhận nộp bài, bạn sẽ không thể sửa lại!</p>",
       icon: "info",
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
       confirmButtonText: "Vâng, chắc chắn!",
       cancelButtonText: "Huỷ",
     }).then((result) => {
@@ -796,7 +1245,11 @@ $(document).ready(function () {
 
   async function nopbai() {
     const formData = new FormData();
-    const savedAnswers = JSON.parse(localStorage.getItem(answerKey) || "[]");
+    const savedAnswers = answers.map((ans, i) => ({
+      macauhoi: listQues[i].macauhoi,
+      cautraloi: ans.cautraloi ?? 0,
+      noidungtl: ans.noidungtl ?? "",
+    }));
 
     formData.append("made", made);
     formData.append("thoigian", new Date().toISOString());
@@ -982,8 +1435,20 @@ $(document).ready(function () {
       }
 
       if (distance <= 1000 && distance >= 0) {
-        nopbai();
+        // Thay vì chỉ gọi nopbai(), bạn có thể thêm thông báo trước
         clearInterval(x);
+
+        Swal.fire({
+          icon: "error",
+          title: "Hết thời gian!",
+          text: "Thời gian làm bài đã hết. Hệ thống sẽ tự động nộp bài.",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          timer: 3000,
+          timerProgressBar: true,
+        }).then(() => {
+          nopbai();
+        });
       }
     }, 1000);
   }
@@ -1119,4 +1584,9 @@ $(document).ready(function () {
   //     return "";
   //   }
   // });
+});
+// Dọn dẹp Blob URL khi rời trang để tránh rò rỉ bộ nhớ
+window.addEventListener("beforeunload", () => {
+  imageCache.forEach((url) => URL.revokeObjectURL(url));
+  imageCache.clear();
 });

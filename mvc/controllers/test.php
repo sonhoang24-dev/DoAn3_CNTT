@@ -639,33 +639,30 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
     }
 
     public function getQuestion()
-    {
-        header('Content-Type: application/json; charset=utf-8');
+{
+    header('Content-Type: application/json; charset=utf-8');
 
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            echo json_encode(['success' => false, 'error' => 'Phương thức không hợp lệ']);
-            exit;
-        }
-
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        $made = $_POST['made'] ?? 0;
-        $user = $_SESSION['user_id'] ?? null;
-
-        // CHỈ SỬA CHỖ NÀY
-        if (intval($made) <= 0 || empty($user)) {
-            echo json_encode(['success' => false, 'error' => 'Mã đề hoặc người dùng không hợp lệ']);
-            exit;
-        }
-
-        // không ép intval($user) nữa
-        $result = $this->dethimodel->getQuestionByUser(intval($made), $user);
-        echo json_encode($result);
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid method']);
         exit;
     }
 
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    $made = $_POST['made'] ?? 0;
+    $user = $_SESSION['user_id'] ?? null;
+
+    if (!$made || !$user) {
+        echo json_encode(['success' => false, 'message' => 'Thiếu thông tin']);
+        exit;
+    }
+
+    $result = $this->dethimodel->getQuestionByUser(intval($made), $user);
+    echo json_encode($result);
+    exit;
+}
 
 
     public function getQuestionOfTestManual()
@@ -890,79 +887,107 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         $result = $this->ketquamodel->chuyentab($made, $id); // gọi hàm chuyentab ở dòng 380 của file KetquaModel.php
         echo $result;
     }
+ public function exportPdf($makq)
+{
+    // Đảm bảo makq là số nguyên
+    $makq = intval($makq);
+    error_log("exportPdf called with makq = $makq");
 
-    public function exportPdf($makq)
-    {
-        $dompdf = new Dompdf();
+    // Lấy thông tin kết quả
+    $info = $this->ketquamodel->getInfoPrintPdf($makq);
+    $cauHoi = $this->dethimodel->getResultDetail($makq);
 
-        $info = $this->ketquamodel->getInfoPrintPdf($makq);
-        $cauHoi = $this->dethimodel->getResultDetail($makq);
-        $diem = $info['diemthi'] != "" ? $info['diemthi'] : 0;
-        $socaudung = $info['socaudung'] != "" ? $info['socaudung'] : 0;
-        $html = '
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-            <style>
-                * {padding: 0;margin: 0;box-sizing: border-box;}
-                body{font-family: "Times New Roman", serif; padding: 50px 50px}
-            </style>
-        </head>
-        <body>
-            <table style="width:100%">
-                <tr>
-                    <td style="text-align: center;font-weight:bold">
-                        DHT ONTEST<br>
-                        Website tạo và quản lý bài thi<br><br><br>
-                    </td>
-                    <td style="text-align: center;">
-                        <p style="font-weight:bold">' . mb_strtoupper($info['tende'], "UTF-8") . '</p>
-                        <p style="font-weight:bold">Học phần: ' . $info['tenmonhoc'] . '</p>
-                        <p style="font-weight:bold">Mã học phần: ' . $info['mamonhoc'] . '</p>
-                        <p style="font-style:italic">Thời gian làm bài: ' . $info['thoigianthi'] . ' phút</p>
-                    </td>
-                </tr>
-            </table>
-            <table style="width:100%;margin-bottom:10px">
-                <tr style="width:100%">
-                    <td>Mã sinh viên: ' . $info['manguoidung'] . '</td>
-                    <td>Tên thí sinh: ' . $info['hoten'] . '</td>
-                </tr>
-                <tr style="width:100%">
-                    <td>Số câu đúng: ' . $socaudung . '/' . $info['tongsocauhoi'] . '</td>
-                    <td>Điểm: ' . $diem . '</td>
-                </tr>
-            </table>       
-            <hr>
-            <div style="margin-top:20px">
-        ';
-        foreach ($cauHoi as $index => $ch) {
-            $html .= '<li style="list-style:none"><strong>Câu ' . ($index + 1) . '</strong>: ' . $ch['noidung'] . '<ol type="A" style="margin-left:30px">';
-            foreach ($ch['cautraloi'] as $ctl) {
-                $dapAn = $ctl['ladapan'] == "1" ? " (Đáp án chính xác)" : "";
-                $dapAnChon = $ctl['macautl'] == $ch['dapanchon'] ? " (Đáp án chọn)" : "";
-                $html .= '<li>' . $ctl['noidungtl'] . $dapAnChon . $dapAn . '</li>';
-            }
+    // Debug: log dữ liệu
+    error_log("Info: " . print_r($info, true));
+    error_log("CauHoi: " . print_r($cauHoi, true));
 
-            $html .= '</ol></li>';
-        }
-
-        $html .= '
-        </div>
-        </body>
-        </html>
-        ';
-        $dompdf->loadHtml($html, 'UTF-8');
-
-        // Thiết lập kích thước giấy và hướng giấy
-        $dompdf->setPaper('A4', 'portrait');
-
-        // Xuất PDF
-        $dompdf->render();
-        $output = $dompdf->output();
-        echo base64_encode($output);
+    if (!$info) {
+        // Không tìm thấy kết quả thông tin chính
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            "status" => "error",
+            "message" => "Không tìm thấy thông tin kết quả cho makq = $makq"
+        ]);
+        exit;
     }
+
+    if (!$cauHoi || count($cauHoi) === 0) {
+        // Không tìm thấy câu hỏi
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            "status" => "error",
+            "message" => "Không tìm thấy câu hỏi cho makq = $makq"
+        ]);
+        exit;
+    }
+
+    // Nếu dữ liệu OK → tạo PDF
+    $dompdf = new Dompdf();
+
+    $diem = $info['diemthi'] != "" ? $info['diemthi'] : 0;
+    $socaudung = $info['socaudung'] != "" ? $info['socaudung'] : 0;
+
+    $html = '<!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <style>
+            * {padding: 0;margin: 0;box-sizing: border-box;}
+            body{font-family: "Times New Roman", serif; padding: 50px 50px}
+        </style>
+    </head>
+    <body>
+        <table style="width:100%">
+            <tr>
+                <td style="text-align: center;font-weight:bold">
+                    DHT ONTEST<br>
+                    Website tạo và quản lý bài thi<br><br><br>
+                </td>
+                <td style="text-align: center;">
+                    <p style="font-weight:bold">' . mb_strtoupper($info['tende'], "UTF-8") . '</p>
+                    <p style="font-weight:bold">Học phần: ' . $info['tenmonhoc'] . '</p>
+                    <p style="font-weight:bold">Mã học phần: ' . $info['mamonhoc'] . '</p>
+                    <p style="font-style:italic">Thời gian làm bài: ' . $info['thoigianthi'] . ' phút</p>
+                </td>
+            </tr>
+        </table>
+        <table style="width:100%;margin-bottom:10px">
+            <tr style="width:100%">
+                <td>Mã sinh viên: ' . $info['manguoidung'] . '</td>
+                <td>Tên thí sinh: ' . $info['hoten'] . '</td>
+            </tr>
+            <tr style="width:100%">
+                <td>Số câu đúng: ' . $socaudung . '/' . $info['tongsocauhoi'] . '</td>
+                <td>Điểm: ' . $diem . '</td>
+            </tr>
+        </table>       
+        <hr>
+        <div style="margin-top:20px">';
+
+    foreach ($cauHoi as $index => $ch) {
+        $html .= '<li style="list-style:none"><strong>Câu ' . ($index + 1) . '</strong>: ' . $ch['noidung'] . '<ol type="A" style="margin-left:30px">';
+        foreach ($ch['cautraloi'] as $ctl) {
+            $dapAn = $ctl['ladapan'] == "1" ? " (Đáp án chính xác)" : "";
+            $dapAnChon = $ctl['macautl'] == $ch['dapanchon'] ? " (Đáp án chọn)" : "";
+            $html .= '<li>' . $ctl['noidungtl'] . $dapAnChon . $dapAn . '</li>';
+        }
+        $html .= '</ol></li>';
+    }
+
+    $html .= '</div></body></html>';
+
+    // Generate PDF
+    $dompdf->loadHtml($html, 'UTF-8');
+    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->render();
+    $output = $dompdf->output();
+
+    // Trả về Base64 PDF
+    header('Content-Type: text/plain');
+    echo base64_encode($output);
+}
+
+
 
     public function exportExcel()
     {
@@ -1141,5 +1166,5 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
     }
 
 
-  
+
 }

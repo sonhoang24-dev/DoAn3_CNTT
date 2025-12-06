@@ -558,13 +558,42 @@ class KetQuaModel extends DB
 
     // Lấy thông tin đề thi, kết quả của sinh viên để xuất file PDF
     public function getInfoPrintPdf($makq)
-    {
-        $sql = "SELECT DISTINCT ketqua.made, tende, tenmonhoc, mamonhoc, thoigianthi, manguoidung, hoten, socaudung,(socaude + socautb + socaukho) AS tongsocauhoi , diemthi
-        FROM chitietketqua, ketqua, dethi, monhoc, nguoidung
-        WHERE chitietketqua.makq = '$makq' AND chitietketqua.makq = ketqua.makq AND ketqua.manguoidung = nguoidung.id AND ketqua.made = dethi.made AND dethi.monthi = monhoc.mamonhoc";
-        $result = mysqli_query($this->con, $sql);
-        return mysqli_fetch_assoc($result);
+{
+    $makq = intval($makq); // đảm bảo là số nguyên
+
+    $sql = "SELECT DISTINCT kq.made, dt.tende, dt.tenmonhoc, dt.mamonhoc, dt.thoigianthi,
+                   kq.manguoidung, u.hoten, kq.socaudung,
+                   (ctk.socaude + ctk.socautb + ctk.socaukho) AS tongsocauhoi,
+                   kq.diemthi
+            FROM chitietketqua ctk
+            INNER JOIN ketqua kq ON ctk.makq = kq.makq
+            INNER JOIN dethi dt ON kq.made = dt.made
+            INNER JOIN monhoc mh ON dt.monthi = mh.mamonhoc
+            INNER JOIN nguoidung u ON kq.manguoidung = u.id
+            WHERE ctk.makq = ?";
+
+    $stmt = mysqli_prepare($this->con, $sql);
+    if (!$stmt) {
+        error_log("Prepare failed: " . mysqli_error($this->con));
+        return false;
     }
+
+    mysqli_stmt_bind_param($stmt, "i", $makq);
+
+    if (!mysqli_stmt_execute($stmt)) {
+        error_log("Execute failed: " . mysqli_stmt_error($stmt));
+        return false;
+    }
+
+    $result = mysqli_stmt_get_result($stmt);
+    if (!$result || mysqli_num_rows($result) == 0) {
+        error_log("No result found for makq=$makq");
+        return false;
+    }
+
+    return mysqli_fetch_assoc($result);
+}
+
     public function countQuestionsByMakq($makq)
     {
         $makq = intval($makq);

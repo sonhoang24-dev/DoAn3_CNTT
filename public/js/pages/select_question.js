@@ -122,19 +122,19 @@ function getAnswerListForQuestion(questions, forceEditMode = false) {
 // ==================== HIỂN THỊ DANH SÁCH CÂU HỎI (BÊN TRÁI) ====================
 function showListQuestion(questions) {
   let html = "";
+
   const dokhoText = ["", "Dễ", "TB", "Khó"];
-  const dokhoColor = ["", "success", "warning", "danger"]; // màu bootstrap
+  const dokhoColor = ["", "success", "warning", "danger"];
 
   if (!questions || questions.length === 0) {
-    $("#list-question").html(`<p class="text-muted text-center py-3">
-      <i class="fa fa-info-circle me-1"></i> Không có câu hỏi
-    </p>`);
+    $("#list-question").html(`
+      <p class="text-muted text-center py-5">
+        <i class="fa fa-info-circle me-2"></i> Không có câu hỏi
+      </p>`);
     return;
   }
 
-  const questionItems = questions.filter(
-    (q) => q.noidungplaintext && q.noidungplaintext.trim() !== ""
-  );
+  const questionItems = questions.filter((q) => q.noidungplaintext?.trim());
 
   questionItems.forEach((q) => {
     const checked = arrQuestion.some((x) => x.macauhoi == q.macauhoi)
@@ -142,12 +142,11 @@ function showListQuestion(questions) {
       : "";
 
     const level = parseInt(q.dokho) || 0;
-    const levelColor = dokhoColor[level]; // => success / warning / danger
+    const levelColor = dokhoColor[level];
 
-    // Loại câu hỏi màu riêng
+    // Xác định loại + màu
     let loaiHienThi = "Câu hỏi";
     let loaiColor = "secondary";
-
     if (q.loai === "reading" || q.loai === "doanvan") {
       loaiHienThi = "Đọc hiểu";
       loaiColor = "info";
@@ -160,26 +159,27 @@ function showListQuestion(questions) {
     }
 
     html += `
-      <li class="list-group-item">
-        <div class="form-check">
-          <input class="form-check-input item-question"
+      <li class="list-group-item px-3 py-3 border-start-0 border-end-0">
+        <div class="form-check d-flex align-items-start gap-3">
+          <input class="form-check-input item-question mt-1 flex-shrink-0"
                  type="checkbox"
                  id="q-${q.macauhoi}"
                  data-id="${q.macauhoi}"
                  ${checked}>
 
-          <label class="form-check-label ms-3" for="q-${q.macauhoi}">
+          <label class="form-check-label flex-grow-1" for="q-${q.macauhoi}">
+            <div class="fw-medium">
+              ${sanitizeHTML(decodeHtmlEntities(q.noidungplaintext))}
+            </div>
 
-            ${sanitizeHTML(decodeHtmlEntities(q.noidungplaintext))}
-
-            <span class="badge bg-${loaiColor} ms-2">
-              ${loaiHienThi}
-            </span>
-
-            <span class="badge bg-${levelColor} ms-1">
-              ${dokhoText[level]}
-            </span>
-
+            <div class="mt-2">
+              <span class="badge bg-${loaiColor} rounded-pill px-2 py-1">
+                ${loaiHienThi}
+              </span>
+              <span class="badge bg-${levelColor} rounded-pill px-2 py-1 ms-2">
+                ${dokhoText[level]}
+              </span>
+            </div>
           </label>
         </div>
       </li>`;
@@ -187,7 +187,6 @@ function showListQuestion(questions) {
 
   $("#list-question").html(html);
 }
-
 // ==================== HIỂN THỊ DANH SÁCH CÂU HỎI ĐÃ CHỌN (BÊN PHẢI) ====================
 function showListQuestionOfTest(questions) {
   if (!questions || !questions.length) {
@@ -413,6 +412,7 @@ function updateQuestionSummary() {
     reading: { de: 0, tb: 0, kho: 0 },
   };
 
+  // Tính số lượng câu hỏi đã chọn
   arrQuestion.forEach((q) => {
     const level = parseInt(q.dokho) || 0;
     const loai = q.loai === "doanvan" ? "reading" : q.loai;
@@ -421,51 +421,63 @@ function updateQuestionSummary() {
   });
 
   const mapping = [
-    { loai: "mcq", prefix: "mcq", color: ["success", "warning", "danger"] },
-    { loai: "essay", prefix: "essay", color: ["success", "warning", "danger"] },
+    { loai: "mcq", prefix: "mcq", colors: ["success", "warning", "danger"] },
+    {
+      loai: "essay",
+      prefix: "essay",
+      colors: ["success", "warning", "danger"],
+    },
     {
       loai: "reading",
       prefix: "reading",
-      color: ["success", "warning", "danger"],
+      colors: ["success", "warning", "danger"],
     },
   ];
 
   mapping.forEach((m) => {
     ["de", "tb", "kho"].forEach((level, i) => {
       const sel = selected[m.loai][level];
-      const total = infoTest[`${m.prefix}_${level}`] || 0;
-      $(`#sl_${m.prefix}_${level}`).text(sel);
-      $(`#tt_${m.prefix}_${level}`).text(total);
+      const totalNum = parseInt(infoTest[`${m.prefix}_${level}`]) || 0;
 
-      const btn = $(`#btn_${m.prefix}_${level}`);
-      const badge = $(`#sl_${m.prefix}_${level}_badge`);
-      if (sel > 0) {
-        btn
-          .removeClass("btn-outline-secondary")
-          .addClass(`btn-outline-${m.color[i]}`);
-        badge
-          .removeClass("bg-secondary text-white")
-          .addClass(
-            `bg-${m.color[i]} ${
-              m.color[i] === "warning" ? "text-dark" : "text-white"
-            }`
-          );
+      const slElem = $(`#sl_${m.prefix}_${level}`);
+      const ttElem = $(`#tt_${m.prefix}_${level}`);
+      const btn = slElem.closest("button");
+      const badge = slElem.parent();
+
+      // Cập nhật số
+      slElem.text(sel);
+      ttElem.text(totalNum);
+
+      // ======= ẨN / HIỆN THEO SỐ LƯỢNG =======
+      if (totalNum > 0) {
+        btn.hide();
       } else {
-        btn
-          .removeClass(`btn-outline-${m.color[i]}`)
-          .addClass("btn-outline-secondary");
-        badge
-          .removeClass(`bg-${m.color[i]} text-dark text-white`)
-          .addClass("bg-secondary text-white");
+        btn.show(); 
+        btn.prop("disabled", sel <= 0);
       }
+
+      // Giữ màu nút
+      btn
+        .removeClass("btn-outline-secondary")
+        .addClass(`btn-outline-${m.colors[i]}`);
+
+      // Giữ màu badge
+      badge
+        .removeClass("bg-secondary text-white")
+        .addClass(
+          `bg-${m.colors[i]} ${
+            m.colors[i] === "warning" ? "text-dark" : "text-white"
+          }`
+        );
     });
   });
 
-  // Kiểm tra đủ điều kiện lưu
+  // Kiểm tra điều kiện lưu
   const isComplete = mapping.every((m) =>
     ["de", "tb", "kho"].every(
       (level) =>
-        selected[m.loai][level] >= (infoTest[`${m.prefix}_${level}`] || 0)
+        selected[m.loai][level] >=
+        (parseInt(infoTest[`${m.prefix}_${level}`]) || 0)
     )
   );
 
@@ -690,11 +702,12 @@ $.when(getInfoTest(), getQuestionOfTest()).done(() => {
     showListQuestionOfTest([]);
   }
 
+  updateQuestionSummary();
   if (infoTest.made) {
     $("#save-test span.fw-semibold").text("Cập nhật đề thi");
   }
 });
-// ==================== PHÂN TRANG ====================
+
 const mainPagePagination = new Pagination(null, null, getAnswerListForQuestion);
 mainPagePagination.option = {
   controller: "test",

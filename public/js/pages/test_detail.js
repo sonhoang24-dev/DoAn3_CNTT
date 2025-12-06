@@ -258,9 +258,6 @@ $(document).ready(function () {
 
   // Hiển thị đề kiểm tra đáp án + câu trả lời của thí sinh đó
   function showTestDetail(questions) {
-    // questions = questions.sort(
-    //   (a, b) => parseInt(a.macauhoi) - parseInt(b.macauhoi)
-    // );
     let html = "";
     let lastContext = null;
     let inGroup = false;
@@ -279,9 +276,9 @@ $(document).ready(function () {
         ? item.context.replace(/\s+/g, " ").trim()
         : null;
 
-      // Close group if switching from reading to non-reading
+      // Đóng group reading nếu chuyển sang câu không phải reading
       if (item.loai !== "reading" && inGroup) {
-        html += `</div></div>`; // đóng card-body + card
+        html += `</div></div>`;
         inGroup = false;
         lastContext = null;
       }
@@ -292,7 +289,7 @@ $(document).ready(function () {
         normalizedContext &&
         normalizedContext !== lastContext
       ) {
-        if (inGroup) html += `</div></div>`; // đóng group cũ nếu còn mở
+        if (inGroup) html += `</div></div>`;
 
         let contextHtml = item.context
           .split(/\n{2,}/)
@@ -335,24 +332,20 @@ $(document).ready(function () {
         <h5 class="fw-bold text-dark mb-4">${index + 1}. ${item.noidung}</h5>`;
       }
 
-      // ==================== CÂU TỰ LUẬN / ESSAY ====================
+      // ==================== CÂU TỰ LUẬN ====================
       const isEssay =
         item.loai === "essay" ||
         item.noidung_tra_loi != null ||
         item.diem_cham_tuluan != null;
-
       if (isEssay) {
         html += renderEssayBlock(item);
-        if (!inGroup) {
-          html += `</div></div>`; // đóng card-body + card
-        } else {
-          html += `</div>`; // đóng question-item
-        }
-        return; // tiếp tục vòng lặp forEach
+        if (!inGroup) html += `</div></div>`;
+        else html += `</div>`;
+        return;
       }
 
-      // ==================== CÂU TRẮC NGHIỆM ====================
-      html += `<div class="row g-4">`;
+      // ==================== CÂU TRẮC NGHIỆM - TEXT & ẢNH TÁCH RIÊNG, SIÊU ĐẸP ====================
+      html += `<div class="row g-4 mt-3">`;
       item.cautraloi?.forEach((op, i) => {
         const label = String.fromCharCode(65 + i);
         const isSelected = op.macautl === item.dapanchon;
@@ -362,26 +355,43 @@ $(document).ready(function () {
         let icon = "";
 
         if (isSelected && isCorrect) {
-          borderClass = "border-success border-4 shadow-sm";
-          icon = `<i class="fas fa-check-circle fa-2x text-success position-absolute end-0 top-50 translate-middle-y me-3"></i>`;
+          borderClass = "border-success border-5 shadow-lg";
+          icon = `<i class="fas fa-check-circle fa-3x text-success position-absolute end-0 top-50 translate-middle-y me-4"></i>`;
         } else if (isSelected && isWrong) {
-          borderClass = "border-danger border-4 shadow-sm";
-          icon = `<i class="fas fa-times-circle fa-2x text-danger position-absolute end-0 top-50 translate-middle-y me-3"></i>`;
+          borderClass = "border-danger border-5 shadow-lg";
+          icon = `<i class="fas fa-times-circle fa-3x text-danger position-absolute end-0 top-50 translate-middle-y me-4"></i>`;
         } else if (!isSelected && isCorrectAnswer && isWrong) {
-          borderClass = "border-success border-4 shadow-sm";
-          icon = `<i class="fas fa-check-circle fa-2x text-success position-absolute end-0 top-50 translate-middle-y me-3"></i>`;
+          borderClass = "border-success border-5 shadow";
+          icon = `<i class="fas fa-check-circle fa-2x text-success position-absolute end-0 top-50 translate-middle-y me-4"></i>`;
         }
 
-        const content = op.hinhanh?.trim()
-          ? `<img src="${op.hinhanh}" class="img-fluid rounded-3" style="max-height:120px;">`
-          : op.noidungtl;
+        const hasText = op.noidungtl?.trim();
+        const hasImage = op.hinhanh?.trim();
+
+        const textBlock = hasText
+          ? `<div class="answer-text mb-3 px-3 text-center">
+             <div class="fs-5 fw-medium lh-lg">${op.noidungtl}</div>
+           </div>`
+          : "";
+
+        const imageBlock = hasImage
+          ? `<div class="answer-image text-center mt-2">
+             <img src="${op.hinhanh}" class="img-fluid rounded-4 shadow-sm border" 
+                  style="max-height: 260px; width: auto; max-width: 100%; object-fit: contain; background:#f8f9fa;">
+           </div>`
+          : "";
+
+        const content =
+          textBlock || imageBlock
+            ? textBlock + imageBlock
+            : '<div class="text-muted small">Trống</div>';
 
         html += `
       <div class="col-12 col-md-6">
-        <div class="position-relative rounded-4 ${borderClass} bg-white" style="min-height:90px;">
-          <div class="p-4 d-flex align-items-center h-100">
-            <span class="text-primary fw-bold fs-4 me-3">${label}.</span>
-            <div class="fs-5">${content}</div>
+        <div class="position-relative rounded-4 ${borderClass} bg-white overflow-hidden transition-all" style="min-height: 180px; box-shadow: 0 4px 15px rgba(0,0,0,0.08)!important;">
+          <div class="p-4 d-flex flex-column justify-content-start align-items-center h-100 text-center">
+            <div class="text-primary fw-bold fs-2 mb-3">${label}</div>
+            ${content}
           </div>
           ${icon}
         </div>
@@ -392,40 +402,34 @@ $(document).ready(function () {
       // ==================== THANH KẾT QUẢ ====================
       let resultBar = "";
       if (notAnswered) {
-        resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
-        <div class="bg-warning bg-opacity-10 text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
-          <i class="fas fa-clock"></i>
-          <strong class="mb-0">Như thằng Dương</strong>
+        resultBar = `<div class="mx-auto mt-5 rounded-4 overflow-hidden" style="max-width:500px;">
+        <div class="bg-warning bg-opacity-15 text-dark py-4 px-5 d-flex align-items-center justify-content-center gap-3 border border-warning">
+          <i class="fas fa-clock fa-2x"></i>
+          <strong class="fs-4">Như thằng Dương</strong>
         </div>
       </div>`;
       } else if (isCorrect) {
-        resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
-        <div class="bg-success text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
-          <i class="fas fa-check-circle fa-2x"></i>
-          <strong class="fs-5 mb-0">Khôn như thằng Hoàng</strong>
+        resultBar = `<div class="mx-auto mt-5 rounded-4 overflow-hidden" style="max-width:500px;">
+        <div class="bg-success text-white py-4 px-5 d-flex align-items-center justify-content-center gap-3">
+          <i class="fas fa-check-circle fa-3x"></i>
+          <strong class="fs-3">Khôn như thằng Hoàng</strong>
         </div>
       </div>`;
       } else {
-        resultBar = `<div class="mx-auto mt-4 rounded-4 overflow-hidden" style="max-width:480px;">
-        <div class="bg-danger text-white py-3 px-4 d-flex align-items-center justify-content-center gap-3">
-          <i class="fas fa-times-circle fa-2x"></i>
-          <div class="text-center">
-            <strong class="fs-5 mb-0">Ngu y rang thằng thuận!</strong><br>
-          </div>
-          <i class="fas fa-lightbulb-on"></i>
+        resultBar = `<div class="mx-auto mt-5 rounded-4 overflow-hidden" style="max-width:500px;">
+        <div class="bg-danger text-white py-4 px-5 d-flex align-items-center justify-content-center gap-3">
+          <i class="fas fa-times-circle fa-3x"></i>
+          <strong class="fs-3">Ngu y rang thằng Thuận!</strong>
         </div>
       </div>`;
       }
       html += resultBar;
 
-      if (!inGroup) {
-        html += `</div></div>`; // đóng card-body + card
-      } else {
-        html += `</div>`; // đóng question-item
-      }
+      // Đóng card
+      if (!inGroup) html += `</div></div>`;
+      else html += `</div>`;
     });
 
-    // Close last group if open
     if (inGroup) html += `</div></div>`;
 
     $("#content-file").html(html);
@@ -701,39 +705,59 @@ $(document).ready(function () {
 
   $(document).on("click", ".print-pdf", function () {
     let makq = $(this).data("id");
-    if (makq != "") {
-      $.ajax({
-        url: `./test/exportPdf/${makq}`,
-        method: "POST",
-        success: function (response) {
-          var binaryString = atob(response);
-          var binaryLen = binaryString.length;
-          var bytes = new Uint8Array(binaryLen);
+    if (!makq) {
+      alert("Không thể in kết quả. Thí sinh chưa làm bài thi!");
+      return;
+    }
 
-          for (var i = 0; i < binaryLen; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+    $.ajax({
+      url: `./test/exportPdf/${makq}`,
+      method: "POST",
+      dataType: "text", // QUAN TRỌNG: bắt jQuery trả về string
+      success: function (response) {
+        // Trim whitespace
+        response = response.trim();
+
+        // Kiểm tra JSON lỗi
+        let obj = null;
+        try {
+          obj = JSON.parse(response);
+        } catch (e) {
+          obj = null; // không phải JSON → tiếp tục decode Base64
+        }
+
+        if (obj && obj.status === "error") {
+          alert(obj.message);
+          return;
+        }
+
+        // Decode Base64 PDF
+        try {
+          const binary = atob(response);
+          const len = binary.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
           }
-          var blob = new Blob([bytes], { type: "application/pdf" });
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement("a");
+
+          const blob = new Blob([bytes], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
           a.href = url;
           a.download = "ket_qua_thi.pdf";
-          a.style.display = "none";
           document.body.appendChild(a);
           a.click();
-          setTimeout(function () {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }, 100);
-        },
-      });
-    } else {
-      e.fire({
-        icon: "warning",
-        title: "Không thể in kết quả. Thí sinh chưa làm bài thi!",
-        confirmButtonText: "Đóng",
-      });
-    }
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error("Không thể decode Base64 PDF:", err);
+          alert("Lỗi khi tạo PDF. Vui lòng thử lại.");
+        }
+      },
+      error: function () {
+        alert("Lỗi server, không thể xuất PDF.");
+      },
+    });
   });
 
   $(document).on("click", "#export_excel", function () {

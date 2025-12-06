@@ -705,7 +705,6 @@ class Question extends Controller
                     }
 
                     // Encode HTML trước khi lưu
-                    $passage = htmlspecialchars($passage, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     $passage = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $passage);
 
                     $madv = $this->cauHoiModel->createWithDoanVan(
@@ -735,7 +734,6 @@ class Question extends Controller
                             continue;
                         }
 
-                        $qText = htmlspecialchars($qText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                         $qText = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $qText);
 
                         $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
@@ -747,7 +745,6 @@ class Question extends Controller
                         $qId = mysqli_insert_id($this->cauHoiModel->con);
 
                         foreach ($opts as $i => $opt) {
-                            $opt = htmlspecialchars(trim($opt), ENT_QUOTES | ENT_HTML5, 'UTF-8');
                             $opt = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $opt);
                             $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, $opt);
                             $ladapan = ($i + 1 == $ans) ? 1 : 0;
@@ -770,7 +767,6 @@ class Question extends Controller
                         continue;
                     }
 
-                    $qText = htmlspecialchars($qText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     $qText = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $qText);
 
                     $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
@@ -782,7 +778,7 @@ class Question extends Controller
                     $qId = mysqli_insert_id($this->cauHoiModel->con);
 
                     foreach ($opts as $i => $opt) {
-                        $opt = htmlspecialchars(trim($opt), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
                         $opt = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $opt);
                         $noidungtl = mysqli_real_escape_string($this->cauTraLoiModel->con, $opt);
                         $ladapan = ($i + 1 == $ans) ? 1 : 0;
@@ -800,7 +796,6 @@ class Question extends Controller
                         continue;
                     }
 
-                    $qText = htmlspecialchars($qText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     $qText = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $qText);
 
                     $noidung = mysqli_real_escape_string($this->cauHoiModel->con, $qText);
@@ -943,7 +938,7 @@ class Question extends Controller
                 case 'mcq':
                 case 'essay':
                     // Encode HTML cho câu hỏi
-                    $noidungCH = htmlspecialchars($noidungCH, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
                     $noidungCH = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $noidungCH);
 
                     $macauhoi = $this->cauHoiModel->create($noidungCH, $dokho, $mamon, $machuong, $nguoitao, $loai, $madv, $hinhanh);
@@ -955,7 +950,6 @@ class Question extends Controller
 
                         // text đáp án
                         $content = trim($ans['content'] ?? '');
-                        $content = htmlspecialchars($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                         $content = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $content);
 
                         $check = ($loai === 'mcq' && !empty($ans['check']) && $ans['check'] == 1) ? 1 : 0;
@@ -997,7 +991,7 @@ class Question extends Controller
                     }
 
                     // Encode HTML cho đoạn văn
-                    $noidungDV = htmlspecialchars($noidungDV, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
                     $noidungDV = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $noidungDV);
 
                     $madv = $this->cauHoiModel->createWithDoanVan('', $dokho, $mamon, $machuong, $nguoitao, $loai, $noidungDV, '', $hinhanh);
@@ -1009,7 +1003,6 @@ class Question extends Controller
                         }
 
                         // Encode HTML cho câu hỏi con
-                        $subContent = htmlspecialchars($subContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                         $subContent = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $subContent);
 
                         $subMacauhoi = $this->cauHoiModel->create($subContent, $dokho, $mamon, $machuong, $nguoitao, 'mcq', $madv);
@@ -1022,7 +1015,6 @@ class Question extends Controller
                             foreach ($subQuestion['options'] as $j => $option) {
 
                                 $optContent = trim($option['content'] ?? '');
-                                $optContent = htmlspecialchars($optContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
                                 $check = (!empty($option['check']) && $option['check'] == 1) ? 1 : 0;
 
@@ -1053,7 +1045,7 @@ class Question extends Controller
 
 
                             // Encode HTML cho option
-                            $content = htmlspecialchars($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                            $content = trim($content);
                             $content = preg_replace('/\x{200B}|\x{200C}|\x{200D}/u', '', $content);
 
                             $check = (isset($option['check']) && ($option['check'] === true || $option['check'] == 1)) ? 1 : 0;
@@ -1135,7 +1127,7 @@ class Question extends Controller
                 $madv = $question['madv'] ?? null;
 
                 $noidungDV = $_POST['doanvan_noidung'] ?? '';
-                $noidungDV = htmlspecialchars(trim($noidungDV), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $noidungDV = (trim($noidungDV));
 
                 if ($noidungDV === '') {
                     echo json_encode(["status" => "error", "message" => "Vui lòng nhập nội dung đoạn văn"]);
@@ -1167,7 +1159,8 @@ class Question extends Controller
 
                 // Thêm câu hỏi con mới
                 foreach ($cautraloi as $subQ) {
-                    $subContent = htmlspecialchars(trim($subQ['content'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $subContent = trim($subQ['content'] ?? '');
+
                     if ($subContent === '') {
                         continue;
                     }
@@ -1196,7 +1189,8 @@ class Question extends Controller
                     );
 
                     foreach ($subQ['options'] as $opt) {
-                        $optContent = htmlspecialchars(trim($opt['content'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        $optContent = trim($opt['content'] ?? '');
+
                         if ($optContent === '') {
                             continue;
                         }
@@ -1223,7 +1217,8 @@ class Question extends Controller
 
             } else {
                 // MCQ / ESSAY
-                $noidungRaw = htmlspecialchars(trim($_POST['noidung'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $noidungRaw = (trim($_POST['noidung'] ?? ''));
+                
 
                 if ($loai === 'mcq' && empty($cautraloi)) {
                     echo json_encode(["status" => "error", "message" => "Phải có ít nhất 1 đáp án"]);
@@ -1236,8 +1231,7 @@ class Question extends Controller
                 $validAnswers = [];
 
                 foreach ($cautraloi as $i => $ans) {
-
-                    $content = htmlspecialchars(trim($ans['content'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $content = trim($ans['content'] ?? '');
                     $deleteImage = (!empty($ans['delete_image']) && $ans['delete_image'] == 1);
 
                     // ========== XỬ LÝ ẢNH THEO ĐÚNG ƯU TIÊN ==========
@@ -1486,17 +1480,17 @@ class Question extends Controller
     }
 
     public function getAnswersForMultipleQuestions()
-{
-    $ids = $_POST["questions"] ?? [];
+    {
+        $ids = $_POST["questions"] ?? [];
 
-    // Bắt buộc convert thành integer để tránh injection
-    $ids = array_map('intval', $ids);
+        // Bắt buộc convert thành integer để tránh injection
+        $ids = array_map('intval', $ids);
 
-    $model = $this->model("CauTraLoiModel");
-    $data = $model->getAnswersForMultipleQuestions($ids);
+        $model = $this->model("CauTraLoiModel");
+        $data = $model->getAnswersForMultipleQuestions($ids);
 
-    echo json_encode($data);
-}
+        echo json_encode($data);
+    }
 
 
     public function getsoluongcauhoi()
