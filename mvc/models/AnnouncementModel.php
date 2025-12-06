@@ -27,7 +27,8 @@ class AnnouncementModel extends DB
         $valid = true;
 
         foreach ($nhom as $manhom) {
-            $sql = "INSERT INTO `chitietthongbao`(`matb`, `manhom`) VALUES ('$matb','$manhom')";
+            $manhom_esc = mysqli_real_escape_string($this->con, $manhom);
+            $sql = "INSERT IGNORE INTO `chitietthongbao`(`matb`, `manhom`) VALUES ('$matb','$manhom_esc')";
             $result = mysqli_query($this->con, $sql);
             if (!$result) {
                 $valid = false;
@@ -39,8 +40,9 @@ class AnnouncementModel extends DB
 
             while ($row = mysqli_fetch_assoc($resMembers)) {
                 $user = $row['manguoidung'];
-                $insertStatus = "INSERT INTO trangthaithongbao (matb, manguoidung, trangthai)
-                             VALUES ('$matb', '$user', 'chưa xem')";
+                $user_esc = mysqli_real_escape_string($this->con, $user);
+                $insertStatus = "INSERT IGNORE INTO trangthaithongbao (matb, manguoidung, trangthai)
+                             VALUES ('$matb', '$user_esc', 'chưa xem')";
                 mysqli_query($this->con, $insertStatus);
             }
         }

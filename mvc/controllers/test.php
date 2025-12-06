@@ -449,25 +449,32 @@ onclick="window.open(\'' . $link . '\', \'_blank\')">'
         VALUES ('$content', '$thoigiantao', '$nguoitao', 1)";
             $matb = $this->dethimodel->insertAndGetId($sql);
 
-            // Gán nhóm nhận thông báo
+            // Gán nhóm nhận thông báo (ignore duplicates)
+            $nhom = array_unique($nhom);
             foreach ($nhom as $mh) {
-                $sql = "INSERT INTO chitietthongbao(matb, manhom) VALUES ('$matb', '$mh')";
+                $mh_esc = mysqli_real_escape_string($this->dethimodel->con, $mh);
+                $sql = "INSERT IGNORE INTO chitietthongbao(matb, manhom) VALUES ('$matb', '$mh_esc')";
                 $this->dethimodel->executeQuery($sql);
             }
 
-            // Lấy danh sách user của từng nhóm và insert vào trạng thái thông báo
+            // Lấy danh sách user của từng nhóm, dedupe users and insert trạng thái thông báo with IGNORE
+            $users = [];
             foreach ($nhom as $mh) {
-
+                $mh_esc = mysqli_real_escape_string($this->dethimodel->con, $mh);
                 $res = $this->dethimodel->executeQuery(
-                    "SELECT DISTINCT manguoidung FROM chitietnhom WHERE manhom = '$mh'"
+                    "SELECT DISTINCT manguoidung FROM chitietnhom WHERE manhom = '$mh_esc'"
                 );
 
                 while ($row = mysqli_fetch_assoc($res)) {
-                    $id = $row['manguoidung'];
-                    $this->dethimodel->executeQuery(
-                        "INSERT INTO trangthaithongbao(matb, manguoidung) VALUES ('$matb', '$id')"
-                    );
+                    $users[] = $row['manguoidung'];
                 }
+            }
+            $users = array_unique($users);
+            foreach ($users as $id) {
+                $id_esc = mysqli_real_escape_string($this->dethimodel->con, $id);
+                $this->dethimodel->executeQuery(
+                    "INSERT IGNORE INTO trangthaithongbao(matb, manguoidung) VALUES ('$matb', '$id_esc')"
+                );
             }
             echo json_encode(['success' => true, 'made' => $made]);
             exit;
