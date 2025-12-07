@@ -10,7 +10,6 @@ $(document).ready(function () {
 
   // =======================
   // RENDER BẢNG NĂM HỌC
-  // =======================
   function renderRows(data, page) {
     let html = "";
     let i = (page - 1) * limit + 1;
@@ -18,53 +17,99 @@ $(document).ready(function () {
     if (!data || data.length === 0) {
       html = `<tr><td colspan="5" class="text-center text-muted">Chưa có dữ liệu</td></tr>`;
     } else {
+      const currentYear = new Date().getFullYear();
+
+      // 👉 SẮP XẾP NĂM MỚI ĐƯA LÊN ĐẦU
+      data.sort((a, b) => {
+        const yearA = Number(a.tennamhoc.split("-")[0]);
+        const yearB = Number(b.tennamhoc.split("-")[0]);
+        return yearB - yearA; // giảm dần
+      });
+
+      // Lọc những năm <= hiện tại để tìm năm đang hoạt động
+      const pastAndPresent = data.filter((el) => {
+        const startYear = Number(el.tennamhoc.split("-")[0]);
+        return startYear <= currentYear;
+      });
+
+      // Tìm năm bắt đầu lớn nhất nhưng không vượt quá năm hiện tại
+      const maxStartYear =
+        pastAndPresent.length > 0
+          ? Math.max(
+              ...pastAndPresent.map((el) => Number(el.tennamhoc.split("-")[0]))
+            )
+          : null;
+
       data.forEach((el) => {
-        let status =
-          el.trangthai == 1
-            ? `<span class="badge bg-success">Hoạt động</span>`
-            : `<span class="badge bg-danger">Tạm ngưng</span>`;
+        const [startYear] = el.tennamhoc.split("-").map(Number);
+
+        let statusText = "";
+        let statusClass = "";
+
+        // 1) CHƯA BẮT ĐẦU
+        if (startYear > currentYear) {
+          statusText = "Chưa bắt đầu";
+          statusClass = "bg-secondary";
+
+          // 2) ĐANG HOẠT ĐỘNG
+        } else if (startYear === maxStartYear) {
+          statusText = "Đang hoạt động";
+          statusClass = "bg-success";
+
+          // 3) ĐÃ QUA
+        } else {
+          statusText = "Đã qua";
+          statusClass = "bg-danger";
+        }
+
+        let status = `<span class="badge ${statusClass}">${statusText}</span>`;
 
         html += `
-        <tr>
-          <td>${i++}</td>
-          <td>
-            <a href="javascript:void(0)" class="fw-semibold text-primary btn-view-hocky" data-id="${
-              el.manamhoc
-            }">
-              ${el.tennamhoc}
-            </a>
-          </td>
-          <td class="text-center"><strong>${el.tonghocky || 0}</strong></td>
-          <td class="text-center">${status}</td>
-          <td class="text-center">
-            <a href="javascript:void(0)" 
-               class="btn btn-sm btn-alt-warning btn-edit" 
-               data-bs-toggle="tooltip" 
-               title="Chỉnh sửa" 
-               data-data='${JSON.stringify(el)}'>
-              <i class="fa fa-edit"></i>
-            </a>
-            <a href="javascript:void(0)" 
-               class="btn btn-sm btn-alt-danger btn-delete" 
-               data-bs-toggle="tooltip" 
-               title="Xóa" 
-               data-id="${el.manamhoc}">
-              <i class="fa fa-trash"></i>
-            </a>
-          </td>
-        </tr>`;
+                <tr>
+                    <td>${i++}</td>
+                    <td>
+                        <a href="javascript:void(0)" 
+                           class="fw-semibold text-primary btn-view-hocky" 
+                           data-id="${el.manamhoc}">
+                            ${el.tennamhoc}
+                        </a>
+                    </td>
+
+                    <td class="text-center"><strong>${
+                      el.tonghocky || 0
+                    }</strong></td>
+                    <td class="text-center">${status}</td>
+
+                    <td class="text-center d-flex justify-content-center gap-1">
+                        <a href="javascript:void(0)"
+                           class="btn btn-sm btn-alt-info btn-view-hocky"
+                           data-bs-toggle="tooltip"
+                           title="Xem học kỳ"
+                           data-id="${el.manamhoc}">
+                            <i class="fa fa-eye"></i>
+                        </a>
+
+                        <a href="javascript:void(0)" 
+                           class="btn btn-sm btn-alt-warning btn-edit" 
+                           data-bs-toggle="tooltip" 
+                           title="Chỉnh sửa" 
+                           data-data='${JSON.stringify(el)}'>
+                            <i class="fa fa-edit"></i>
+                        </a>
+                    </td>
+                </tr>
+            `;
       });
     }
 
     $list.html(html);
 
-    // Khởi tạo tooltip sau khi render
+    // KHỞI TẠO TOOLTIPS Bootstrap
     $('[data-bs-toggle="tooltip"]').tooltip();
   }
 
   // =======================
   // RENDER PHÂN TRANG
-  // =======================
   function renderPagination(total, page) {
     lastTotal = total;
     const totalPages = Math.ceil(total / limit) || 1;
@@ -151,9 +196,7 @@ $(document).ready(function () {
       clearTimeout(typingTimer);
     });
 
-  // =======================
   // ADD NĂM HỌC
-  // =======================
   $("#btn-add-namhoc").click(function () {
     $("#form-namhoc")[0].reset();
     $("#form-namhoc input[name=manamhoc]").val("");
@@ -162,12 +205,8 @@ $(document).ready(function () {
     $("#modal-namhoc").modal("show");
   });
 
-  // =======================
   // EDIT NĂM HỌC
-  // =======================
-  // =======================
-  // EDIT NĂM HỌC
-  // =======================
+
   $(document).on("click", ".btn-edit", function () {
     const d = $(this).data("data");
 
@@ -175,10 +214,8 @@ $(document).ready(function () {
     $("#form-namhoc input[name=tennamhoc]").val(d.tennamhoc);
     $("#form-namhoc select[name=trangthai]").val(d.trangthai);
 
-    // Hiển thị số học kỳ để sửa
     $("#div-sohocky").show();
 
-    // Lấy số học kỳ thực tế từ server
     $.post(
       "/Quanlythitracnghiem/namhoc/getHocKy",
       { manamhoc: d.manamhoc },
@@ -281,6 +318,14 @@ $(document).ready(function () {
   $(document).on("click", ".btn-view-hocky", function () {
     const id = $(this).data("id");
     const $btn = $(this);
+
+    // LẤY TÊN NĂM HỌC từ cột thứ 2
+    const tenNamHoc = $btn
+      .closest("tr")
+      .find("td:nth-child(2) a")
+      .text()
+      .trim();
+
     $.post(
       "/Quanlythitracnghiem/namhoc/getHocKy",
       { manamhoc: id },
@@ -288,13 +333,24 @@ $(document).ready(function () {
         let h = "";
         if (data && data.length > 0) {
           data.forEach((hk, idx) => {
-            h += `<tr><td>${idx + 1}</td><td>${hk.tenhocky}</td></tr>`;
+            h += `<tr>
+                            <td>${idx + 1}</td>
+                            <td>${hk.tenhocky}</td>
+                          </tr>`;
           });
         } else {
-          h = `<tr><td colspan="2" class="text-center text-muted">Không có học kỳ</td></tr>`;
+          h = `<tr>
+                        <td colspan="2" class="text-center text-muted">Không có học kỳ</td>
+                     </tr>`;
         }
+
         $("#listHocKy").html(h);
-        $("#modal-hocky .modal-title").text("Học kỳ - " + $btn.text().trim());
+
+        // CẬP NHẬT TITLE MODAL (ĐÚNG)
+        $("#modal-hocky .modal-title").text(
+          "Chi tiết kỳ của năm học: " + tenNamHoc
+        );
+
         $("#modal-hocky").modal("show");
       },
       "json"

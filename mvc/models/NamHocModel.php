@@ -173,7 +173,7 @@ class NamHocModel extends DB
 
     public function deleteNamHoc($manamhoc)
     {
-        $sql = "DELETE FROM namhoc WHERE manamhoc = ?";
+        $sql = "UPDATE namhoc SET trangthai = 0 WHERE manamhoc = ?";
         $stmt = mysqli_prepare($this->con, $sql);
         mysqli_stmt_bind_param($stmt, "i", $manamhoc);
         $result = mysqli_stmt_execute($stmt);

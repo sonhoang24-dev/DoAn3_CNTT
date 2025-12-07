@@ -301,12 +301,12 @@
                                         <div class="col-6">
                                             <label class="form-label">Môn học <span class="text-danger">*</span></label>
                                             <select id="monhocfile" class="js-select2 form-select data-monhoc" data-tab="2"
-                                                style="width: 100%;" data-placeholder="Choose one.." required></select>
+                                                style="width: 100%;" data-placeholder="Chọn môn học" required></select>
                                         </div>
                                         <div class="col-6">
                                             <label class="form-label">Chương <span class="text-danger">*</span></label>
                                             <select id="chuongfile" class="js-select2 form-select data-chuong" data-tab="2"
-                                                style="width: 100%;" data-placeholder="Choose one.." required></select>
+                                                style="width: 100%;" data-placeholder="Chọn chương" required></select>
                                         </div>
                                         <div class="col-6">
                                             <label class="form-label">Loại câu hỏi <span class="text-danger">*</span></label>

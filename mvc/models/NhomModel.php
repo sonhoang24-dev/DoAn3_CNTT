@@ -517,11 +517,29 @@ class NhomModel extends DB
     {
         $user_id = mysqli_real_escape_string($this->con, $user_id);
         $hienthi = mysqli_real_escape_string($this->con, $hienthi);
-        $sql = "SELECT monhoc.mamonhoc, monhoc.tenmonhoc, nhom.manhom, nhom.tennhom, nhom.namhoc, nhom.hocky, nguoidung.hoten, nguoidung.avatar, chitietnhom.hienthi
+        $sql = "SELECT 
+                monhoc.mamonhoc, 
+                monhoc.tenmonhoc, 
+                nhom.manhom, 
+                nhom.tennhom, 
+                nhom.namhoc, 
+                nhom.hocky,
+                namhoc.tennamhoc,
+                hocky.tenhocky,
+                nguoidung.hoten, 
+                nguoidung.avatar, 
+                chitietnhom.hienthi
             FROM chitietnhom
             JOIN nhom ON chitietnhom.manhom = nhom.manhom
             JOIN nguoidung ON nguoidung.id = nhom.giangvien
             JOIN monhoc ON monhoc.mamonhoc = nhom.mamonhoc
+            
+            -- JOIN thêm để lấy tên năm học
+            LEFT JOIN namhoc ON namhoc.manamhoc = nhom.namhoc
+            
+            -- JOIN thêm để lấy tên học kỳ
+            LEFT JOIN hocky ON hocky.mahocky = nhom.hocky
+
             WHERE chitietnhom.manguoidung = '$user_id'
             AND chitietnhom.hienthi = '$hienthi'
             AND nhom.trangthai != 0";

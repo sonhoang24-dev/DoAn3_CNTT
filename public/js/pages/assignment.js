@@ -30,7 +30,7 @@ let subject = new Set();
 function showAssignment(data) {
   if (data.length === 0) {
     $("#listAssignment").html(
-      '<tr><td colspan="7" class="text-center text-muted py-4">Chưa có phân công nào</td></tr>'
+      '<tr><td colspan="8" class="text-center text-muted py-4">Chưa có phân công nào</td></tr>'
     );
     $('[data-bs-toggle="tooltip"]').tooltip("dispose");
     return;
@@ -40,7 +40,7 @@ function showAssignment(data) {
   const selectedNamHoc = $("#filter-namhoc").val();
   const selectedHocKy = $("#filter-hocky").val();
 
-  // Lọc dữ liệu client-side tạm thời
+  // Lọc dữ liệu client-side
   const filteredData = data.filter((item) => {
     const matchNamHoc = !selectedNamHoc || item.namhoc == selectedNamHoc;
     const matchHocKy = !selectedHocKy || item.hocky == selectedHocKy;
@@ -49,11 +49,21 @@ function showAssignment(data) {
 
   if (filteredData.length === 0) {
     $("#listAssignment").html(
-      '<tr><td colspan="7" class="text-center text-muted py-4">Không tìm thấy phân công nào cho năm học và học kỳ đã chọn</td></tr>'
+      '<tr><td colspan="8" class="text-center text-muted py-4">Không tìm thấy phân công nào cho năm học và học kỳ đã chọn</td></tr>'
     );
     $('[data-bs-toggle="tooltip"]').tooltip("dispose");
     return;
   }
+  filteredData.sort((a, b) => {
+    const yearA = Number(a.tennamhoc.split("-")[0]);
+    const yearB = Number(b.tennamhoc.split("-")[0]);
+
+    if (yearA !== yearB) return yearB - yearA;
+
+    return Number(b.hocky) - Number(a.hocky);
+  });
+
+  // =========================================================
 
   let html = "";
   let limit = this.option?.limit || 10;
@@ -86,6 +96,17 @@ function showAssignment(data) {
         <td>${tenmonhoc}</td>
         <td class="text-center">${namhoc}</td>
         <td class="text-center">${hocky}</td>
+
+    
+        <td class="text-center">
+          ${
+            element.trangthai == 1
+              ? '<span class="badge bg-success">Hoạt động</span>'
+              : '<span class="badge bg-danger">Hủy Phân Công</span>'
+          }
+        </td>
+
+   
         <td class="text-center col-action">
           <a href="javascript:void(0)"
              class="btn btn-sm btn-alt-warning btn-edit-assignment me-1"
@@ -98,7 +119,7 @@ function showAssignment(data) {
           </a>
           <a href="javascript:void(0)"
              class="btn btn-sm btn-alt-danger btn-delete-assignment"
-             data-bs-toggle="tooltip" data-bs-placement="top" title="Xóa"
+             data-bs-toggle="tooltip" data-bs-placement="top" title="Xóa Phân Công"
              data-id="${giangvien_id}"
              data-mamon="${monhoc_code}"
              data-namhoc="${element["namhoc"] || ""}"
@@ -466,10 +487,10 @@ $(document).ready(function () {
   // Chỉnh sửa phân công
   $(document).on("click", ".btn-edit-assignment", function () {
     const $btn = $(this);
-    const giangvien_id = $btn.data("giangvien");
+    const giangvien_id = $btn.data("giangvien"); // manguoidung
     const monhoc_code = $btn.data("monhoc");
-    const namhoc = $btn.data("namhoc");
-    const hocky = $btn.data("hocky");
+    const namhoc = $btn.data("namhoc"); // manamhoc (int)
+    const hocky = $btn.data("hocky"); // mahocky (int)
 
     // Lưu dữ liệu cũ vào row
     $btn.closest("tr").data({
@@ -479,28 +500,113 @@ $(document).ready(function () {
       old_hk: hocky,
     });
 
-    // Chỉ chỉnh sửa giảng viên
-    $("#edit-giang-vien").val(giangvien_id).trigger("change");
-
-    // Khóa môn học, năm học, học kỳ (không thể chọn)
-    $("#edit-mon-hoc, #edit-namhoc, #edit-hocky").prop("disabled", true);
-
-    // Tạo hidden input để gửi lên server
-    $("#edit-namhoc-hidden").remove();
-    $("#edit-hocky-hidden").remove();
-    $("#edit-mon-hoc-hidden").remove();
-
-    $('<input type="hidden" id="edit-namhoc-hidden" name="namhoc">')
+    // Xóa hidden cũ
+    $("#edit-namhoc-hidden, #edit-hocky-hidden, #edit-mon-hoc-hidden").remove();
+    $("<input>")
+      .attr({ type: "hidden", name: "namhoc", id: "edit-namhoc-hidden" })
       .val(namhoc)
       .appendTo("#form-edit-assignment");
-    $('<input type="hidden" id="edit-hocky-hidden" name="hocky">')
+    $("<input>")
+      .attr({ type: "hidden", name: "hocky", id: "edit-hocky-hidden" })
       .val(hocky)
       .appendTo("#form-edit-assignment");
-    $('<input type="hidden" id="edit-mon-hoc-hidden" name="mamonhoc">')
+    $("<input>")
+      .attr({ type: "hidden", name: "mamonhoc", id: "edit-mon-hoc-hidden" })
       .val(monhoc_code)
       .appendTo("#form-edit-assignment");
 
-    $("#modal-default-vcenter").modal("show");
+    // === TẢI LẠI TOÀN BỘ 3 SELECT KHI EDIT ===
+    $.when(
+      $.get("./assignment/getGiangVien", null, null, "json"),
+      $.get("./assignment/getMonHoc", null, null, "json"),
+      $.get("./assignment/getNamHoc", null, null, "json"),
+      $.post("./assignment/getHocKy", { manamhoc: namhoc }, null, "json")
+    )
+      .done(function (gvRes, mhRes, nhRes, hkRes) {
+        // Bây giờ gvRes[0], mhRes[0]... chắc chắn là array
+        let gvHtml = "<option value=''>Chọn giảng viên</option>";
+        gvRes[0].forEach((el) => {
+          gvHtml += `<option value="${el.id || el.manguoidung}">${
+            el.hoten
+          }</option>`;
+        });
+        $("#edit-giang-vien").html(gvHtml).val(giangvien_id).trigger("change");
+
+        let mhHtml = "<option value=''>Chọn môn học</option>";
+        mhRes[0].forEach((el) => {
+          mhHtml += `<option value="${el.mamonhoc}">${el.tenmonhoc}</option>`;
+        });
+        $("#edit-mon-hoc").html(mhHtml).val(monhoc_code).trigger("change");
+
+        let nhHtml = "<option value=''>Chọn năm học</option>";
+        nhRes[0].forEach((el) => {
+          nhHtml += `<option value="${el.manamhoc}">${el.tennamhoc}</option>`;
+        });
+        $("#edit-namhoc").html(nhHtml).val(namhoc).trigger("change");
+
+        let hkHtml = "<option value=''>Chọn học kỳ</option>";
+        hkRes[0].forEach((el) => {
+          hkHtml += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
+        });
+        $("#edit-hocky").html(hkHtml).val(hocky).trigger("change");
+
+        // Re-init Select2
+        $("#edit-giang-vien, #edit-mon-hoc, #edit-namhoc, #edit-hocky").select2(
+          {
+            dropdownParent: $("#modal-default-vcenter"),
+          }
+        );
+
+        $("#modal-default-vcenter").modal("show");
+      })
+      .done(function (gvRes, mhRes, nhRes, hkRes) {
+        // Giảng viên
+        let gvHtml = "<option value=''>Chọn giảng viên</option>";
+        gvRes[0].forEach((el) => {
+          gvHtml += `<option value="${el.id}">${el.hoten}</option>`;
+        });
+        $("#edit-giang-vien").html(gvHtml).val(giangvien_id).trigger("change");
+
+        // Môn học
+        let mhHtml = "<option value=''>Chọn môn học</option>";
+        mhRes[0].forEach((el) => {
+          mhHtml += `<option value="${el.mamonhoc}">${el.tenmonhoc}</option>`;
+        });
+        $("#edit-mon-hoc").html(mhHtml).val(monhoc_code).trigger("change");
+
+        // Năm học
+        let nhHtml = "<option value=''>Chọn năm học</option>";
+        nhRes[0].forEach((el) => {
+          nhHtml += `<option value="${el.manamhoc}">${el.tennamhoc}</option>`;
+        });
+        $("#edit-namhoc").html(nhHtml).val(namhoc).trigger("change");
+
+        // Học kỳ
+        let hkHtml = "<option value=''>Chọn học kỳ</option>";
+        hkRes[0].forEach((el) => {
+          hkHtml += `<option value="${el.mahocky}">${el.tenhocky}</option>`;
+        });
+        $("#edit-hocky").html(hkHtml).val(hocky).trigger("change");
+
+        // Re-init Select2 sau khi thay html
+        $("#edit-giang-vien, #edit-mon-hoc, #edit-namhoc, #edit-hocky").select2(
+          {
+            dropdownParent: $("#modal-default-vcenter"),
+          }
+        );
+
+        // Mở modal
+        $("#modal-default-vcenter").modal("show");
+      })
+      .fail(function () {
+        Dashmix.helpers("jq-notify", {
+          type: "danger",
+          message: "Lỗi tải dữ liệu chỉnh sửa!",
+        });
+      });
+
+    // Vô hiệu hóa 3 field không cho sửa
+    $("#edit-mon-hoc, #edit-namhoc, #edit-hocky").prop("disabled", true);
   });
 
   // Submit form cập nhật

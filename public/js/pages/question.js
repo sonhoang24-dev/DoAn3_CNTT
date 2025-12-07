@@ -1,4 +1,5 @@
 Dashmix.helpersOnLoad(["jq-select2"]);
+let isReadingFile = false;
 
 // =============== QUẢN LÝ CKEDITOR THÔNG MINH ===============
 let ckeditorInstances = {};
@@ -995,7 +996,7 @@ $(document).ready(function () {
             type: "warning",
             message: "File trống hoặc sai định dạng!",
           });
-          return; // Complete sẽ reset nút
+          return;
         }
         Dashmix.helpers("jq-notify", {
           type: "success",
@@ -1354,7 +1355,6 @@ $(document).ready(function () {
         .prop("disabled", true)
         .html('<i class="fa fa-spinner fa-spin"></i> Đang thêm...');
       Dashmix.layout("header_loader_on");
-
       console.log("📤 Sending questions:", JSON.stringify(questions));
 
       $.ajax({
@@ -1441,13 +1441,46 @@ $(document).ready(function () {
     let cautraloi = qtype === "reading" ? readingQuestions : options;
     let questionImage = $("#question-image")[0]?.files[0];
 
-    if (
-      qtype === "mcq" &&
-      (options.length === 0 || !options.some((opt) => opt.check))
-    ) {
+    let hasError = false;
+    let errorMessage = "";
+
+    if (qtype === "mcq") {
+      if (options.length === 0 || !options.some((opt) => opt.check)) {
+        hasError = true;
+        errorMessage = "Vui lòng chọn ít nhất một đáp án đúng cho câu hỏi!";
+      }
+    }
+
+    if (qtype === "reading") {
+      if (readingQuestions.length === 0) {
+        hasError = true;
+        errorMessage = "Vui lòng thêm ít nhất một câu hỏi con!";
+      } else {
+        for (let i = 0; i < readingQuestions.length; i++) {
+          const subQ = readingQuestions[i];
+          const subOptions = subQ.options || [];
+
+          // Kiểm tra nội dung câu hỏi con (tùy chọn, có thể bắt buộc)
+          // if (!subQ.content.trim()) {
+          //   hasError = true;
+          //   errorMessage = `Câu hỏi con số ${i + 1}: Chưa nhập nội dung câu hỏi!`;
+          //   break;
+          // }
+
+          if (subOptions.length === 0 || !subOptions.some((opt) => opt.check)) {
+            hasError = true;
+            errorMessage = `Câu hỏi con số ${i + 1}: Chưa chọn đáp án đúng!`;
+            break;
+          }
+        }
+      }
+    }
+
+    // Nếu có lỗi → báo và dừng lại
+    if (hasError) {
       Dashmix.helpers("jq-notify", {
         type: "danger",
-        message: "Chọn ít nhất một đáp án đúng!",
+        message: errorMessage,
       });
       return;
     }
@@ -1456,6 +1489,8 @@ $(document).ready(function () {
     formData.append("loai", qtype);
     formData.append("noidung", qtype === "reading" ? passage : noidung);
     formData.append("doanvan_noidung", passage);
+    let passageTitle = $("#passage-title").val() || "";
+    formData.append("doanvan_tieude", passageTitle);
     formData.append("mamon", $("#mon-hoc").val());
     formData.append("machuong", $("#chuong").val());
     formData.append("dokho", $("#dokho").val());
@@ -1576,6 +1611,7 @@ $(document).ready(function () {
   $("#addquestionnew").click(function () {
     $("#mon-hoc, #chuong, #dokho, #loai-cau-hoi").val("").trigger("change");
     $("#monhocfile, #chuongfile, #loaicauhoifile").val("").trigger("change");
+    $("#passage-title").val("");
 
     CKEDITOR.instances["js-ckeditor"]?.setData("");
     CKEDITOR.instances["passage-content"]?.setData("");
@@ -1597,19 +1633,43 @@ $(document).ready(function () {
   });
 
   // Edit question
-  // Khi bấm lưu
+
   $("#edit_question").click(function () {
     let id = $("#question_id").val();
     let qtype = $("#loai-cau-hoi").val();
+    let hasError = false;
+    let errorMessage = "";
 
     // === KIỂM TRA BẮT BUỘC CÓ ĐÁP ÁN ĐÚNG ===
-    if (
-      qtype === "mcq" &&
-      (options.length === 0 || !options.some((opt) => opt.check))
-    ) {
+    if (qtype === "mcq") {
+      // MCQ thường hoặc essay (nếu có chọn đáp án)
+      if (options.length === 0 || !options.some((opt) => opt.check)) {
+        hasError = true;
+        errorMessage = "Chọn ít nhất một đáp án đúng cho câu hỏi!";
+      }
+    }
+
+    if (qtype === "reading") {
+      // Với Reading: kiểm tra TỪNG câu hỏi con
+      for (let i = 0; i < readingQuestions.length; i++) {
+        const subQ = readingQuestions[i];
+        const subOptions = subQ.options || [];
+
+        if (subOptions.length === 0 || !subOptions.some((opt) => opt.check)) {
+          hasError = true;
+          errorMessage = `Câu hỏi con số ${
+            i + 1
+          }: Vui lòng chọn ít nhất một đáp án đúng!`;
+          break; // dừng ngay khi tìm thấy lỗi
+        }
+      }
+    }
+
+    // Nếu có lỗi → báo và dừng
+    if (hasError) {
       Dashmix.helpers("jq-notify", {
         type: "danger",
-        message: "Chọn ít nhất một đáp án đúng!",
+        message: errorMessage,
       });
       return;
     }
@@ -1699,19 +1759,6 @@ $(document).ready(function () {
     if ($(document).data("delete_question_image") === "1") {
       formData.append("delete_question_image", "1");
     }
-    // ===== DEBUG: IN RA TẤT CẢ NỘI DUNG FORMDATA =====
-    console.log("======= DEBUG SEND DATA =======");
-    console.log("id:", id);
-    console.log("qtype:", qtype);
-    console.log("rawData:", rawData);
-    console.log("answersToSend:", JSON.stringify(answersToSend, null, 2));
-
-    console.log("Files append:");
-    for (let pair of formData.entries()) {
-      console.log(pair[0] + ":", pair[1]);
-    }
-    console.log("======= END DEBUG =======");
-    //return;
 
     // Gửi Ajax
     $.ajax({
@@ -1829,11 +1876,6 @@ $(document).ready(function () {
               // Nhóm câu hỏi con theo macauhoicon
               const subMap = {};
               response.forEach((item) => {
-                console.log(
-                  "Option image field:",
-                  opt.option_image_base64,
-                  opt
-                );
                 const subId = item.macauhoicon;
                 if (!subMap[subId]) {
                   subMap[subId] = {

@@ -164,7 +164,7 @@ function loadFilterSemesters() {
           // Display readable names
           const label = item.tennamhoc
             ? `${item.tennamhoc} - ${item.tenhocky || ""}`
-            : `${item.manamhoc} - HK${item.mahocky}`;
+            : `${item.manamhoc} - ${item.mahocky}`;
           html += `<option value="${key}">${label}</option>`;
         }
       });
@@ -260,7 +260,7 @@ $(document).ready(function () {
         response.forEach((item, index) => {
           const yearLabel = item.tennamhoc ? item.tennamhoc : item.manamhoc;
           const hkLabel = item.tenhocky ? item.tenhocky : item.mahocky;
-          html += `<option value="${index}">${item.mamonhoc} - ${item.tenmonhoc} - NH${yearLabel} - ${hkLabel}</option>`;
+          html += `<option value="${index}">${item.mamonhoc} - ${item.tenmonhoc} -${yearLabel} - ${hkLabel}</option>`;
         });
         $("#nhom-hp").html(html);
       },

@@ -261,8 +261,14 @@ $(document).ready(function () {
   // Hiển thị đề kiểm tra đáp án + câu trả lời của thí sinh đó
   function showTestDetail(questions) {
     let html = "";
-    let lastContext = null;
-    let inGroup = false;
+    let openCards = 0; // Đếm số card đang mở (để đóng đúng)
+
+    const closeAllOpenCards = () => {
+      while (openCards > 0) {
+        html += `</div></div>`;
+        openCards--;
+      }
+    };
 
     questions.forEach((item, index) => {
       const correctOp = item.cautraloi?.find((op) => op.ladapan == 1);
@@ -278,77 +284,87 @@ $(document).ready(function () {
         ? item.context.replace(/\s+/g, " ").trim()
         : null;
 
-      // Đóng group reading nếu chuyển sang câu không phải reading
-      if (item.loai !== "reading" && inGroup) {
-        html += `</div></div>`;
-        inGroup = false;
-        lastContext = null;
+      // === 1. ĐÓNG TẤT CẢ CARD MỞ KHI CHUYỂN SANG CÂU KHÔNG PHẢI READING ===
+      if (item.loai !== "reading" && openCards > 0) {
+        closeAllOpenCards();
       }
 
-      // ==================== READING CONTEXT ====================
-      if (
-        item.loai === "reading" &&
-        normalizedContext &&
-        normalizedContext !== lastContext
-      ) {
-        if (inGroup) html += `</div></div>`;
+      // === 2. MỞ NHÓM READING MỚI NẾU CẦN ===
+      if (item.loai === "reading" && normalizedContext) {
+        // Lấy context của câu reading đầu tiên trong nhóm để so sánh
+        const currentGroupContext = normalizedContext;
 
-        let contextHtml = item.context
-          .split(/\n{2,}/)
-          .map((para, i) => {
-            const mbClass =
-              i === item.context.split(/\n{2,}/).length - 1 ? "mb-0" : "mb-3";
-            return `<p class="text-muted small lh-lg ${mbClass}">${para.replace(
-              /\n/g,
-              "<br>"
-            )}</p>`;
-          })
-          .join("");
+        // Nếu đây là nhóm reading mới (context khác với câu reading trước đó)
+        if (currentGroupContext !== window.lastReadingContext) {
+          // Đóng nhóm reading cũ nếu có
+          if (openCards > 0) {
+            closeAllOpenCards();
+          }
 
-        html += `
-      <div class="card mb-5 border-0 shadow rounded-4 overflow-hidden">
-        <div class="card-body p-4 p-md-5">
-          <div class="bg-light rounded-3 p-3">
-            <h6 class="text-primary fw-bold mb-2">
-              <i class="fas fa-book-open me-2"></i>
-              ${item.tieude_context || "Đoạn văn"}
-            </h6>
-            ${contextHtml}
-          </div>
-          <hr class="my-4">`;
-        inGroup = true;
-        lastContext = normalizedContext;
+          // Mở card reading + card-body
+          let contextHtml = item.context
+            .split(/\n{2,}/)
+            .map((para, i, arr) => {
+              const mbClass = i === arr.length - 1 ? "mb-0" : "mb-3";
+              return `<p class="text-muted small lh-lg ${mbClass}">${para.replace(
+                /\n/g,
+                "<br>"
+              )}</p>`;
+            })
+            .join("");
+
+          html += `
+        <div class="card mb-5 border-0 shadow rounded-4 overflow-hidden">
+          <div class="card-body p-4 p-md-5">
+            <div class="bg-light rounded-3 p-3">
+              <h6 class="text-primary fw-bold mb-2">
+                <i class="fas fa-book-open me-2"></i>
+                ${item.tieude_context || "Đoạn văn"}
+              </h6>
+              ${contextHtml}
+            </div>
+            <hr class="my-4">`;
+
+          openCards = 1; // đang mở 1 card (reading group)
+          window.lastReadingContext = currentGroupContext; // nhớ context hiện tại
+        }
+      } else {
+        // Không phải reading → reset context để lần sau nhận diện nhóm mới
+        window.lastReadingContext = null;
       }
 
-      // ==================== KHUNG CÂU HỎI ====================
-      if (!inGroup) {
+      // === 3. MỞ CARD CÂU HỎI ===
+      if (openCards === 0) {
+        // Câu độc lập
         html += `
       <div class="card mb-5 border-0 shadow rounded-4 overflow-hidden">
         <div class="card-body p-4 p-md-5">
           <h5 class="fw-bold text-dark mb-4">${index + 1}. ${
           item.noidung
         }</h5>`;
+        openCards = 1;
       } else {
+        // Trong nhóm reading
         html += `
-      <div class="question-item mb-5">
+      <div class="question-item mb-5 pt-4 border-top">
         <h5 class="fw-bold text-dark mb-4">${index + 1}. ${item.noidung}</h5>`;
       }
 
-      // ==================== CÂU TỰ LUẬN ====================
+      // === 4. CÂU TỰ LUẬN ===
       const isEssay =
         item.loai === "essay" ||
         item.noidung_tra_loi != null ||
         item.diem_cham_tuluan != null;
       if (isEssay) {
         html += renderEssayBlock(item);
-        if (!inGroup) html += `</div></div>`;
-        else html += `</div>`;
+        html += `</div></div>`; // đóng question-item + card-body + card
+        openCards = 0;
         return;
       }
 
-      // ==================== CÂU TRẮC NGHIỆM - TEXT & ẢNH TÁCH RIÊNG, SIÊU ĐẸP ====================
+      // === 5. TRẮC NGHIỆM ===
       html += `<div class="row g-4 mt-3">`;
-      item.cautraloi?.forEach((op, i) => {
+      (item.cautraloi || []).forEach((op, i) => {
         const label = String.fromCharCode(65 + i);
         const isSelected = op.macautl === item.dapanchon;
         const isCorrectAnswer = op.ladapan == 1;
@@ -362,7 +378,7 @@ $(document).ready(function () {
         } else if (isSelected && isWrong) {
           borderClass = "border-danger border-5 shadow-lg";
           icon = `<i class="fas fa-times-circle fa-3x text-danger position-absolute end-0 top-50 translate-middle-y me-4"></i>`;
-        } else if (!isSelected && isCorrectAnswer && isWrong) {
+        } else if (!isSelected && isCorrectAnswer && item.dapanchon != null) {
           borderClass = "border-success border-5 shadow";
           icon = `<i class="fas fa-check-circle fa-2x text-success position-absolute end-0 top-50 translate-middle-y me-4"></i>`;
         }
@@ -371,22 +387,15 @@ $(document).ready(function () {
         const hasImage = op.hinhanh?.trim();
 
         const textBlock = hasText
-          ? `<div class="answer-text mb-3 px-3 text-center">
-             <div class="fs-5 fw-medium lh-lg">${op.noidungtl}</div>
-           </div>`
+          ? `<div class="answer-text mb-3 px-3 text-center"><div class="fs-5 fw-medium lh-lg">${op.noidungtl}</div></div>`
           : "";
 
         const imageBlock = hasImage
-          ? `<div class="answer-image text-center mt-2">
-             <img src="${op.hinhanh}" class="img-fluid rounded-4 shadow-sm border" 
-                  style="max-height: 260px; width: auto; max-width: 100%; object-fit: contain; background:#f8f9fa;">
-           </div>`
+          ? `<div class="answer-image text-center mt-2"><img src="${op.hinhanh}" class="img-fluid rounded-4 shadow-sm border" style="max-height: 260px; object-fit: contain; background:#f8f9fa;"></div>`
           : "";
 
         const content =
-          textBlock || imageBlock
-            ? textBlock + imageBlock
-            : '<div class="text-muted small">Trống</div>';
+          textBlock + imageBlock || '<div class="text-muted small">Trống</div>';
 
         html += `
       <div class="col-12 col-md-6">
@@ -401,7 +410,7 @@ $(document).ready(function () {
       });
       html += `</div>`; // đóng row
 
-      // ==================== THANH KẾT QUẢ ====================
+      // === 6. THANH KẾT QUẢ ===
       let resultBar = "";
       if (notAnswered) {
         resultBar = `<div class="mx-auto mt-5 rounded-4 overflow-hidden" style="max-width:500px;">
@@ -427,16 +436,24 @@ $(document).ready(function () {
       }
       html += resultBar;
 
-      // Đóng card
-      if (!inGroup) html += `</div></div>`;
-      else html += `</div>`;
+      // === 7. ĐÓNG CÂU HỎI (nếu là câu độc lập) ===
+      if (openCards === 1 && item.loai !== "reading") {
+        html += `</div></div>`;
+        openCards = 0;
+      } else if (openCards === 1 && item.loai === "reading") {
+        // Trong nhóm reading → chỉ đóng question-item, giữ card lớn mở
+        html += `</div>`;
+      }
     });
 
-    if (inGroup) html += `</div></div>`;
+    // Đóng tất cả thẻ còn lại khi kết thúc
+    closeAllOpenCards();
+
+    // Xóa biến toàn cục để lần sau dùng lại sạch
+    delete window.lastReadingContext;
 
     $("#content-file").html(html);
   }
-
   // ==================== HÀM RIÊNG CHO TỰ LUẬN / SUB-ESSAY ====================
   function renderEssayBlock(item) {
     const hasText = item.noidung_tra_loi && item.noidung_tra_loi.trim() !== "";

@@ -98,7 +98,7 @@
                     <table class="table table-sm table-striped align-middle">
                         <thead class="bg-indigo-light text-dark">
                             <tr>
-                                <th class="text-center" style="width: 20%;"><i class="fa fa-list-ol me-1"></i> STT</th>
+                                <th style="width: 20%;">STT</th>
                                 <th style="width: 80%;"><i class="fa fa-book me-1"></i> Tên học kỳ</th>
                             </tr>
                         </thead>

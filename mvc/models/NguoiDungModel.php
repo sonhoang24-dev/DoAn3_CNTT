@@ -119,9 +119,10 @@ class NguoiDungModel extends DB
 
     public function changePassword($id, $new_password_hashed)
     {
+       
         $sql = "UPDATE nguoidung SET matkhau = ? WHERE id = ?";
         $stmt = $this->con->prepare($sql);
-        $stmt->bind_param("si", $new_password_hashed, $id);
+        $stmt->bind_param("ss", $new_password_hashed, $id);
         if ($stmt->execute()) {
             if ($stmt->affected_rows > 0) {
                 return true;

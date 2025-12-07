@@ -1043,6 +1043,18 @@ public function exportPdf($makq)
     .only-first-page {
         position: running(first_page_title);  /* Dompdf magic */
     }
+
+    /* tất cả ảnh trong PDF */
+img {
+    max-width: 100%;
+    max-height: 400px;  /* hoặc tuỳ bạn muốn chiều cao tối đa */
+    height: auto;
+    width: auto;
+    display: block;
+    margin: 10px auto;
+    object-fit: contain;
+}
+
 </style>
 </head>
 <body>';

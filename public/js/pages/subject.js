@@ -18,17 +18,32 @@ Dashmix.onLoad(() =>
               min: 1,
               max: 5,
             },
+
+            // --- SỬA Ở ĐÂY ---
             sotiet_lt: {
-              required: true,
+              required: {
+                depends: function () {
+                  let type = $("#loaimon").val();
+                  return type === "lt" || type === "lt+th";
+                },
+              },
               number: true,
               min: 0,
             },
+
             sotiet_th: {
-              required: true,
+              required: {
+                depends: function () {
+                  let type = $("#loaimon").val();
+                  return type === "th" || type === "lt+th";
+                },
+              },
               number: true,
               min: 0,
             },
+            // -----------------
           },
+
           messages: {
             mamonhoc: {
               required: "Vui lòng nhập mã môn học",
@@ -42,11 +57,13 @@ Dashmix.onLoad(() =>
               min: "Số tín chỉ phải lớn hơn 0",
               max: "Số tín chỉ không được vượt quá 5",
             },
+
             sotiet_lt: {
               required: "Vui lòng nhập số tiết lý thuyết",
               number: "Phải là số",
               min: "Không được nhỏ hơn 0",
             },
+
             sotiet_th: {
               required: "Vui lòng nhập số tiết thực hành",
               number: "Phải là số",
@@ -61,11 +78,37 @@ Dashmix.onLoad(() =>
     }
   }.init()
 );
+// Auto handle disable fields based on loaimon
+function handleLoaiMon() {
+  let type = $("#loaimon").val();
+
+  if (type === "lt") {
+    $("#sotiet_lt").prop("disabled", false);
+    $("#sotiet_th").prop("disabled", true).val("");
+  }
+
+  if (type === "th") {
+    $("#sotiet_lt").prop("disabled", true).val("");
+    $("#sotiet_th").prop("disabled", false);
+  }
+
+  if (type === "lt+th") {
+    $("#sotiet_lt").prop("disabled", false);
+    $("#sotiet_th").prop("disabled", false);
+  }
+}
+
+$("#loaimon").on("change", handleLoaiMon);
 
 function showData(subjects) {
   let html = "";
 
   subjects.forEach((subject) => {
+    const statusHtml =
+      subject.trangthai == 1
+        ? `<span class="text-success"><i class="fa fa-check-circle me-1"></i> Còn hoạt động</span>`
+        : `<span class="text-danger"><i class="fa fa-ban me-1"></i> Không còn dạy</span>`;
+
     html += `
       <tr tid="${subject.mamonhoc}">
         <td class="text-center fs-sm">
@@ -81,6 +124,13 @@ function showData(subjects) {
         <td class="d-none d-sm-table-cell text-center fs-sm">
           ${subject.sotietthuchanh}
         </td>
+
+        <!-- CỘT TRẠNG THÁI -->
+        <td class="text-center fs-sm">
+          ${statusHtml}
+        </td>
+
+        <!-- CỘT HÀNH ĐỘNG -->
         <td class="text-center col-action">
           <a
             href="javascript:void(0)"
@@ -129,6 +179,27 @@ $(document).ready(function () {
     $("#sotiet_th").val("");
     $("#loaimon").val("lt+th"); // Giá trị mặc định
   });
+
+  // Khi thay đổi loại môn, tự động reset và disable trường không dùng
+  $("#loaimon").on("change", function () {
+    let type = $(this).val();
+
+    if (type === "lt") {
+      $("#sotiet_lt").prop("disabled", false);
+      $("#sotiet_th").prop("disabled", true).val("");
+    }
+
+    if (type === "th") {
+      $("#sotiet_lt").prop("disabled", true).val("");
+      $("#sotiet_th").prop("disabled", false);
+    }
+
+    if (type === "lt+th") {
+      $("#sotiet_lt").prop("disabled", false);
+      $("#sotiet_th").prop("disabled", false);
+    }
+  });
+
   function checkTonTai(mamon) {
     let check = true;
     $.ajax({
@@ -228,6 +299,7 @@ $(document).ready(function () {
             loaimon = "lt+th";
           }
           $("#loaimon").val(loaimon);
+          handleLoaiMon();
 
           $("#modal-add-subject").modal("show");
           $("#update_subject").data("id", response.mamonhoc);
@@ -244,6 +316,8 @@ $(document).ready(function () {
     $("#sotiet_lt").val("");
     $("#sotiet_th").val("");
     $("#loaimon").val("lt+th");
+    handleLoaiMon();
+
     $("#update_subject").data("id", "");
   });
 

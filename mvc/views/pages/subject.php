@@ -36,6 +36,7 @@
               <th class="d-none d-sm-table-cell"><i class="fa fa-graduation-cap me-1"></i> Số tín chỉ</th>
               <th class="d-none d-sm-table-cell"><i class="fa fa-chalkboard me-1"></i> Số tiết LT</th>
               <th class="d-none d-sm-table-cell"><i class="fa fa-flask me-1"></i> Số tiết TH</th>
+              <th class="d-none d-sm-table-cell"><i class="fa fa-circle me-1"></i> Trạng thái</th>
               <th class="text-center col-header-action"><i class="fa fa-cogs me-1"></i> Hành động</th>
             </tr>
           </thead>
@@ -205,7 +206,26 @@
   #mamonhoc:disabled {
     background-color: #e9ecef;
     cursor: not-allowed;
-    opacity: 0.7;
+  }
+
+  .form-control::placeholder {
+    color: #495057;
+    opacity: 1;
+  }
+
+  .form-control::-moz-placeholder {
+    color: #495057;
+    opacity: 1;
+  }
+
+  .form-control::-webkit-input-placeholder {
+    color: #495057;
+    opacity: 1;
+  }
+
+  .form-control:-ms-input-placeholder {
+    color: #495057;
+    opacity: 1;
   }
 
   .bg-indigo { background-color: #4f46e5 !important; }

@@ -198,7 +198,7 @@
 <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasSetting" aria-labelledby="offcanvasExampleLabel">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title" id="offcanvasExampleLabel">
-            <?php echo $data['Detail']['mamonhoc'] . " - " . $data['Detail']['tenmonhoc'] . " - NH" . $data['Detail']['tennamhoc'] . " - HK" . $data['Detail']['tenhocky'] . " - " . $data['Detail']['tennhom'] ?>
+            <?php echo $data['Detail']['mamonhoc'] . " - " . $data['Detail']['tenmonhoc'] . " - " . "(".$data['Detail']['tennamhoc'] . ")". " - " . $data['Detail']['tenhocky'] . " - " . $data['Detail']['tennhom'] ?>
         </h5>
         <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>

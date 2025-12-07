@@ -263,13 +263,14 @@ class PhanCongModel extends DB
         ng.hoten, 
         mh.tenmonhoc, 
         nh.tennamhoc, 
-        hk.tenhocky
+        hk.tenhocky,
+        pc.trangthai
     FROM phancong AS pc
     JOIN monhoc AS mh ON pc.mamonhoc = mh.mamonhoc
     JOIN nguoidung AS ng ON pc.manguoidung = ng.id
     LEFT JOIN namhoc AS nh ON pc.namhoc = nh.manamhoc
     LEFT JOIN hocky AS hk ON pc.hocky = hk.mahocky
-    WHERE pc.trangthai = 1";
+    ";
 
         // Lọc theo năm học
         if (!empty($filter["namhoc"])) {

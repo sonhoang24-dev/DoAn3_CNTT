@@ -16,6 +16,13 @@ function getSelectedQuestionTypes() {
   return types;
 }
 function getTotalQuestionOfChapter(chapters, monhoc, dokho, loaicauhoi) {
+  console.log("➡️ DATA GỬI SANG PHP:", {
+    chuong: Array.isArray(chapters) ? chapters : [chapters].filter(Boolean),
+    monhoc: monhoc,
+    dokho: dokho,
+    loaicauhoi: loaicauhoi,
+  });
+
   var result = 0;
   if (!loaicauhoi || loaicauhoi.length === 0) return 0;
 

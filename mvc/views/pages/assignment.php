@@ -48,6 +48,7 @@
                             <th><i class="fa fa-book me-1"></i> Môn học</th>
                             <th class="text-center"><i class="fa fa-calendar me-1"></i> Năm học</th>
                             <th class="text-center"><i class="fa fa-clock me-1"></i> Học kỳ</th>
+                            <th class="text-center"><i class="fa fa-circle me-1"></i>Trạng thái</th>
                             <th class="text-center" style="width: 150px;"><i class="fa fa-cogs me-1"></i> Hành động</th>
                         </tr>
                     </thead>
