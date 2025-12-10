@@ -110,7 +110,7 @@
                         <form class="form-add-user" novalidate onsubmit="return false;">
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-semibold">Mã sinh viên <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">Mã người dùng <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="masinhvien" id="masinhvien" required>
                                 </div>
                                 <div class="col-md-6">
@@ -136,12 +136,17 @@
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Ngày sinh</label>
-                                    <input type="text" class="form-control js-flatpickr" name="user_ngaysinh" id="user_ngaysinh">
+                                    <input type="text" class="form-control js-flatpickr" name="user_ngaysinh" id="user_ngaysinh" value="2000-01-01">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Nhóm quyền</label>
                                     <select class="form-select js-select2 data-nhomquyen" name="user_nhomquyen" id="user_nhomquyen"></select>
                                 </div>
+                                <div class="col-md-4">
+                                <label for="user_password" class="form-label">Mật khẩu</label>
+                                <input type="password" class="form-control form-control-alt" name="user_password"
+                                    id="user_password" placeholder="Nhập mật khẩu">
+                            </div>
                                
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Trạng thái</label>

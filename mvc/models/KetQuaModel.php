@@ -815,11 +815,125 @@ public function getInfoPrintPdf($makq)
         }
         return $query;
     }
+    // 1. LẤY TÊN LỚP (CHUẨN THEO CSDL CỦA BẠN)
+public function getTenLopDisplay($ds = null, $manhom = null)
+{
+    $result = [];
+
+    // Trường hợp xuất theo nhóm (manhom > 0)
+    if ($manhom && $manhom > 0) {
+        $sql = "SELECT tennhom FROM nhom WHERE manhom = ? LIMIT 1";
+        if ($stmt = $this->con->prepare($sql)) {
+            $stmt->bind_param("i", $manhom);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($row = $res->fetch_assoc()) {
+                return $row['tennhom'];
+            }
+            $stmt->close();
+        }
+    }
+
+    // Trường hợp xuất theo danh sách lớp (ds)
+    if ($ds !== null) {
+        if (is_array($ds)) {
+            $ds = array_filter(array_map('trim', $ds));
+        } else {
+            $ds = trim($ds) !== '' ? [trim($ds)] : [];
+        }
+
+        if (!empty($ds)) {
+            $placeholders = str_repeat('?,', count($ds) - 1) . '?';
+            $sql = "SELECT tennhom FROM nhom WHERE tennhom IN ($placeholders)";
+            if ($stmt = $this->con->prepare($sql)) {
+                $types = str_repeat('s', count($ds));
+                $stmt->bind_param($types, ...$ds);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $result[] = $row['tennhom'];
+                }
+                $stmt->close();
+            }
+
+            if (!empty($result)) {
+                return implode(' - ', $result);
+            }
+        }
+    }
+
+    return 'Tất cả các lớp';
+}
+
+// 2. LẤY TÊN MÔN HỌC (CHUẨN THEO BẢNG dethi + monhoc)
+public function getTenMonHoc($made)
+{
+    // Cách 1: Lấy từ dethi → monhoc (ưu tiên)
+    $sql1 = "SELECT mh.tenmonhoc 
+             FROM dethi dt 
+             JOIN nhom n ON dt.monthi = n.mamonhoc 
+             JOIN monhoc mh ON n.mamonhoc = mh.mamonhoc 
+             WHERE dt.made = ? 
+             LIMIT 1";
+
+    // Cách 2: Nếu không có, thử lấy từ các nhóm có đề này
+    $sql2 = "SELECT mh.tenmonhoc 
+             FROM nhom n 
+             JOIN monhoc mh ON n.mamonhoc = mh.mamonhoc 
+             WHERE n.mamonhoc IN (SELECT monthi FROM dethi WHERE made = ?) 
+             LIMIT 1";
+
+    foreach ([$sql1, $sql2] as $sql) {
+        if ($stmt = $this->con->prepare($sql)) {
+            $stmt->bind_param("i", $made);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($row = $res->fetch_assoc()) {
+                $ten = trim($row['tenmonhoc']);
+                $stmt->close();
+                return $ten !== '' ? $ten : "Môn đề {$made}";
+            }
+            $stmt->close();
+        }
+    }
+
+    return "Môn đề {$made}";
+}
 
     public function getTestScoreGroup($made, $manhom)
     {
-        $sql = "SELECT ds.manguoidung,ds.hoten,kqt.diemthi,kqt.thoigianvaothi,kqt.thoigianlambai,kqt.socaudung,kqt.solanchuyentab FROM (SELECT ctn.manguoidung,nd.hoten FROM chitietnhom ctn JOIN nguoidung nd ON ctn.manguoidung=nd.id WHERE ctn.manhom=$manhom) ds LEFT JOIN 
-        (SELECT kq.manguoidung,kq.diemthi,kq.thoigianvaothi,kq.thoigianlambai,kq.socaudung,kq.solanchuyentab FROM ketqua kq JOIN giaodethi gdt ON kq.made=gdt.made WHERE gdt.made=$made AND gdt.manhom=$manhom) kqt ON ds.manguoidung=kqt.manguoidung";
+        $sql = "SELECT 
+    ds.manguoidung,
+    ds.hoten,
+    (IFNULL(kqt.diemthi,0) + IFNULL(kqt.diem_tuluan,0)) AS diemtong,
+    (kqt.diemthi - kqt.diem_dochieu) as diemtracnghiem,
+    kqt.diem_tuluan as diemtuluan,
+    kqt.diem_dochieu as diemdochieu,
+    kqt.thoigianvaothi,
+    kqt.thoigianlambai,
+    kqt.socaudung,
+    kqt.solanchuyentab
+FROM 
+    (SELECT ctn.manguoidung, nd.hoten 
+     FROM chitietnhom ctn 
+     JOIN nguoidung nd ON ctn.manguoidung = nd.id 
+     WHERE ctn.manhom = $manhom) ds
+LEFT JOIN  
+    (SELECT 
+         kq.manguoidung,
+         kq.diemthi,
+         kq.diem_tuluan,
+         kq.diem_dochieu,
+         kq.thoigianvaothi,
+         kq.thoigianlambai,
+         kq.socaudung,
+         kq.solanchuyentab
+     FROM ketqua kq 
+     JOIN giaodethi gdt ON kq.made = gdt.made 
+     WHERE gdt.made = $made AND gdt.manhom = $manhom
+    ) kqt 
+ON ds.manguoidung = kqt.manguoidung;
+";
         $result = mysqli_query($this->con, $sql);
         $rows = array();
         while ($row = mysqli_fetch_assoc($result)) {
@@ -828,21 +942,41 @@ public function getInfoPrintPdf($makq)
         return $rows;
     }
 
-    public function getTestAll($made, $ds)
-    {
-        $list = implode(", ", $ds);
-        $cols = "KQ.makq, KQ.made, CTN.manguoidung, KQ.diemthi, KQ.diem_tuluan, KQ.trangthai, KQ.trangthai_tuluan, KQ.thoigianvaothi, KQ.thoigianlambai, KQ.socaudung, KQ.solanchuyentab, ND.email, ND.hoten, ND.avatar";
-        $sql = "(SELECT $cols FROM chitietnhom CTN JOIN nguoidung ND ON ND.id = CTN.manguoidung LEFT JOIN ketqua KQ ON CTN.manguoidung = KQ.manguoidung AND KQ.made = $made WHERE KQ.made IS NULL AND CTN.manhom IN ($list))
-        UNION
-        (SELECT DISTINCT $cols FROM ketqua KQ JOIN nguoidung ND ON KQ.manguoidung = ND.id JOIN chitietnhom CTN ON CTN.manguoidung = ND.id WHERE KQ.made = $made AND CTN.manhom IN ($list))
-        ORDER BY manguoidung ASC";
-        $result = mysqli_query($this->con, $sql);
-        $rows = array();
-        while ($row = mysqli_fetch_assoc($result)) {
-            $rows[] = $row;
-        }
-        return $rows;
+   public function getTestAll($made, $ds)
+{
+    // Nếu $ds không phải mảng, biến thành mảng 1 phần tử
+    if (!is_array($ds)) {
+        $ds = [$ds];
     }
+
+    // ép từng phần tử thành số nguyên để tránh lỗi SQL injection
+    $ds = array_map('intval', $ds);
+
+    $list = implode(", ", $ds);
+
+    $cols = "KQ.makq, KQ.made, CTN.manguoidung, (IFNULL(KQ.diemthi,0) + IFNULL(KQ.diem_tuluan,0)) AS diemtong, 
+             (KQ.diemthi - KQ.diem_dochieu) AS diemtracnghiem, KQ.diem_tuluan as diemtuluan, KQ.diem_dochieu as diemdochieu, 
+             KQ.trangthai_tuluan, KQ.thoigianvaothi, KQ.thoigianlambai, KQ.socaudung, KQ.solanchuyentab, ND.email, ND.hoten, ND.avatar";
+
+    $sql = "(SELECT $cols FROM chitietnhom CTN 
+             JOIN nguoidung ND ON ND.id = CTN.manguoidung 
+             LEFT JOIN ketqua KQ ON CTN.manguoidung = KQ.manguoidung AND KQ.made = $made 
+             WHERE KQ.made IS NULL AND CTN.manhom IN ($list))
+        UNION
+        (SELECT DISTINCT $cols FROM ketqua KQ 
+             JOIN nguoidung ND ON KQ.manguoidung = ND.id 
+             JOIN chitietnhom CTN ON CTN.manguoidung = ND.id 
+         WHERE KQ.made = $made AND CTN.manhom IN ($list))
+        ORDER BY manguoidung ASC";
+
+    $result = mysqli_query($this->con, $sql);
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $rows[] = $row;
+    }
+    return $rows;
+}
+
 
     public function chuyentab($made, $id)
     {

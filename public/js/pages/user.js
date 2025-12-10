@@ -5,6 +5,7 @@ Dashmix.onLoad(() =>
     static initValidation() {
       Dashmix.helpers("jq-validation"),
         jQuery(".form-add-user").validate({
+          ignore: [], // Để validate field ẩn nếu cần
           rules: {
             masinhvien: {
               required: !0,
@@ -24,10 +25,6 @@ Dashmix.onLoad(() =>
             },
             user_nhomquyen: {
               required: !0,
-            },
-            user_password: {
-              required: !0,
-              minlength: 5,
             },
           },
           messages: {
@@ -50,14 +47,9 @@ Dashmix.onLoad(() =>
             user_nhomquyen: {
               required: "Vui lòng chọn nhóm quyền",
             },
-            user_password: {
-              required: "Nhập mật khẩu",
-              minlength: "Mật khẩu phải có ít nhất 5 ký tự!",
-            },
           },
         });
     }
-
     static init() {
       this.initValidation();
     }
@@ -66,7 +58,6 @@ Dashmix.onLoad(() =>
 
 const showData = function (users) {
   let html = "";
-
   if (users.length === 0) {
     html = `
       <tr>
@@ -79,7 +70,6 @@ const showData = function (users) {
     $("#list-user").html(html);
     return;
   }
-
   users.forEach((user) => {
     html += `
       <tr>
@@ -105,7 +95,7 @@ const showData = function (users) {
               ? "bg-success-light text-success"
               : "bg-danger-light text-danger"
           }">${user.trangthai == 1 ? "Hoạt động" : "Khoá"}</span>
-        </td> 
+        </td>
         <td class="text-center col-action">
           <a data-role="nguoidung" data-action="update" class="btn btn-sm btn-alt-warning btn-edit" href="javascript:void(0)"
           data-bs-toggle="tooltip" aria-label="Chỉnh sửa" data-bs-original-title="Chỉnh sửa" data-id="${
@@ -113,7 +103,7 @@ const showData = function (users) {
           }">
               <i class="fa fa-edit"></i>
           </a>
-          <a data-role="nguoidung" data-action="delete" class="btn btn-sm btn-alt-danger btn-delete" href="javascript:void(0)" 
+          <a data-role="nguoidung" data-action="delete" class="btn btn-sm btn-alt-danger btn-delete" href="javascript:void(0)"
           data-bs-toggle="tooltip" aria-label="Xoá" data-bs-original-title="Xoá" data-id="${
             user.id
           }">
@@ -123,7 +113,6 @@ const showData = function (users) {
       </tr>
     `;
   });
-
   $("#list-user").html(html);
   $('[data-bs-toggle="tooltip"]').tooltip();
 };
@@ -150,6 +139,11 @@ $(document).ready(function () {
     clearInputFields();
     $(".add-user-element").show();
     $(".update-user-element").hide();
+    // Required password cho add
+    jQuery(
+      ".form-add-user"
+    ).validate().settings.rules.user_password.required = true;
+    // Không làm gì với tab, để hiển thị cả 2 tab mặc định
   });
 
   function checkUser(id, email) {
@@ -204,42 +198,55 @@ $(document).ready(function () {
 
   $("#btn-add-user").on("click", function (e) {
     e.preventDefault();
+
     let mssv = $("#masinhvien").val();
     let email = $("#user_email").val();
-    // Validate user
+
     if ($(".form-add-user").valid() && checkUser(mssv, email)) {
       $.ajax({
         type: "post",
         url: "./user/add",
+        dataType: "json", // 🔥 BẮT BUỘC CÓ
         data: {
-          masinhvien: $("#masinhvien").val(),
+          masinhvien: mssv,
           hoten: $("#user_name").val(),
           gioitinh: $('input[name="user_gender"]:checked').val(),
           ngaysinh: $("#user_ngaysinh").val(),
-          email: $("#user_email").val(),
+          email: email,
           role: $("#user_nhomquyen").val(),
           password: $("#user_password").val(),
           status: $("#user_status").prop("checked") ? 1 : 0,
         },
         success: function (response) {
-          console.log(response.valid);
-          Dashmix.helpers("jq-notify", {
-            type: "success",
-            icon: "fa fa-check me-1",
-            message: `Thêm người dùng thành công!`,
-          });
-          $("#modal-add-user").modal("hide");
-          mainPagePagination.getPagination(
-            mainPagePagination.option,
-            mainPagePagination.valuePage.curPage
-          );
+          console.log(response);
+
+          if (response.status === "success") {
+            Dashmix.helpers("jq-notify", {
+              type: "success",
+              icon: "fa fa-check me-1",
+              message: `Thêm người dùng thành công!`,
+            });
+            $("#modal-add-user").modal("hide");
+            mainPagePagination.getPagination(
+              mainPagePagination.option,
+              mainPagePagination.valuePage.curPage
+            );
+          } else {
+            Dashmix.helpers("jq-notify", {
+              type: "danger",
+              icon: "fa fa-times me-1",
+              message: response.message || `Thêm người dùng thất bại!`,
+            });
+          }
         },
-      });
-    } else {
-      Dashmix.helpers("jq-notify", {
-        type: "danger",
-        icon: "fa fa-times me-1",
-        message: `Thêm người dùng không thành công!`,
+        error: function (xhr, status, error) {
+          console.error(xhr.responseText);
+          Dashmix.helpers("jq-notify", {
+            type: "danger",
+            icon: "fa fa-times me-1",
+            message: `Lỗi kết nối server: ${error}`,
+          });
+        },
       });
     }
   });
@@ -247,18 +254,21 @@ $(document).ready(function () {
   $(document).on("click", ".btn-edit", function () {
     let id = $(this).data("id");
 
-    // Ẩn nút thêm mới, hiện nút cập nhật
+    // Ẩn add, hiện update
     $(".add-user-element").addClass("d-none");
     $(".update-user-element").removeClass("d-none").data("id", id);
 
-    // Lấy chi tiết user
+    // Optional password cho update
+    // jQuery(
+    //   ".form-add-user"
+    // ).validate().settings.rules.user_password.required = false;
+
     $.ajax({
       type: "post",
       url: "./user/getDetail",
       data: { id: id },
       dataType: "json",
       success: function (response) {
-        // Điền dữ liệu vào form
         $("#masinhvien").val(response.id).prop("disabled", true);
         $("#user_name").val(response.hoten);
         $(`input[name="user_gender"][value="${response.gioitinh}"]`).prop(
@@ -269,54 +279,64 @@ $(document).ready(function () {
         $("#user_email").val(response.email);
         $("#user_nhomquyen").val(response.manhomquyen).trigger("change");
         $("#user_status").prop("checked", response.trangthai == 1);
-        $("#user_password").val(""); // Xóa mật khẩu để người dùng nhập lại nếu muốn
+        $("#user_password").val(""); // Trống để optional
 
-        // Mở modal
+        // Chuyển sang tab manual và đổi text thành "Chỉnh sửa"
+        $('.nav-link[data-bs-target="#tab-manual"]').tab("show");
+        $('.nav-link[data-bs-target="#tab-manual"]').html(
+          '<i class="fa fa-edit me-1"></i> Chỉnh sửa'
+        );
+
+        // Ẩn tab import
+        $('.nav-link[data-bs-target="#tab-import"]')
+          .closest("li")
+          .addClass("d-none");
+
         $("#modal-add-user").modal("show");
       },
     });
   });
 
-  // Xử lý cập nhật người dùng
   $("#btn-update-user").on("click", function (e) {
     e.preventDefault();
     let id = $(this).data("id");
+    let mssv = $("#masinhvien").val();
+    let email = $("#user_email").val();
+    let password = $("#user_password").val();
 
-    // Chỉ update nếu form hợp lệ
-    if ($(".form-add-user").valid()) {
+    if ($(".form-add-user").valid() && checkUserUpdate(mssv, email)) {
+      let data = {
+        id: id,
+        hoten: $("#user_name").val(),
+        gioitinh: $('input[name="user_gender"]:checked').val(),
+        ngaysinh: $("#user_ngaysinh").val(),
+        email: email,
+        role: $("#user_nhomquyen").val(),
+        status: $("#user_status").prop("checked") ? 1 : 0,
+      };
+      if (password) data.password = password; // Chỉ nếu không trống
+
       $.ajax({
         type: "post",
         url: "./user/update",
-        data: {
-          id: id,
-          hoten: $("#user_name").val(),
-          gioitinh: $('input[name="user_gender"]:checked').val(),
-          ngaysinh: $("#user_ngaysinh").val(),
-          email: $("#user_email").val(),
-          role: $("#user_nhomquyen").val(),
-          password: $("#user_password").val(),
-          status: $("#user_status").prop("checked") ? 1 : 0,
-        },
+        data: data,
         success: function (response) {
           Dashmix.helpers("jq-notify", {
             type: "success",
             icon: "fa fa-check me-1",
             message: "Cập nhật người dùng thành công!",
           });
-
-          // Refresh danh sách
           mainPagePagination.getPagination(
             mainPagePagination.option,
             mainPagePagination.valuePage.curPage
           );
-
-          // Đóng modal
           $("#modal-add-user").modal("hide");
 
-          // Reset form về trạng thái thêm mới
+          // Reset về mode add
           $(".add-user-element").removeClass("d-none");
           $(".update-user-element").addClass("d-none");
           $("#masinhvien").prop("disabled", false);
+          clearInputFields();
         },
       });
     } else {
@@ -324,35 +344,6 @@ $(document).ready(function () {
         type: "danger",
         icon: "fa fa-times me-1",
         message: "Form chưa hợp lệ, vui lòng kiểm tra lại!",
-      });
-    }
-  });
-
-  $("#btn-update-user").click(function (e) {
-    e.preventDefault();
-    let mssv = $("#masinhvien").val();
-    let email = $("#user_email").val();
-    if (checkUserUpdate(mssv, email)) {
-      $.ajax({
-        type: "post",
-        url: "./user/update",
-        data: {
-          id: $(this).data("id"),
-          hoten: $("#user_name").val(),
-          gioitinh: $('input[name="user_gender"]:checked').val(),
-          ngaysinh: $("#user_ngaysinh").val(),
-          email: email,
-          role: $("#user_nhomquyen").val(),
-          status: $("#user_status").prop("checked") ? 1 : 0,
-        },
-        success: function (response) {
-          console.log(response);
-          mainPagePagination.getPagination(
-            mainPagePagination.option,
-            mainPagePagination.valuePage.curPage
-          );
-          $("#modal-add-user").modal("hide");
-        },
       });
     }
   });
@@ -460,8 +451,8 @@ $(document).ready(function () {
         $("#modal-add-user").modal("hide");
         Dashmix.helpers("jq-notify", {
           type: "success",
-          icon: "fa fa-times me-1",
-          message: `Thêm người dùng không thành công!`,
+          icon: "fa fa-check me-1",
+          message: `Thêm người dùng thành công!`,
         });
       },
     });
@@ -510,3 +501,15 @@ mainPagePagination.getPagination(
   mainPagePagination.option,
   mainPagePagination.valuePage.curPage
 );
+
+// Reset tab khi modal đóng
+$("#modal-add-user").on("hidden.bs.modal", function () {
+  $('.nav-link[data-bs-target="#tab-manual"]').html(
+    '<i class="fa fa-user-plus me-1"></i> Thêm thủ công'
+  );
+  $('.nav-link[data-bs-target="#tab-import"]')
+    .closest("li")
+    .removeClass("d-none");
+  // Đảm bảo tab manual active
+  $('.nav-link[data-bs-target="#tab-manual"]').tab("show");
+});

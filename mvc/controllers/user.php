@@ -44,7 +44,7 @@ class User extends Controller
             $gioitinh = $_POST['gioitinh'] ?? null;
             $sodienthoai = $_POST['sodienthoai'] ?? null;
             $password = $_POST['password'] ?? '';
-            $nhomquyen = $_POST['role'] ?? 1; // Mặc định là 1
+            $nhomquyen = $_POST['role'] ?? 2; // Mặc định là 1
             $trangthai = $_POST['status'] ?? 1; // Mặc định là 1
 
             // Kiểm tra dữ liệu đầu vào

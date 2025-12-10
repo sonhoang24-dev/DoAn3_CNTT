@@ -447,7 +447,7 @@ $(document).ready(function () {
                       `<p><img src="${i.base64}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
                   )
                   .join("");
-                setTimeout(() => editor.setData(editor.getData() + tags), 300);
+                //setTimeout(() => editor.setData(editor.getData() + tags), 300);
               }
               await renderImages(idx);
             })();
@@ -484,7 +484,7 @@ $(document).ready(function () {
                   });
                   editor.setData(temp.innerHTML);
                   await renderImages(qIndex);
-                  saveAnswersToStorage();
+                  saveAnswers();
                   await showBtnSideBar(listQues, answers);
                 };
                 wrapper.appendChild(img);
@@ -500,7 +500,7 @@ $(document).ready(function () {
                 .trim();
               answers[idx] = answers[idx] || {};
               answers[idx].noidungtl = editor.getData();
-              saveAnswersToStorage();
+              saveAnswers();
               const imgs = await getImagesForQuestion(idx);
               if (text || imgs.length > 0) {
                 $(`.answer-item-link[data-target="q-${idx + 1}"]`).addClass(
@@ -526,13 +526,13 @@ $(document).ready(function () {
                 const reader = new FileReader();
                 reader.onload = async (ev) => {
                   const compressed = await compressImage(ev.target.result);
-                  editor.setData(
-                    editor.getData() +
-                      `<p><img src="${compressed}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
-                  );
+                  // editor.setData(
+                  //   editor.getData() +
+                  //     `<p><img src="${compressed}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
+                  // );
                   await saveImageToDB(idx, compressed);
                   await renderImages(idx);
-                  saveAnswersToStorage();
+                  saveAnswers();
                   await showBtnSideBar(listQues, answers);
                 };
                 reader.readAsDataURL(file);
@@ -874,7 +874,7 @@ $(document).ready(function () {
                       });
                       editor.setData(temp.innerHTML);
                       await renderImages(qIndex);
-                      saveAnswersToStorage();
+                      saveAnswers();
                       await showBtnSideBar(questions, answers);
                     };
                     wrapper.appendChild(img);
@@ -893,7 +893,7 @@ $(document).ready(function () {
                   .trim();
                 answers[index] = answers[index] || {};
                 answers[index].noidungtl = text || null;
-                saveAnswersToStorage();
+                saveAnswers();
                 const imgs = await getImagesForQuestion(index);
                 if (text || imgs.length > 0) {
                   $(`.answer-item-link[data-target="c${index + 1}"]`).addClass(
@@ -919,13 +919,13 @@ $(document).ready(function () {
                   const reader = new FileReader();
                   reader.onload = async (ev) => {
                     const compressed = await compressImage(ev.target.result);
-                    editor.setData(
-                      editor.getData() +
-                        `<p><img src="${compressed}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
-                    );
+                    // editor.setData(
+                    //   editor.getData() +
+                    //     `<p><img src="${compressed}" style="max-width:100%;height:auto;display:block;margin:15px auto;"></p>`
+                    // );
                     await saveImageToDB(index, compressed);
                     await renderImages(index);
-                    saveAnswersToStorage();
+                    saveAnswers();
                     await showBtnSideBar(questions, answers);
                   };
                   reader.readAsDataURL(file);
@@ -943,7 +943,7 @@ $(document).ready(function () {
                     )
                     .join("");
                   setTimeout(
-                    () => editor.setData(editor.getData() + tags),
+                    //() => editor.setData(editor.getData() + tags),
                     300
                   );
                 }
@@ -1006,7 +1006,7 @@ $(document).ready(function () {
 
         answers[idx] = answers[idx] || {};
         answers[idx].cautraloi = macautl;
-        saveAnswersToStorage();
+        saveAnswers();
         await showBtnSideBar(questions, answers);
 
         const name = $(this).attr("name");
@@ -1031,24 +1031,16 @@ $(document).ready(function () {
   }
 
   // Hàm lưu localStorage (giữ nguyên)
-  function saveAnswersToStorage() {
-    const safeData = listQues.map((q, i) => {
-      const ans = answers[i] || {};
-      return {
-        macauhoi: q.macauhoi,
-        cautraloi: ans.cautraloi ?? (q.loai === "essay" ? null : 0),
-        noidungtl: ans.noidungtl ?? (q.loai === "essay" ? "" : null),
-      };
-    });
-    try {
-      localStorage.setItem("user_answers_temp", JSON.stringify(safeData));
-    } catch (e) {
-      console.warn("Lỗi lưu localStorage", e);
-    }
+  function saveAnswers() {
+    const data = answers.map((ans) => ({
+      macauhoi: ans.macauhoi,
+      cautraloi: ans.cautraloi ?? 0,
+      noidungtl: ans.noidungtl ?? null,
+    }));
+    localStorage.setItem(answerKey, JSON.stringify(data));
   }
   // ================= Khởi tạo và render lần đầu =================
   $.when(getQuestion()).done(async (response) => {
-    // response giờ có dạng: { dethi: {tende: "...", tenmonhoc: "..."}, cauhoi: [...] }
     if (!response || !response.cauhoi) {
       $("#list-question").html(
         "<p class='text-center text-danger'>Không tải được đề thi!</p>"
@@ -1056,7 +1048,7 @@ $(document).ready(function () {
       return;
     }
 
-    // ĐỔ TÊN MÔN + TÊN ĐỀ THI VÀO THANH NAV
+    // Đổ tên môn + tên đề thi vào thanh nav
     if (response.dethi) {
       $("#ten-mon").text(response.dethi.tenmonhoc || "Không rõ");
       $("#ten-de").text(response.dethi.tende || "Không rõ");
@@ -1066,15 +1058,15 @@ $(document).ready(function () {
     questions = response.cauhoi;
     listQues = questions.map((q, i) => ({ ...q, displayOrder: i + 1 }));
 
-    // Khôi phục đáp án từ localStorage (nếu có)
+    // Khởi tạo mảng đáp án
     let savedA = localStorage.getItem(answerKey);
     if (savedA) {
       const savedAnswers = JSON.parse(savedA);
-      answers = listQues.map((q, i) => {
-        const saved =
-          savedAnswers.find((s) => s.macauhoi === q.macauhoi) ||
-          savedAnswers[i];
+      answers = listQues.map((q) => {
+        // tìm đáp án đã lưu dựa trên macauhoi
+        const saved = savedAnswers.find((s) => s.macauhoi === q.macauhoi);
         return {
+          macauhoi: q.macauhoi,
           cautraloi: saved?.cautraloi ?? (q.loai === "essay" ? null : 0),
           noidungtl: saved?.noidungtl ?? (q.loai === "essay" ? "" : null),
         };
@@ -1083,17 +1075,19 @@ $(document).ready(function () {
       answers = initListAnswer(listQues);
     }
 
-    // Lưu đáp án (rút gọn)
-    localStorage.setItem(
-      answerKey,
-      JSON.stringify(
-        listQues.map((q, i) => ({
-          macauhoi: q.macauhoi,
-          cautraloi: answers[i]?.cautraloi ?? (q.loai === "essay" ? null : 0),
-          noidungtl: answers[i]?.noidungtl ?? (q.loai === "essay" ? "" : null),
-        }))
-      )
-    );
+    // Hàm lưu đáp án khi user chọn/nhập
+    function saveAnswers() {
+      localStorage.setItem(
+        answerKey,
+        JSON.stringify(
+          answers.map((ans) => ({
+            macauhoi: ans.macauhoi,
+            cautraloi: ans.cautraloi,
+            noidungtl: ans.noidungtl,
+          }))
+        )
+      );
+    }
 
     // Render giao diện
     renderCurrentView();
@@ -1101,15 +1095,41 @@ $(document).ready(function () {
 
     // Highlight câu hiện tại (chế độ 1 câu)
     if (displayMode === "one") {
-      const target =
-        listQues[currentQuestionIndex].loai === "reading"
-          ? `reading-q${currentQuestionIndex + 1}`
-          : `c${currentQuestionIndex + 1}`;
+      const currentQ = listQues[currentQuestionIndex];
+      let target = "";
+      if (currentQ.loai === "reading") {
+        target = `reading-q${currentQuestionIndex + 1}`;
+      } else {
+        target = `c${currentQuestionIndex + 1}`;
+      }
       $(`.answer-item-link[data-target="${target}"]`).addClass(
         "btn-primary text-white"
       );
     }
+
+    // Bắt sự kiện thay đổi đáp án
+    $(document).on(
+      "change",
+      ".answer-item input, .answer-item textarea, .answer-item select",
+      function () {
+        const $item = $(this).closest(".answer-item");
+        const macauhoi = $item.data("macauhoi");
+        const type = $item.data("loai");
+
+        let index = answers.findIndex((a) => a.macauhoi === macauhoi);
+        if (index === -1) return;
+
+        if (type === "essay") {
+          answers[index].noidungtl = $(this).val();
+        } else {
+          answers[index].cautraloi = $(this).val();
+        }
+
+        saveAnswers();
+      }
+    );
   });
+
   // === CLICK VÀO SỐ CÂU Ở SIDEBAR → NHẢY ĐÚNG CÂU Ở CẢ 2 CHẾ ĐỘ ===
   $(document).on("click", ".answer-item-link", function (e) {
     e.preventDefault();
@@ -1454,7 +1474,7 @@ $(document).ready(function () {
   }
 
   // Logic xử lý chuyển tab
-  // ==================== CHỐNG CHUYỂN TAB - KHÔNG BỊ LỖI KHI CHỌN ẢNH ====================
+  // ==================== CHỐNG CHUYỂN TAB - XỬ LÝ TRIỆT ĐỂ VỚI UPLOAD FILE ====================
   let isSelectingFile = false;
   let tabSwitchCount = parseInt(
     localStorage.getItem("isTabSwitched_" + made) || "0",
@@ -1462,18 +1482,28 @@ $(document).ready(function () {
   );
   let hasWarned = false;
 
+  // Khi click vào input file → set flag true (bắt đầu quá trình chọn file)
   $(document).on("click", "input[type=file]", function () {
     isSelectingFile = true;
-    setTimeout(() => {
-      isSelectingFile = false;
-    }, 4000);
   });
 
-  // Blur thật sự (chuyển tab, Alt+Tab, vuốt đa nhiệm…)
+  // Khi chọn file thành công → reset flag sau khi xử lý
+  $(document).on("change", "input[type=file]", function () {
+    // Logic upload file ở đây (đã có trong code)
+    isSelectingFile = false;
+  });
+
+  // Khi window focus lại (ví dụ: sau khi cancel dialog hoặc quay lại tab)
+  $(window).on("focus", function () {
+    if (isSelectingFile) {
+      isSelectingFile = false; // Reset nếu đang ở trạng thái chọn file (xử lý cancel hoặc focus back mà không change)
+    }
+  });
+
+  // Phát hiện blur thật sự (chuyển tab)
   $(window).on("blur", function () {
     if (isSelectingFile) {
-      isSelectingFile = false;
-      return;
+      return; // Bỏ qua nếu đang chọn file (tìm lâu, cancel nhầm, hoặc dialog mở)
     }
 
     // Đây là chuyển tab thật
@@ -1501,15 +1531,17 @@ $(document).ready(function () {
         } else {
           localStorage.setItem("isTabSwitched_" + made, tabSwitchCount);
 
-          if (tabSwitchCount === 1 && !hasWarned) {
-            hasWarned = true;
-            Swal.fire({
-              icon: "warning",
-              title: "Cảnh báo",
-              html: "Bạn đã rời khỏi cửa sổ bài thi.<br><b>Lần sau sẽ bị nộp bài tự động!</b>",
-              confirmButtonText: "Tôi hiểu",
-            });
-          }
+          document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "hidden") {
+              Swal.fire({
+                icon: "warning",
+                title: "Cảnh báo",
+                html: "Bạn đã rời khỏi cửa sổ bài thi.",
+                confirmButtonText: "Tôi hiểu",
+              });
+            }
+          });
+
           // else if (tabSwitchCount >= 2) {
           //   Swal.fire({
           //     icon: "error",

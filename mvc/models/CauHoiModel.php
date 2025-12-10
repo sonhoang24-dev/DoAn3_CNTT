@@ -629,65 +629,80 @@ class CauHoiModel extends DB
 
 
     public function getReadingQuestions($chuong, $monthi, $dokho, $qty = 1)
-    {
-        if (empty($chuong)) {
-            return [];
-        }
+{
+    if (empty($chuong) || $qty <= 0) {
+        return [];
+    }
 
-        $chuongList = implode(',', array_map('intval', $chuong));
+    $chuongList = implode(',', array_map('intval', $chuong));
 
-        // Lấy tất cả đoạn văn có câu hỏi mức độ $dokho
-        $sql = "SELECT DISTINCT madv
-            FROM cauhoi 
-            WHERE mamonhoc = ? 
-              AND dokho = ? 
+    // 1) Lấy danh sách madv theo điều kiện (theo thứ tự)
+    $sql = "SELECT DISTINCT madv
+            FROM cauhoi
+            WHERE mamonhoc = ?
+              AND dokho = ?
               AND loai = 'reading'
               AND machuong IN ($chuongList)
-              AND trangthai = 1";
+              AND trangthai = 1
+            ORDER BY madv ASC";
 
-        $stmt = mysqli_prepare($this->con, $sql);
-        mysqli_stmt_bind_param($stmt, "si", $monthi, $dokho);
-        mysqli_stmt_execute($stmt);
-        $res = mysqli_stmt_get_result($stmt);
+    $stmt = mysqli_prepare($this->con, $sql);
+    mysqli_stmt_bind_param($stmt, "si", $monthi, $dokho);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
 
-        $doanvanList = [];
-        while ($row = mysqli_fetch_assoc($res)) {
-            $doanvanList[] = $row['madv'];
-        }
-        mysqli_stmt_close($stmt);
+    $doanvanList = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $doanvanList[] = (int)$row['madv'];
+    }
+    mysqli_stmt_close($stmt);
 
-        if (empty($doanvanList)) {
-            return [];
-        }
+    if (empty($doanvanList)) {
+        return [];
+    }
 
-        // Chọn ngẫu nhiên một đoạn văn
-        shuffle($doanvanList);
-        $selectedDoan = $doanvanList[0];
+    $questions = [];
+    $remaining = (int)$qty;
 
-        // Lấy n câu trong đoạn đã chọn
-        $sql2 = "SELECT macauhoi 
-             FROM cauhoi 
-             WHERE mamonhoc = ? 
-               AND dokho = ? 
-               AND loai = 'reading' 
-               AND madv = ? 
-               AND trangthai = 1
-             ORDER BY RAND()
-             LIMIT ?";
+    // 2) Duyệt từng đoạn, lấy tối đa phần còn thiếu từ đoạn đó
+    $sqlGet = "SELECT macauhoi
+               FROM cauhoi
+               WHERE mamonhoc = ?
+                 AND dokho = ?
+                 AND loai = 'reading'
+                 AND madv = ?
+                 AND trangthai = 1
+               ORDER BY macauhoi ASC
+               LIMIT ?";
 
-        $stmt2 = mysqli_prepare($this->con, $sql2);
-        mysqli_stmt_bind_param($stmt2, "sisi", $monthi, $dokho, $selectedDoan, $qty);
-        mysqli_stmt_execute($stmt2);
-        $res2 = mysqli_stmt_get_result($stmt2);
+    $stmtGet = mysqli_prepare($this->con, $sqlGet);
+    if (!$stmtGet) {
+        // chuẩn bị thất bại, trả rỗng để debug
+        return [];
+    }
 
-        $questions = [];
+    foreach ($doanvanList as $dv) {
+        if ($remaining <= 0) break;
+
+        // Bind: s = monthi, i = dokho, i = madv, i = limit
+        mysqli_stmt_bind_param($stmtGet, "siii", $monthi, $dokho, $dv, $remaining);
+        mysqli_stmt_execute($stmtGet);
+        $res2 = mysqli_stmt_get_result($stmtGet);
+
         while ($row = mysqli_fetch_assoc($res2)) {
             $questions[] = $row;
+            $remaining--;
+            if ($remaining <= 0) break;
         }
-        mysqli_stmt_close($stmt2);
-
-        return $questions;
+        // Nếu muốn tránh chọn lại cùng câu trong lần gọi hàm tiếp (tracking), cần đánh dấu ở DB.
     }
+
+    mysqli_stmt_close($stmtGet);
+
+    // Trả về tất cả câu thu thập được (có thể < qty nếu DB không đủ)
+    return $questions;
+}
+
     public function getQuestions($chuong, $monthi, $dokho, $types = [], $qty = 1)
     {
         if (empty($chuong) || empty($types)) {
